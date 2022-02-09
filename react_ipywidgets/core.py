@@ -22,7 +22,7 @@ WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[WidgetOrList], Optional[EffectCleanupCallable]]
 KEY_NAME = "__key__"
-logger = logging.getLogger("ipyreactive")  # type: ignore
+logger = logging.getLogger("react")  # type: ignore
 
 
 def element(cls, **kwargs):
@@ -78,11 +78,11 @@ def component(obj: Union[Type[widgets.Widget], Callable]) -> Component:
         return ComponentFunction(f=obj)
 
 
-def use_state(initial: T) -> Tuple[T, Callable[[T], T]]:
+def use_state(initial: T, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
-    return _rc.use_state(initial)
+    return _rc.use_state(initial, debug_name)
 
 
 def use_side_effect(initial, dependencies=None):
@@ -195,26 +195,33 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._state_changed = False
+        self._state_changed_reason = None
 
-    def use_state(self, initial) -> Tuple[T, Callable[[T], T]]:
+    def use_state(self, initial, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
         assert self.context is not None
+        name = debug_name or "no-name"
         if len(self.context.state) <= self.context.state_index:
             self.context.state_index += 1
             self.context.state.append(initial)
-            logger.info("Initial state = %r for index %r (%r %r)", initial, self.context.state_index - 1, id(self.context), id(self.context.state))
-            return initial, self.make_setter(self.context.state_index - 1, self.context)
+            logger.info("Initial state = %r for index %r (debug-name: %r)", initial, self.context.state_index - 1, name)
+            return initial, self.make_setter(self.context.state_index - 1, self.context, name)
         else:
             state = self.context.state[self.context.state_index]
-            logger.info("Got state = %r for index %r (%r %r)", state, self.context.state_index, id(self.context), id(self.context.state))
+            logger.info("Got state = %r for index %r (debug-name: %r)", state, self.context.state_index, name)
             self.context.state_index += 1
-            return state, self.make_setter(self.context.state_index - 1, self.context)
+            return state, self.make_setter(self.context.state_index - 1, self.context, name)
 
-    def make_setter(self, index, context):
+    def make_setter(self, index, context, name):
         def set(value):
-            logger.info("Set state = %r for index %r (%r %r)", value, index, id(context), id(context.state))
+            logger.info("Set state = %r for index %r (debug-name: %r)", value, index, name)
             if context.state[index] != value:
                 context.state[index] = value
-                self._state_changed = True
+                if self._state_changed is False:
+                    self._state_changed = True
+                    self._state_changed_reason = f"{name} changed"
+                    import vaex.utils
+                    if name == "y_max":
+                        vaex.utils.print_stack_trace()
                 if not self._is_rendering:
                     self.render(self.element, self.container)
 
@@ -238,6 +245,7 @@ class _RenderContext:
 
     def render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
+        logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
         self._is_rendering = True
         self._state_changed = False
         self.render_count += 1
@@ -271,6 +279,7 @@ class _RenderContext:
             if main_render_phase:
                 # we started the rendering loop, so we keep going
                 while self._state_changed:
+                    logger.info("Entering nested render phase: %r", self._state_changed_reason)
                     self.render(element, container)
                 self._is_rendering = False
         if not container:

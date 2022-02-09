@@ -38,15 +38,15 @@ def test_instance_non_widget():
 
     code_expected = '''
 def MyTest(
-    a: Element[react_ipywidgets.generate_test.SomeWidget] = None,
-    on_a: typing.Callable[[Element[react_ipywidgets.generate_test.SomeWidget]], Any] = None,
+    a: react_ipywidgets.generate_test.NonWidget = None, on_a: typing.Callable[[react_ipywidgets.generate_test.NonWidget], Any] = None
 ) -> Element[react_ipywidgets.generate_test.MyTest]:
     """ """
 
     kwargs: Dict[Any, Any] = dict(a=a, on_a=on_a)
     widget_cls = react_ipywidgets.generate_test.MyTest
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)'''
+    return react.core.Element(comp, **kwargs)
+'''
     assert code.strip() == code_expected.strip()
 
 

@@ -10,6 +10,12 @@ authors = [{name = "Maarten A. Breddels", email = "maartenbreddels@gmail.com"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
+packages = [
+    { include = "react_ipywidgets" }
+]
+
+[tool.flit.module]
+name = "react_ipywidgets"
 
 [project.optional-dependencies]
 dev = [
