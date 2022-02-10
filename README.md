@@ -16,7 +16,7 @@ A common issue we also see, is that there is one piece of code to set up the UI,
 
 Using a declerative way, in a React (JS) style, makes your codebase smaller, less error prone, and easier to reason about. We don't see a good reason *not* to use it.
 
-Also, React has proven itself, and by adopting a proven technology we can stand on the shoulders of smart people, make use of a lot of existing resources, and do not have to reinvent the wheel.
+Also, React has proven itself, and by adopting a proven technology we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
 
 ## What does react-ipywidgets do for me?
 
