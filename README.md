@@ -81,12 +81,45 @@ def ManyButtons(count=10):
     slider = w.IntSlider(min=0, max=20, value=count, on_value=set_count)
     buttons = [ButtonClick(f"Hi-{i}") for i in range(count)]
     return w.VBox(children=[slider, *buttons])
-ManyButtons()
+display(ManyButtons())
 ```
 
 We take care of not re-creating new Buttons widgets all the time (which is relatively expensive). We reuse existing widgest when we can, and create new ones when needed.
 
 *Try creating the `ManyButtons` component without using ipywidgets, and you will really appriciate react-ipywidgets*
+
+
+## Markdown component example
+
+Given this [nice suggestion](https://github.com/jupyter-widgets/ipywidgets/issues/2428#issuecomment-500084610) on how to make a widget with markdown, we don't have an obvious path forward to make a new Markdown widget that can be re-used. Should we inherit? From which class? Should we compose and inherit from VBox or HBox and add the HTML widget as a single child?
+
+With react-ipywidgest there is an obvious way:
+```python
+@react.component
+def Markdown(md: str):
+    from myst_parser.main import to_html
+    html = to_html(md)
+    return w.HTML(value=html)
+```
+
+This `Markdown` component, can now be re-used to create a markdown editor:
+
+```python
+@react.component
+def MarkdownEditor(md : str):
+    md, set_md = react.use_state(md)
+    with w.VBox() as main:
+        w.Textarea(value=md, on_value=set_md)
+        Markdown(md)
+    return main
+
+display(MarkdownEditor("Mark-*down* **component**"))
+```
+
+This also shows another feature we can provide: All container widgets (like HBox, VBox, and all ipyvuetify widgets) can act as context manager, which will add all widgets elements created underneeth it. This leads to much more readable code, less parenthesis and parenthsis issues.
+
+# API docs
+
 
 # Installation
 ## User

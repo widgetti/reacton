@@ -1,6 +1,6 @@
 """Write ipywidgets like React
 
-React - ipywidgets relation:
+ReactJS - ipywidgets relation:
  * DOM nodes -- Widget
  * Element -- Element
  * Component -- function
@@ -18,6 +18,8 @@ from . import _version
 
 __version__ = _version.__version__
 T = TypeVar("T")
+W = TypeVar("W")  # used for widgets
+E = TypeVar("E")  # used for elements
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[WidgetOrList], Optional[EffectCleanupCallable]]
@@ -37,12 +39,15 @@ class Component:
         pass
 
 
-class Element(Generic[T]):
+class Element(Generic[W]):
     def __init__(self, component, *args, **kwargs):
         self.component = component
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
+        rc = _get_render_context(required=False)
+        if rc and rc.context.container_adders:
+            rc.context.container_adders[-1].add(self)
 
     def __repr__(self):
         return f"{self.component}.element(**{self.kwargs})"
@@ -54,10 +59,65 @@ class Element(Generic[T]):
     def _ipython_display_(self, **kwargs):
         display(self)
 
+    def __enter__(self):
+        rc = _get_render_context()
+        ca = ContainerAdder[T](self, "children")
+        rc.context.container_adders.append(ca)
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        rc = _get_render_context()
+        ca = rc.context.container_adders.pop()
+        ca.assign()
+
+
+def find_children(el):
+    children = set()
+    if not isinstance(el.kwargs, dict):
+        raise RuntimeError("keyword arguments for {el} should be a dict, not {el.kwargs}")
+    for arg in list(el.kwargs.values()) + list(el.args):
+        if isinstance(arg, Element):
+            children.add(arg)
+        elif isinstance(arg, (tuple, list)):
+            for child in arg:
+                if isinstance(child, Element):
+                    children.add(child)
+                    children |= find_children(child)
+        elif isinstance(arg, dict):
+            for child in arg.values():
+                if isinstance(child, Element):
+                    children.add(child)
+                    children |= find_children(child)
+    return children
+
+
+class ContainerAdder(Generic[W]):
+    def __init__(self, el: Element[W], prop_name: str):
+        self.el = el
+        self.prop_name = prop_name
+        self.created: List[Element] = []
+
+    def add(self, el):
+        self.created.append(el)
+
+    def assign(self):
+        children = set()
+        for el in self.created:
+            children |= find_children(el)
+        top_level = [k for k in self.created if k not in children]
+        if self.prop_name not in self.el.kwargs:
+            self.el.kwargs[self.prop_name] = []
+        # generic way to add to a list or tuple
+        container_prop_type = type(self.el.kwargs[self.prop_name])
+        self.el.kwargs[self.prop_name] = self.el.kwargs[self.prop_name] + container_prop_type(top_level)
+
 
 class ComponentWidget(Component):
     def __init__(self, widget: Type[widgets.Widget]):
         self.widget = widget
+
+    def __repr__(self):
+        return f"Component[{self.widget!r}]"
 
     def __call__(self, *args, **kwargs):
         return Element(self, *args, **kwargs)
@@ -79,6 +139,15 @@ def component(obj: Union[Type[widgets.Widget], Callable]) -> Component:
 
 
 def use_state(initial: T, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
+    """Returns a (value, setter) tuple that is used to manage state in a component.
+
+    This function can only be called from a component function.
+
+    The value rturns the current state (which equals initial at the first render call).
+    Or the value that was last
+
+    Subsequent
+    """
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
@@ -107,9 +176,9 @@ def use_state_widget(widget: widgets.Widget, prop_name):
     return value
 
 
-def _get_render_context():
+def _get_render_context(required=True):
     global _rc
-    if _rc is None:
+    if _rc is None and required:
         raise RuntimeError("No render context")
     return _rc
 
@@ -136,6 +205,20 @@ def use_context(cls: Type[T]) -> T:
     return value
 
 
+def use_memo(f, debug_name: str = None, args: Optional[List] = None, kwargs: Optional[Dict] = None):
+    if debug_name is None:
+        debug_name = f.__name__
+    rc = _get_render_context()
+    if args is None and kwargs is None:
+
+        def wrapper(*args, **kwargs):
+            return rc.use_memo(f, args, kwargs, debug_name)
+
+        return wrapper
+    else:
+        return rc.use_memo(f, args, kwargs, debug_name)
+
+
 def provide_context(obj):
     rc = _get_render_context()
     context = rc.context
@@ -153,9 +236,12 @@ class ElementContext:
         self.widgets_shared: Dict[Element, widgets.Widget] = {}
         self.state_index = 0
         self.effect_index = 0
+        self.memo_index = 0
         self.children: Dict[str, ElementContext] = {}
         self.result: WidgetOrList = None
         self.user_contexts: Dict[Any, Any] = {}
+        self.memo: List[Any] = []
+        self.container_adders: List[ContainerAdder] = []
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -195,7 +281,34 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._state_changed = False
-        self._state_changed_reason = None
+        self._state_changed_reason: Optional[str] = None
+
+    def use_memo(self, f, args, kwargs, debug_name: str = None):
+        assert self.context is not None
+        if args is None:
+            args = tuple()
+        if kwargs is None:
+            kwargs = {}
+        name = debug_name or "no-name"
+        if len(self.context.memo) <= self.context.memo_index:
+            self.context.memo_index += 1
+            value = f(*args, **kwargs)
+            memo = (value, (args, kwargs))
+            self.context.memo.append(memo)
+            logger.info("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
+            return value
+        else:
+            memo = self.context.memo[self.context.memo_index]
+            value, dependencies = memo
+            if dependencies == (args, kwargs):
+                logger.info("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+            else:
+                logger.info("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+                value = f(*args, **kwargs)
+                memo = (value, (args, kwargs))
+                self.context.memo[self.context.memo_index] = memo
+            self.context.memo_index += 1
+            return value
 
     def use_state(self, initial, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
         assert self.context is not None
@@ -213,15 +326,14 @@ class _RenderContext:
 
     def make_setter(self, index, context, name):
         def set(value):
-            logger.info("Set state = %r for index %r (debug-name: %r)", value, index, name)
+            if callable(value):
+                value = value(context.state[index])
+            logger.info("Set state = %r for index %r (debug-name: %r, previous value was %r)", value, index, name, context.state[index])
             if context.state[index] != value:
                 context.state[index] = value
                 if self._state_changed is False:
                     self._state_changed = True
                     self._state_changed_reason = f"{name} changed"
-                    import vaex.utils
-                    if name == "y_max":
-                        vaex.utils.print_stack_trace()
                 if not self._is_rendering:
                     self.render(self.element, self.container)
 
@@ -245,6 +357,7 @@ class _RenderContext:
 
     def render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
+        render_count = self.render_count  # make a copy
         logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
         self._is_rendering = True
         self._state_changed = False
@@ -282,6 +395,7 @@ class _RenderContext:
                     logger.info("Entering nested render phase: %r", self._state_changed_reason)
                     self.render(element, container)
                 self._is_rendering = False
+            logger.info("Done with render phase: %r", render_count)
         if not container:
             return widget
 
@@ -313,6 +427,7 @@ class _RenderContext:
             try:
                 self.context.state_index = 0
                 self.context.effect_index = 0
+                self.context.memo_index = 0
                 child = el.component.f(*el.args, **el.kwargs)
                 if isinstance(child, GeneratorType):
                     child = list(child)
@@ -410,8 +525,11 @@ class _RenderContext:
     def _possible_create_widget(self, key, name, value):
         if isinstance(value, Element):
             value = self.update(value, f"{key}_{name}")
-        elif isinstance(value, list):
+        elif isinstance(value, (list, tuple)):
+            was_tuple = isinstance(value, tuple)
             value = [self._possible_create_widget(key, f"{key}_{name}_{i}", k) for i, k in enumerate(value)]
+            if was_tuple:
+                value = tuple(value)
         elif isinstance(value, dict):
             value = {k: self._possible_create_widget(key, f"{key}`_{name}_{k}", v) for k, v in value.items()}
         return value
@@ -423,14 +541,18 @@ class _RenderContext:
 _rc: Optional[_RenderContext] = None
 
 
-def render(element: Element, container: widgets.Widget = None, children_trait="children"):
+def render(element: Element[T], container: widgets.Widget, children_trait="children") -> _RenderContext:
     global _rc
     _rc = _RenderContext(element, container, children_trait=children_trait)
-    widget = _rc.render(element, container)
-    if container is None:
-        return widget
-    else:
-        return _rc
+    _rc.render(element, container)
+    return _rc
+
+
+def render_fixed(element: Element[T]) -> Tuple[T, _RenderContext]:
+    global _rc
+    _rc = _RenderContext(element)
+    widget = _rc.render(element)
+    return widget, _rc
 
 
 def display(el: Element):
