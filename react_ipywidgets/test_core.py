@@ -2,6 +2,7 @@ from typing import List, TypeVar
 
 import ipywidgets as widgets
 import ipywidgets
+import numpy as np
 
 import react_ipywidgets as react
 
@@ -327,8 +328,6 @@ def test_bqplot():
         axes = [x_axis, y_axis]
         return bqplot.Figure(axes=axes, marks=[lines], scale_x=x_scale, scale_y=y_scale)
 
-    import numpy as np
-
     x = np.arange(4)
     y = x**exponent.value
     react.render(Plot(exponent, x, y), hbox, "children")
@@ -648,3 +647,78 @@ def test_context():
     button1.click()
     assert button1.description == "Child1: Clicked 2 times"
     assert button2.description == "Child2: Clicked 2 times"
+
+
+def test_memo():
+    calls_ab = 0
+    calls_ac = 0
+
+    @react.component
+    def TestMemo(a, b, c):
+        def expensive_ab(i, j):
+            nonlocal calls_ab
+            calls_ab += 1
+            return i + j
+
+        @react.use_memo
+        def expensive_ac(i, j):
+            nonlocal calls_ac
+            calls_ac += 1
+            return i + j * 2
+
+        x = react.use_memo(expensive_ab, args=[a], kwargs={"j": b})
+        y = expensive_ac(a, c)
+        return w.Label(value=f"{x} - {y}")
+
+    label, rc = react.render_fixed(TestMemo(a=1, b=2, c=3))
+    assert calls_ab == 1
+    assert calls_ac == 1
+    assert label.value == "3 - 7"
+
+    rc.render(TestMemo(a=1, b=20, c=3))
+    assert calls_ab == 2
+    assert calls_ac == 1
+    assert label.value == "21 - 7"
+
+    rc.render(TestMemo(a=1, b=20, c=30))
+    assert calls_ab == 2
+    assert calls_ac == 2
+    assert label.value == "21 - 61"
+
+    rc.render(TestMemo(a=10, b=20, c=30))
+    assert calls_ab == 3
+    assert calls_ac == 3
+    assert label.value == "30 - 70"
+
+
+def test_container_context_simple():
+    @react.component
+    def ContainerContext():
+        with w.HBox() as box:
+            w.Label(value="in container")
+            w.Button(description="button")
+        return box
+
+    box, rc = react.render_fixed(ContainerContext())
+    assert len(box.children) == 2
+    assert box.children[0]
+
+
+def test_container_context_bqplot():
+    @react.component
+    def ContainerContext(exponent=1.2):
+        x = np.arange(4)
+        y = x**1.2
+        with w.HBox() as box:
+            x_scale = bqplot.LinearScale(allow_padding=False)
+            y_scale = bqplot.LinearScale(allow_padding=False)
+            lines = bqplot.Lines(x=x, y=y, scales={"x": x_scale, "y": y_scale}, stroke_width=3, colors=["red"], display_legend=True, labels=["Line chart"])
+            x_axis = bqplot.Axis(scale=x_scale)
+            y_axis = bqplot.Axis(scale=y_scale)
+            axes = [x_axis, y_axis]
+            bqplot.Figure(axes=axes, marks=[lines], scale_x=x_scale, scale_y=y_scale)
+        return box
+
+    box, rc = react.render_fixed(ContainerContext())
+    assert len(box.children) == 1
+    # assert isinstance(box.children[0],
