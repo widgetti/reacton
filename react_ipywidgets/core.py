@@ -138,7 +138,7 @@ def component(obj: Union[Type[widgets.Widget], Callable]) -> Component:
         return ComponentFunction(f=obj)
 
 
-def use_state(initial: T, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
+def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
     """Returns a (value, setter) tuple that is used to manage state in a component.
 
     This function can only be called from a component function.
@@ -151,7 +151,7 @@ def use_state(initial: T, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
-    return _rc.use_state(initial, debug_name)
+    return _rc.use_state(initial, key)
 
 
 def use_side_effect(initial, dependencies=None):
@@ -226,11 +226,9 @@ def provide_context(obj):
 
 
 class ElementContext:
-    state: List
-
     def __init__(self, parent=None) -> None:
         self.parent = parent
-        self.state = []
+        self.state: Dict = {}
         self.effects: List[Effect] = []
         self.widgets: Dict[str, widgets.Widget] = {}
         self.widgets_shared: Dict[Element, widgets.Widget] = {}
@@ -310,32 +308,34 @@ class _RenderContext:
             self.context.memo_index += 1
             return value
 
-    def use_state(self, initial, debug_name: str = None) -> Tuple[T, Callable[[T], T]]:
+    def use_state(self, initial, key: str = None) -> Tuple[T, Callable[[T], T]]:
         assert self.context is not None
-        name = debug_name or "no-name"
-        if len(self.context.state) <= self.context.state_index:
+        if key is None:
+            key = str(self.context.state_index)
             self.context.state_index += 1
-            self.context.state.append(initial)
-            logger.info("Initial state = %r for index %r (debug-name: %r)", initial, self.context.state_index - 1, name)
-            return initial, self.make_setter(self.context.state_index - 1, self.context, name)
+        if key not in self.context.state:
+            self.context.state[key] = initial
+            logger.info("Initial state = %r for key %r", initial, key)
+            return initial, self.make_setter(key, self.context)
         else:
-            state = self.context.state[self.context.state_index]
-            logger.info("Got state = %r for index %r (debug-name: %r)", state, self.context.state_index, name)
-            self.context.state_index += 1
-            return state, self.make_setter(self.context.state_index - 1, self.context, name)
+            state = self.context.state[key]
+            logger.info("Got state = %r for key %r", state, key)
+            return state, self.make_setter(key, self.context)
 
-    def make_setter(self, index, context, name):
+    def make_setter(self, key, context):
         def set(value):
             if callable(value):
-                value = value(context.state[index])
-            logger.info("Set state = %r for index %r (debug-name: %r, previous value was %r)", value, index, name, context.state[index])
-            if context.state[index] != value:
-                context.state[index] = value
+                value = value(context.state[key])
+            logger.info("Set state = %r for key %r (previous value was %r)", value, key, context.state[key])
+            if context.state[key] != value:
+                context.state[key] = value
                 if self._state_changed is False:
                     self._state_changed = True
-                    self._state_changed_reason = f"{name} changed"
+                    self._state_changed_reason = f"{key} changed"
                 if not self._is_rendering:
                     self.render(self.element, self.container)
+                else:
+                    logger.info("No render phase triggered, already rendering")
 
         return set
 
