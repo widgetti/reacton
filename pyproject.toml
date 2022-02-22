@@ -17,6 +17,10 @@ packages = [
 [tool.flit.module]
 name = "react_ipywidgets"
 
+[tool.flit.sdist]
+include = ["react_ipywidgets/py.typed"]
+
+
 [project.optional-dependencies]
 dev = [
     "pyproject-flake8",
