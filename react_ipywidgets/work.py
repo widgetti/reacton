@@ -4,7 +4,7 @@ import react_ipywidgets as react
 
 
 def use_work_threaded(callback, dependencies=[]):
-    def run(_ignore):
+    def run():
         def runner():
             callback()
 

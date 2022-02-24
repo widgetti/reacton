@@ -3,52 +3,139 @@ import typing
 from typing import Any, Dict, Sequence, Union
 
 import ipywidgets
+import ipywidgets as widgets
 import ipywidgets.widgets.widget_description
 import ipywidgets.widgets.widget_int
-import ipywidgets as widgets
 
+import react_ipywidgets
 import react_ipywidgets as react
 from react_ipywidgets.core import Element
 
-
-def use_on_click(on_click):
-    def add_event_handler(button: widgets.Button):
-        def handler(change):
-            on_click()
-
-        def cleanup():
-            button.on_click(handler, remove=True)
-
-        button.on_click(handler)
-        return cleanup
-
-    react.use_side_effect(add_event_handler)
+from .utils import without_default
 
 
-@react.component
-def ButtonWithClick(on_click=None, **kwargs):
-    if on_click is not None:
-        # TODO: in react, we cannot do this conditionally, we can appearently
-        use_on_click(on_click)
-    return Button(**kwargs)
+# def use_on_click(on_click):
+#     def add_event_handler(button: widgets.Button):
+#         def handler(change):
+#             on_click()
+
+#         def cleanup():
+#             button.on_click(handler, remove=True)
+
+#         button.on_click(handler)
+#         return cleanup
+
+#     react.use_side_effect(add_event_handler)
 
 
-def int_slider(default_value=0, description="", min=0, max=100, **kwargs):
-    value, set_value = react.use_state(default_value)
-    widget = IntSlider(value=value, description=description, min=min, max=max, on_value=set_value, **kwargs)
-    return value, widget
+def slider_int(value=1, description="", min=0, max=100, key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    IntSlider(value=value, description=description, min=min, max=max, on_value=set_value, **kwargs)
+    return value
 
 
-def checkbox(default_value=True, description="", **kwargs):
-    value, set_value = react.use_state(default_value)
-    widget = Checkbox(value=value, description=description, on_value=set_value)
-    return value, widget
+def text_int(value=1, description="", key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    IntText(value=value, description=description, on_value=set_value, **kwargs)
+    return value
 
+
+def slider_float(value=1, description="", min=0, max=100, key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    FloatSlider(value=value, description=description, min=min, max=max, on_value=set_value, **kwargs)
+    return value
+
+
+def checkbox(value=True, description="", key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    Checkbox(value=value, description=description, on_value=set_value)
+    return value
+
+
+def color(value="red", description="", key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    ColorPicker(value=value, description=description, on_value=set_value)
+    return value
+
+
+def text(value="Hi there", description="", key=None, **kwargs):
+    key = key or str(value) + str(description)
+    value, set_value = react.use_state(value, key)
+    Text(value=value, description=description, on_value=set_value)
+    return value
+
+
+def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
+    key = key or str(value) + str(description) + str(options)
+    value, set_value = react.use_state(value, key)
+    Dropdown(value=value, description=description, options=options, on_value=set_value)
+    return value
+
+
+# @react.component
+# def ButtonWithClick(on_click=None, **kwargs):
+#     if on_click is not None:
+#         # TODO: in react, we cannot do this conditionally, we can appearently
+#         use_on_click(on_click)
+#     return Button(**kwargs)
+
+
+class ButtonElement(react.core.Element):
+    def split_kwargs(self, kwargs: dict):
+
+        if "on_click" in kwargs:
+            kwargs = kwargs.copy()
+            on_click = kwargs.pop("on_click")
+            normal_kwargs, listeners = super().split_kwargs(kwargs)
+            listeners["on_click"] = on_click
+            return normal_kwargs, listeners
+        else:
+            return super().split_kwargs(kwargs)
+
+    def handle_custom_kwargs(self, widget: ipywidgets.Widget, kwargs: dict):
+        if "on_click" in kwargs:
+            kwargs = kwargs.copy()
+            on_click = kwargs.pop("on_click")
+
+            def add_event_handler():
+                button: widgets.Button = react.core.get_widget(self)
+
+                def handler(change):
+                    on_click()
+
+                def cleanup():
+                    button.on_click(handler, remove=True)
+
+                button.on_click(handler)
+                return cleanup
+
+            react.use_side_effect(add_event_handler)
+
+        super().handle_custom_kwargs(widget, kwargs)
+
+
+extra_arguments = {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}
+element_classes = {ipywidgets.Button: ButtonElement}
 
 if __name__ == "__main__":
     from .generate import generate
 
-    generate(__file__, [widgets, ipywidgets.widgets.widget_description, ipywidgets.widgets.widget_int])
+    current_module = __import__(__name__)
+
+    generate(__file__, [widgets, ipywidgets.widgets.widget_description, ipywidgets.widgets.widget_int], module_output=current_module)
+
+
+def ViewcountVBox(on_view_count) -> Element[ipywidgets.widgets.widget_box.VBox]:
+    """Exposes the Widget._view_count throught a VBox, which is not exposed in any widget"""
+    widget_cls = ipywidgets.widgets.widget_box.VBox
+    comp = react.core.ComponentWidget(widget=widget_cls)
+    return Element(comp, _view_count=0, on__view_count=on_view_count)
+
 
 # generated code:
 
@@ -68,21 +155,12 @@ def Accordion(
     :param children: List of widget children
     :param selected_index: The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style,
-        children=children,
-        layout=layout,
-        selected_index=selected_index,
-        on_box_style=on_box_style,
-        on_children=on_children,
-        on_layout=on_layout,
-        on_selected_index=on_selected_index,
-    )
+    kwargs: Dict[Any, Any] = without_default(Accordion, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Accordion
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -169,45 +247,12 @@ def AppLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        align_items=align_items,
-        box_style=box_style,
-        center=center,
-        children=children,
-        footer=footer,
-        grid_gap=grid_gap,
-        header=header,
-        height=height,
-        justify_content=justify_content,
-        layout=layout,
-        left_sidebar=left_sidebar,
-        merge=merge,
-        pane_heights=pane_heights,
-        pane_widths=pane_widths,
-        right_sidebar=right_sidebar,
-        width=width,
-        on_align_items=on_align_items,
-        on_box_style=on_box_style,
-        on_center=on_center,
-        on_children=on_children,
-        on_footer=on_footer,
-        on_grid_gap=on_grid_gap,
-        on_header=on_header,
-        on_height=on_height,
-        on_justify_content=on_justify_content,
-        on_layout=on_layout,
-        on_left_sidebar=on_left_sidebar,
-        on_merge=on_merge,
-        on_pane_heights=on_pane_heights,
-        on_pane_widths=on_pane_widths,
-        on_right_sidebar=on_right_sidebar,
-        on_width=on_width,
-    )
+    kwargs: Dict[Any, Any] = without_default(AppLayout, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.AppLayout
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -241,25 +286,12 @@ def Audio(
     :param loop: When true, the audio will start from the beginning after finishing
     :param value: The media data as a byte string.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        autoplay=autoplay,
-        controls=controls,
-        format=format,
-        layout=layout,
-        loop=loop,
-        value=value,
-        on_autoplay=on_autoplay,
-        on_controls=on_controls,
-        on_format=on_format,
-        on_layout=on_layout,
-        on_loop=on_loop,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Audio, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Audio
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -312,35 +344,14 @@ def BoundedFloatText(
     :param style: Styling customizations
     :param value: Float value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(BoundedFloatText, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.BoundedFloatText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -378,35 +389,14 @@ def BoundedIntText(
     :param style: Styling customizations
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(BoundedIntText, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.BoundedIntText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -442,14 +432,12 @@ def Box(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style, children=children, layout=layout, on_box_style=on_box_style, on_children=on_children, on_layout=on_layout
-    )
+    kwargs: Dict[Any, Any] = without_default(Box, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.Box
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -468,6 +456,7 @@ def Button(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_button.ButtonStyle]]], Any] = None,
     on_tooltip: typing.Callable[[str], Any] = None,
+    on_click: typing.Callable[[], typing.Any] = None,
 ) -> Element[ipywidgets.widgets.widget_button.Button]:
     """Button widget.
 
@@ -491,29 +480,14 @@ def Button(
     :param icon: Font-awesome icon name, without the 'fa-' prefix.
     :param tooltip: Tooltip caption of the button.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = ButtonStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        button_style=button_style,
-        description=description,
-        disabled=disabled,
-        icon=icon,
-        layout=layout,
-        style=style,
-        tooltip=tooltip,
-        on_button_style=on_button_style,
-        on_description=on_description,
-        on_disabled=on_disabled,
-        on_icon=on_icon,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_tooltip=on_tooltip,
-    )
+    kwargs: Dict[Any, Any] = without_default(Button, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_button.Button
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return ButtonElement(comp, **kwargs)
 
 
 ###
@@ -527,11 +501,11 @@ def ButtonStyle(
     :param button_color: Color of the button
     :param font_weight: Button text font weight.
     """
+    kwargs: Dict[Any, Any] = without_default(ButtonStyle, locals())
 
-    kwargs: Dict[Any, Any] = dict(button_color=button_color, font_weight=font_weight, on_button_color=on_button_color, on_font_weight=on_font_weight)
     widget_cls = ipywidgets.widgets.widget_button.ButtonStyle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -569,29 +543,14 @@ def Checkbox(
     :param style: Styling customizations
     :param value: Bool value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        indent=indent,
-        layout=layout,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_indent=on_indent,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Checkbox, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Checkbox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -619,29 +578,14 @@ def ColorPicker(
     :param style: Styling customizations
     :param value: The color value.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        concise=concise,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        style=style,
-        value=value,
-        on_concise=on_concise,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(ColorPicker, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_color.ColorPicker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -679,35 +623,14 @@ def Combobox(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        ensure_option=ensure_option,
-        layout=layout,
-        options=options,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_ensure_option=on_ensure_option,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Combobox, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Combobox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -738,39 +661,22 @@ def Controller(
     :param name: The name of the controller.
     :param timestamp: The last time the data from this gamepad was updated.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        axes=axes,
-        buttons=buttons,
-        connected=connected,
-        index=index,
-        layout=layout,
-        mapping=mapping,
-        name=name,
-        timestamp=timestamp,
-        on_axes=on_axes,
-        on_buttons=on_buttons,
-        on_connected=on_connected,
-        on_index=on_index,
-        on_layout=on_layout,
-        on_mapping=on_mapping,
-        on_name=on_name,
-        on_timestamp=on_timestamp,
-    )
+    kwargs: Dict[Any, Any] = without_default(Controller, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_controller.Controller
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
 def CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
     """ """
+    kwargs: Dict[Any, Any] = without_default(CoreWidget, locals())
 
-    kwargs: Dict[Any, Any] = dict()
     widget_cls = ipywidgets.widgets.widget_core.CoreWidget
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -779,12 +685,12 @@ def DOMWidget(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
 ) -> Element[ipywidgets.widgets.domwidget.DOMWidget]:
     """Widget that can be inserted into the DOM"""
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(layout=layout, on_layout=on_layout)
+    kwargs: Dict[Any, Any] = without_default(DOMWidget, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.domwidget.DOMWidget
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -827,27 +733,14 @@ def DatePicker(
     :param disabled: Enable or disable user changes.
     :param style: Styling customizations
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(DatePicker, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_date.DatePicker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -915,33 +808,14 @@ def Dropdown(
     :param style: Styling customizations
     :param value: Selected value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Dropdown, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Dropdown
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -987,41 +861,14 @@ def FileUpload(
     :param metadata: List of file metadata
     :param multiple: If True, allow for multiple files upload
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = ButtonStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        accept=accept,
-        button_style=button_style,
-        data=data,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        error=error,
-        icon=icon,
-        layout=layout,
-        metadata=metadata,
-        multiple=multiple,
-        style=style,
-        value=value,
-        on_accept=on_accept,
-        on_button_style=on_button_style,
-        on_data=on_data,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_error=on_error,
-        on_icon=on_icon,
-        on_layout=on_layout,
-        on_metadata=on_metadata,
-        on_multiple=on_multiple,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FileUpload, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_upload.FileUpload
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1093,43 +940,14 @@ def FloatLogSlider(
     :param step: Minimum step in the exponent to increment the value
     :param value: Float value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = SliderStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        base=base,
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        readout=readout,
-        readout_format=readout_format,
-        step=step,
-        style=style,
-        value=value,
-        on_base=on_base,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_readout_format=on_readout_format,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FloatLogSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatLogSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1179,33 +997,14 @@ def FloatProgress(
     :param orientation: Vertical or horizontal.
     :param value: Float value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = ProgressStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        bar_style=bar_style,
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        style=style,
-        value=value,
-        on_bar_style=on_bar_style,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FloatProgress, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatProgress
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1272,41 +1071,14 @@ def FloatRangeSlider(
     :param step: Minimum step to increment the value
     :param value: Tuple of (lower, upper) bounds
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = SliderStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        readout=readout,
-        readout_format=readout_format,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_readout_format=on_readout_format,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FloatRangeSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatRangeSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1373,41 +1145,14 @@ def FloatSlider(
     :param step: Minimum step to increment the value
     :param value: Float value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = SliderStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        readout=readout,
-        readout_format=readout_format,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_readout_format=on_readout_format,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FloatSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1449,31 +1194,14 @@ def FloatText(
     :param style: Styling customizations
     :param value: Float value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(FloatText, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1505,14 +1233,12 @@ def GridBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style, children=children, layout=layout, on_box_style=on_box_style, on_children=on_children, on_layout=on_layout
-    )
+    kwargs: Dict[Any, Any] = without_default(GridBox, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.GridBox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1581,33 +1307,12 @@ def GridspecLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        align_items=align_items,
-        box_style=box_style,
-        children=children,
-        grid_gap=grid_gap,
-        height=height,
-        justify_content=justify_content,
-        layout=layout,
-        n_columns=n_columns,
-        n_rows=n_rows,
-        width=width,
-        on_align_items=on_align_items,
-        on_box_style=on_box_style,
-        on_children=on_children,
-        on_grid_gap=on_grid_gap,
-        on_height=on_height,
-        on_justify_content=on_justify_content,
-        on_layout=on_layout,
-        on_n_columns=on_n_columns,
-        on_n_rows=on_n_rows,
-        on_width=on_width,
-    )
+    kwargs: Dict[Any, Any] = without_default(GridspecLayout, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.GridspecLayout
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1641,14 +1346,12 @@ def HBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style, children=children, layout=layout, on_box_style=on_box_style, on_children=on_children, on_layout=on_layout
-    )
+    kwargs: Dict[Any, Any] = without_default(HBox, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.HBox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1673,27 +1376,14 @@ def HTML(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(HTML, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTML
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1718,27 +1408,14 @@ def HTMLMath(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(HTMLMath, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTMLMath
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1769,23 +1446,12 @@ def Image(
     :param value: The media data as a byte string.
     :param width: Width of the image in pixels. Use layout.width for styling the widget.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        format=format,
-        height=height,
-        layout=layout,
-        value=value,
-        width=width,
-        on_format=on_format,
-        on_height=on_height,
-        on_layout=on_layout,
-        on_value=on_value,
-        on_width=on_width,
-    )
+    kwargs: Dict[Any, Any] = without_default(Image, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Image
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1819,33 +1485,14 @@ def IntProgress(
     :param orientation: Vertical or horizontal.
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = ProgressStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        bar_style=bar_style,
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        style=style,
-        value=value,
-        on_bar_style=on_bar_style,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(IntProgress, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntProgress
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1901,41 +1548,14 @@ def IntRangeSlider(
     :param style: Slider style customizations.
     :param value: Tuple of (lower, upper) bounds
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = SliderStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        readout=readout,
-        readout_format=readout_format,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_readout_format=on_readout_format,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(IntRangeSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntRangeSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1981,41 +1601,14 @@ def IntSlider(
     :param step: Minimum step to increment the value
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = SliderStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        max=max,
-        min=min,
-        orientation=orientation,
-        readout=readout,
-        readout_format=readout_format,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_readout_format=on_readout_format,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(IntSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2046,31 +1639,14 @@ def IntText(
     :param style: Styling customizations
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        step=step,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(IntText, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2099,27 +1675,14 @@ def Label(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Label, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Label
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2253,88 +1816,11 @@ def Layout(
     :param visibility: The visibility CSS attribute.
     :param width: The width CSS attribute.
     """
+    kwargs: Dict[Any, Any] = without_default(Layout, locals())
 
-    kwargs: Dict[Any, Any] = dict(
-        align_content=align_content,
-        align_items=align_items,
-        align_self=align_self,
-        border=border,
-        bottom=bottom,
-        display=display,
-        flex=flex,
-        flex_flow=flex_flow,
-        grid_area=grid_area,
-        grid_auto_columns=grid_auto_columns,
-        grid_auto_flow=grid_auto_flow,
-        grid_auto_rows=grid_auto_rows,
-        grid_column=grid_column,
-        grid_gap=grid_gap,
-        grid_row=grid_row,
-        grid_template_areas=grid_template_areas,
-        grid_template_columns=grid_template_columns,
-        grid_template_rows=grid_template_rows,
-        height=height,
-        justify_content=justify_content,
-        justify_items=justify_items,
-        left=left,
-        margin=margin,
-        max_height=max_height,
-        max_width=max_width,
-        min_height=min_height,
-        min_width=min_width,
-        object_fit=object_fit,
-        object_position=object_position,
-        order=order,
-        overflow=overflow,
-        overflow_x=overflow_x,
-        overflow_y=overflow_y,
-        padding=padding,
-        right=right,
-        top=top,
-        visibility=visibility,
-        width=width,
-        on_align_content=on_align_content,
-        on_align_items=on_align_items,
-        on_align_self=on_align_self,
-        on_border=on_border,
-        on_bottom=on_bottom,
-        on_display=on_display,
-        on_flex=on_flex,
-        on_flex_flow=on_flex_flow,
-        on_grid_area=on_grid_area,
-        on_grid_auto_columns=on_grid_auto_columns,
-        on_grid_auto_flow=on_grid_auto_flow,
-        on_grid_auto_rows=on_grid_auto_rows,
-        on_grid_column=on_grid_column,
-        on_grid_gap=on_grid_gap,
-        on_grid_row=on_grid_row,
-        on_grid_template_areas=on_grid_template_areas,
-        on_grid_template_columns=on_grid_template_columns,
-        on_grid_template_rows=on_grid_template_rows,
-        on_height=on_height,
-        on_justify_content=on_justify_content,
-        on_justify_items=on_justify_items,
-        on_left=on_left,
-        on_margin=on_margin,
-        on_max_height=on_max_height,
-        on_max_width=on_max_width,
-        on_min_height=on_min_height,
-        on_min_width=on_min_width,
-        on_object_fit=on_object_fit,
-        on_object_position=on_object_position,
-        on_order=on_order,
-        on_overflow=on_overflow,
-        on_overflow_x=on_overflow_x,
-        on_overflow_y=on_overflow_y,
-        on_padding=on_padding,
-        on_right=on_right,
-        on_top=on_top,
-        on_visibility=on_visibility,
-        on_width=on_width,
-    )
     widget_cls = ipywidgets.widgets.widget_layout.Layout
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2377,12 +1863,12 @@ def Output(
     :param msg_id: Parent message id of messages to capture
     :param outputs: The output messages synced from the frontend.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(layout=layout, msg_id=msg_id, outputs=outputs, on_layout=on_layout, on_msg_id=on_msg_id, on_outputs=on_outputs)
+    kwargs: Dict[Any, Any] = without_default(Output, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_output.Output
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2413,31 +1899,14 @@ def Password(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Password, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Password
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2478,37 +1947,14 @@ def Play(
     :param style: Styling customizations
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        interval=interval,
-        layout=layout,
-        max=max,
-        min=min,
-        show_repeat=show_repeat,
-        step=step,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_interval=on_interval,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_show_repeat=on_show_repeat,
-        on_step=on_step,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Play, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.Play
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2578,33 +2024,14 @@ def RadioButtons(
     :param style: Styling customizations
     :param value: Selected value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(RadioButtons, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.RadioButtons
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2679,35 +2106,14 @@ def Select(
     :param style: Styling customizations
     :param value: Selected value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        rows=rows,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_rows=on_rows,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Select, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Select
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2789,35 +2195,14 @@ def SelectMultiple(
     :param style: Styling customizations
     :param value: Selected values
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        rows=rows,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_rows=on_rows,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(SelectMultiple, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectMultiple
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2914,39 +2299,14 @@ def SelectionRangeSlider(
     :param style: Styling customizations
     :param value: Min and max selected values
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        orientation=orientation,
-        readout=readout,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(SelectionRangeSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionRangeSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3035,39 +2395,14 @@ def SelectionSlider(
     :param style: Styling customizations
     :param value: Selected value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        orientation=orientation,
-        readout=readout,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_orientation=on_orientation,
-        on_readout=on_readout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(SelectionSlider, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3081,23 +2416,21 @@ def SliderStyle(
     :param description_width: Width of the description to the side of the control.
     :param handle_color: Color of the slider handle.
     """
+    kwargs: Dict[Any, Any] = without_default(SliderStyle, locals())
 
-    kwargs: Dict[Any, Any] = dict(
-        description_width=description_width, handle_color=handle_color, on_description_width=on_description_width, on_handle_color=on_handle_color
-    )
     widget_cls = ipywidgets.widgets.widget_int.SliderStyle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
 def Style() -> Element[ipywidgets.widgets.widget_style.Style]:
     """Style specification"""
+    kwargs: Dict[Any, Any] = without_default(Style, locals())
 
-    kwargs: Dict[Any, Any] = dict()
     widget_cls = ipywidgets.widgets.widget_style.Style
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3116,21 +2449,12 @@ def Tab(
     :param children: List of widget children
     :param selected_index: The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style,
-        children=children,
-        layout=layout,
-        selected_index=selected_index,
-        on_box_style=on_box_style,
-        on_children=on_children,
-        on_layout=on_layout,
-        on_selected_index=on_selected_index,
-    )
+    kwargs: Dict[Any, Any] = without_default(Tab, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Tab
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3161,31 +2485,14 @@ def Text(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        placeholder=placeholder,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Text, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Text
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3219,33 +2526,14 @@ def Textarea(
     :param style: Styling customizations
     :param value: String value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        continuous_update=continuous_update,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        placeholder=placeholder,
-        rows=rows,
-        style=style,
-        value=value,
-        on_continuous_update=on_continuous_update,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_placeholder=on_placeholder,
-        on_rows=on_rows,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Textarea, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Textarea
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3291,33 +2579,14 @@ def ToggleButton(
     :param tooltip: Tooltip caption of the toggle button.
     :param value: Bool value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        button_style=button_style,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        icon=icon,
-        layout=layout,
-        style=style,
-        tooltip=tooltip,
-        value=value,
-        on_button_style=on_button_style,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_icon=on_icon,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_tooltip=on_tooltip,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(ToggleButton, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.ToggleButton
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3411,39 +2680,14 @@ def ToggleButtons(
     :param tooltips: Tooltips for each button.
     :param value: Selected value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = ToggleButtonsStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        button_style=button_style,
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        icons=icons,
-        index=index,
-        label=label,
-        layout=layout,
-        options=options,
-        style=style,
-        tooltips=tooltips,
-        value=value,
-        on_button_style=on_button_style,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_icons=on_icons,
-        on_index=on_index,
-        on_label=on_label,
-        on_layout=on_layout,
-        on_options=on_options,
-        on_style=on_style,
-        on_tooltips=on_tooltips,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(ToggleButtons, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = ToggleButtonsStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtons
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3471,18 +2715,11 @@ def ToggleButtonsStyle(
     :param description_width: Width of the description to the side of the control.
     :param font_weight: Text font weight of each button.
     """
+    kwargs: Dict[Any, Any] = without_default(ToggleButtonsStyle, locals())
 
-    kwargs: Dict[Any, Any] = dict(
-        button_width=button_width,
-        description_width=description_width,
-        font_weight=font_weight,
-        on_button_width=on_button_width,
-        on_description_width=on_description_width,
-        on_font_weight=on_font_weight,
-    )
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtonsStyle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3559,39 +2796,12 @@ def TwoByTwoLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        align_items=align_items,
-        bottom_left=bottom_left,
-        bottom_right=bottom_right,
-        box_style=box_style,
-        children=children,
-        grid_gap=grid_gap,
-        height=height,
-        justify_content=justify_content,
-        layout=layout,
-        merge=merge,
-        top_left=top_left,
-        top_right=top_right,
-        width=width,
-        on_align_items=on_align_items,
-        on_bottom_left=on_bottom_left,
-        on_bottom_right=on_bottom_right,
-        on_box_style=on_box_style,
-        on_children=on_children,
-        on_grid_gap=on_grid_gap,
-        on_height=on_height,
-        on_justify_content=on_justify_content,
-        on_layout=on_layout,
-        on_merge=on_merge,
-        on_top_left=on_top_left,
-        on_top_right=on_top_right,
-        on_width=on_width,
-    )
+    kwargs: Dict[Any, Any] = without_default(TwoByTwoLayout, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.TwoByTwoLayout
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3625,14 +2835,12 @@ def VBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style, children=children, layout=layout, on_box_style=on_box_style, on_children=on_children, on_layout=on_layout
-    )
+    kwargs: Dict[Any, Any] = without_default(VBox, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.VBox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3667,29 +2875,14 @@ def Valid(
     :param style: Styling customizations
     :param value: Bool value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        disabled=disabled,
-        layout=layout,
-        readout=readout,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_disabled=on_disabled,
-        on_layout=on_layout,
-        on_readout=on_readout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(Valid, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Valid
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3697,11 +2890,11 @@ def ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None)
     """Widget that can be used for the input of an interactive function
     :param value: The value of the widget.
     """
+    kwargs: Dict[Any, Any] = without_default(ValueWidget, locals())
 
-    kwargs: Dict[Any, Any] = dict(value=value, on_value=on_value)
     widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3741,29 +2934,12 @@ def Video(
     :param value: The media data as a byte string.
     :param width: Width of the video in pixels.
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        autoplay=autoplay,
-        controls=controls,
-        format=format,
-        height=height,
-        layout=layout,
-        loop=loop,
-        value=value,
-        width=width,
-        on_autoplay=on_autoplay,
-        on_controls=on_controls,
-        on_format=on_format,
-        on_height=on_height,
-        on_layout=on_layout,
-        on_loop=on_loop,
-        on_value=on_value,
-        on_width=on_width,
-    )
+    kwargs: Dict[Any, Any] = without_default(Video, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Video
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3798,14 +2974,12 @@ def interactive(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    kwargs: Dict[Any, Any] = dict(
-        box_style=box_style, children=children, layout=layout, on_box_style=on_box_style, on_children=on_children, on_layout=on_layout
-    )
+    kwargs: Dict[Any, Any] = without_default(interactive, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.interaction.interactive
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3815,11 +2989,11 @@ def DescriptionStyle(
     """Description style widget.
     :param description_width: Width of the description to the side of the control.
     """
+    kwargs: Dict[Any, Any] = without_default(DescriptionStyle, locals())
 
-    kwargs: Dict[Any, Any] = dict(description_width=description_width, on_description_width=on_description_width)
     widget_cls = ipywidgets.widgets.widget_description.DescriptionStyle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3838,23 +3012,14 @@ def DescriptionWidget(
     :param description_tooltip: Tooltip for the description (defaults to description).
     :param style: Styling customizations
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        style=style,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_style=on_style,
-    )
+    kwargs: Dict[Any, Any] = without_default(DescriptionWidget, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_description.DescriptionWidget
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3868,13 +3033,11 @@ def ProgressStyle(
     :param bar_color: Color of the progress bar.
     :param description_width: Width of the description to the side of the control.
     """
+    kwargs: Dict[Any, Any] = without_default(ProgressStyle, locals())
 
-    kwargs: Dict[Any, Any] = dict(
-        bar_color=bar_color, description_width=description_width, on_bar_color=on_bar_color, on_description_width=on_description_width
-    )
     widget_cls = ipywidgets.widgets.widget_int.ProgressStyle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3903,29 +3066,14 @@ def _BoundedInt(
     :param style: Styling customizations
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        max=max,
-        min=min,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(_BoundedInt, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedInt
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3953,29 +3101,14 @@ def _BoundedIntRange(
     :param style: Styling customizations
     :param value: Tuple of (lower, upper) bounds
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        max=max,
-        min=min,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_max=on_max,
-        on_min=on_min,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(_BoundedIntRange, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedIntRange
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3997,25 +3130,14 @@ def _Int(
     :param style: Styling customizations
     :param value: Int value
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(_Int, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._Int
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4037,22 +3159,11 @@ def _IntRange(
     :param style: Styling customizations
     :param value: Tuple of (lower, upper) bounds
     """
-    if isinstance(layout, dict):
-        layout = Layout(**layout)
-    if isinstance(style, dict):
-        style = DescriptionStyle(**style)
-    kwargs: Dict[Any, Any] = dict(
-        description=description,
-        description_tooltip=description_tooltip,
-        layout=layout,
-        style=style,
-        value=value,
-        on_description=on_description,
-        on_description_tooltip=on_description_tooltip,
-        on_layout=on_layout,
-        on_style=on_style,
-        on_value=on_value,
-    )
+    kwargs: Dict[Any, Any] = without_default(_IntRange, locals())
+    if isinstance(kwargs.get("layout"), dict):
+        kwargs["layout"] = Layout(**kwargs["layout"])
+    if isinstance(kwargs.get("style"), dict):
+        kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._IntRange
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)

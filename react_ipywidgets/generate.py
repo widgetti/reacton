@@ -9,13 +9,14 @@ import black
 import bqplot
 import ipywidgets
 import ipywidgets as widgets  # type: ignore
-
 import numpy as np
 import traitlets  # type: ignore
 import traittypes
 from jinja2 import Template
 
 import react_ipywidgets as react
+from react_ipywidgets.core import Element
+
 from . import logging as _logging  # type: ignore # noqa: F401
 
 MAX_LINE_LENGTH = 160 - 8
@@ -47,6 +48,9 @@ typemap = {
 }
 
 
+default_alias = {bqplot.Map.map_data: "bqplot.Map.map_data.default"}
+
+
 def fix_class_name(class_name):
     if class_name.startswith("ipyvuetify"):
         parts = class_name.split(".")
@@ -71,7 +75,7 @@ class repr_wrap:
         return self.repr
 
 
-def generate_component(cls: Type[widgets.Widget], ignore_traits: List[str] = [], blacken=True):
+def generate_component(cls: Type[widgets.Widget], ignore_traits: List[str] = [], extra_arguments=[], blacken=True, element_class=react.core.Element):
     docstring_args_template = Template(
         """
 {% for arg in docargs %}
@@ -86,13 +90,14 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
     \"\"\"{{class_docstring}}
     {{docstring_args}}
     \"\"\"
+    kwargs : Dict[Any, Any] = without_default({{ method_name }}, locals())
     {{InstanceDict_fixes}}
-    kwargs : Dict[Any, Any] = dict({{ args }})
     widget_cls = {{class_name}}
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return {{element_class_name}}(comp, **kwargs)
     """
     )
+    element_class_name = element_class.__name__
     ignore = "comm log keys".split() + ignore_traits
     traits = {key: value for key, value in cls.class_traits().items() if "output" not in value.metadata and not key.startswith("_") and key not in ignore}
 
@@ -103,6 +108,8 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
         return default != traitlets.Undefined
 
     def get_default(trait):
+        if trait in default_alias:
+            return repr_wrap(default_alias[trait])
         if isinstance(trait, ipywidgets.widgets.trait_types.InstanceDict):
             assert trait.default_args is None
             assert trait.default_kwargs is None
@@ -166,7 +173,7 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
                 type_name = str(trait.klass.__module__) + "." + trait.klass.__name__
                 type_name = type_name_alias.get(type_name, type_name)
                 if issubclass(trait.klass, widgets.Widget):
-                    type_name = f"Element[{type_name}]"
+                    type_name = f"{element_class_name}[{type_name}]"
                 return type_name
 
         return typemap[type(trait)]
@@ -176,8 +183,11 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
         if isinstance(trait, ipywidgets.widgets.trait_types.InstanceDict):
             component = trait.klass.__name__
             if trait.klass.__module__ == "ipywidgets.widgets.widget_layout":
-                component = "w.Layout"
-            InstanceDict_fixes_list.append(f"if isinstance({name}, dict): {name} = {component}(**{name})")
+                if cls.__module__.startswith("ipywidgets"):
+                    component = "Layout"
+                else:
+                    component = "w.Layout"
+            InstanceDict_fixes_list.append(f"if isinstance(kwargs.get('{name}'), dict): kwargs['{name}'] = {component}(**kwargs['{name}'])")
 
         try:
             types[name] = get_type(trait)
@@ -202,6 +212,8 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
         callback_type = f"typing.Callable[[{typing_type}], Any]"
         signature_list.append(f"on_{name}: {callback_type}=None")
         args_list.append(f"on_{name}=on_{name}")
+    for name, default, arg_type in extra_arguments:
+        signature_list.append(f"{name}: {arg_type}={default!r}")
     args = ", ".join(args_list)
     signature = ", ".join(signature_list)
 
@@ -247,7 +259,7 @@ def find_widget_classes(module):
             yield cls
 
 
-def generate(path, modules, ignore_traits=[], blacken=True):
+def generate(path, modules, ignore_traits=[], blacken=True, module_output=None):
     code_snippets = []
     found = set()
     for module in modules:
@@ -255,7 +267,9 @@ def generate(path, modules, ignore_traits=[], blacken=True):
             if cls not in found:
                 found.add(cls)
                 if cls != widgets.Widget:
-                    code = generate_component(cls, ignore_traits=ignore_traits, blacken=blacken)
+                    extra_arguments = getattr(module_output, "extra_arguments", {}).get(cls, [])
+                    element_class = getattr(module_output, "element_classes", {}).get(cls, Element)
+                    code = generate_component(cls, ignore_traits=ignore_traits, blacken=blacken, extra_arguments=extra_arguments, element_class=element_class)
                     code_snippets.append(code)
     code = ("\n###\n").join(code_snippets)
     with open(path) as f:

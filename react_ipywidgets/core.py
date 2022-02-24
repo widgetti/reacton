@@ -8,9 +8,23 @@ ReactJS - ipywidgets relation:
 """
 
 import logging  # type: ignore
+import threading
 from inspect import isclass
 from types import GeneratorType
-from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import ipywidgets as widgets  # type: ignore
 
@@ -22,7 +36,7 @@ W = TypeVar("W")  # used for widgets
 E = TypeVar("E")  # used for elements
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
-EffectCallable = Callable[[WidgetOrList], Optional[EffectCleanupCallable]]
+EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
 KEY_NAME = "__key__"
 logger = logging.getLogger("react")  # type: ignore
 
@@ -48,6 +62,27 @@ class Element(Generic[W]):
         rc = _get_render_context(required=False)
         if rc and rc.context.container_adders:
             rc.context.container_adders[-1].add(self)
+
+    def split_kwargs(self, kwargs):
+        listeners = {}
+        normal_kwargs = {}
+        for name, value in kwargs.items():
+            if name.startswith("on_"):
+                listeners[name[3:]] = value
+            else:
+                normal_kwargs[name] = value
+        return normal_kwargs, listeners
+
+    def handle_custom_kwargs(self, widget, kwargs):
+        listeners = kwargs
+        widget.unobserve_all()
+        for name, listener in listeners.items():
+            if listener is not None:
+
+                def handler_wrapper(change, listener=listener):
+                    listener(change.new)
+
+                widget.observe(handler_wrapper, name)
 
     def __repr__(self):
         return f"{self.component}.element(**{self.kwargs})"
@@ -138,6 +173,17 @@ def component(obj: Union[Type[widgets.Widget], Callable]) -> Component:
         return ComponentFunction(f=obj)
 
 
+def force_update():
+    rc = _get_render_context()
+    rc.force_update()
+
+
+def get_widget(el: Element):
+    """Returns the real underlying widget, can only be used in use_side_effect"""
+    rc = _get_render_context()
+    return rc.context.widgets_shared[el]
+
+
 def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
     """Returns a (value, setter) tuple that is used to manage state in a component.
 
@@ -154,11 +200,11 @@ def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
     return _rc.use_state(initial, key)
 
 
-def use_side_effect(initial, dependencies=None):
+def use_side_effect(effect: EffectCallable, dependencies=None):
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
-    return _rc.use_side_effect(initial, dependencies=dependencies)
+    return _rc.use_side_effect(effect, dependencies=dependencies)
 
 
 def use_state_widget(widget: widgets.Widget, prop_name):
@@ -219,6 +265,13 @@ def use_memo(f, debug_name: str = None, args: Optional[List] = None, kwargs: Opt
         return rc.use_memo(f, args, kwargs, debug_name)
 
 
+def use_callback(f, dependencies):
+    def wrapper(*ignore):
+        return f
+
+    use_memo(wrapper, args=dependencies)
+
+
 def provide_context(obj):
     rc = _get_render_context()
     context = rc.context
@@ -253,14 +306,14 @@ class Effect:
         self.previous = previous
         self._done = False
 
-    def __call__(self, *args):
+    def __call__(self):
         if self._done:
             return
         if self.previous:
             if self.previous.cleanup:
                 self.previous.cleanup()
                 self.previous.cleanup = None  # reset so we don't call it again
-        self.cleanup = self.callable(*args)
+        self.cleanup = self.callable()
         self._done = True
 
 
@@ -280,6 +333,7 @@ class _RenderContext:
         self._is_rendering = False
         self._state_changed = False
         self._state_changed_reason: Optional[str] = None
+        self.thread_lock = threading.RLock()
 
     def use_memo(self, f, args, kwargs, debug_name: str = None):
         assert self.context is not None
@@ -339,6 +393,10 @@ class _RenderContext:
 
         return set
 
+    def force_update(self):
+        if not self._is_rendering:
+            self.render(self.element, self.container)
+
     def use_side_effect(self, effect: EffectCallable, dependencies=None):
         assert self.context is not None
         if len(self.context.effects) <= self.context.effect_index:
@@ -350,12 +408,17 @@ class _RenderContext:
             if previous_effect:
                 if dependencies is not None and previous_effect.dependencies == dependencies:
                     logger.info("No need to add effect, dependencies are the same (%r)", dependencies)
+                    self.context.effect_index += 1
                     return
-            logger.info("Got new effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
+            logger.info("Got new effect = %r for index %r (%r != %r)", effect, self.context.effect_index, dependencies, previous_effect.dependencies)
             self.context.effects[self.context.effect_index] = Effect(effect, dependencies, previous=previous_effect)
             self.context.effect_index += 1
 
     def render(self, element: Element, container: widgets.Widget = None):
+        with self.thread_lock:
+            return self._render(element, container)
+
+    def _render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
         render_count = self.render_count  # make a copy
         logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
@@ -450,7 +513,7 @@ class _RenderContext:
                 self.context.result = result
 
                 for effect in self.context.effects:
-                    effect(result)
+                    effect()
 
             finally:
                 self.context = self.context.parent
@@ -466,7 +529,6 @@ class _RenderContext:
         assert isinstance(el.component, ComponentWidget)
         component: ComponentWidget = el.component
         normal_kwargs = {}
-        listeners = {}
 
         # TODO: we may want to have custom keys
         if KEY_NAME in el.kwargs:
@@ -482,13 +544,8 @@ class _RenderContext:
         else:
             logger.debug("current widget in widget cache key=%r: %r", key, current_widget)
 
-        for name, value in el.kwargs.items():
-            if name.startswith("on_"):
-                listeners[name[3:]] = value
-            else:
-                normal_kwargs[name] = self._possible_create_widget(key, name, value)
-        if current_widget:
-            current_widget.unobserve_all()
+        normal_kwargs, custom_kwargs = el.split_kwargs(el.kwargs)
+        normal_kwargs = {name: self._possible_create_widget(key, name, value) for name, value in normal_kwargs.items()}
         if type(current_widget) is not component.widget:
             # if not the same, add to pool for reuse
             self.add_to_pool(current_widget)
@@ -510,16 +567,13 @@ class _RenderContext:
         # so we don't create it twice
         self.context.widgets_shared[el] = widget
 
-        for name, listener in listeners.items():
-            if listener is not None:
+        el.handle_custom_kwargs(widget, custom_kwargs)
 
-                def handler_wrapper(change, listener=listener):
-                    listener(change.new)
-
-                widget.observe(handler_wrapper, name)
         return widget
 
     def update_widget_prop(self, widget: widgets.Widget, name, value):
+        # if isinstance(value, (int, float)):
+        #     print("set", name, value)
         setattr(widget, name, value)
 
     def _possible_create_widget(self, key, name, value):

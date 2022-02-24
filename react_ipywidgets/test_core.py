@@ -1,10 +1,11 @@
 from typing import List, TypeVar
 
-import ipywidgets as widgets
 import ipywidgets
+import ipywidgets as widgets
 import numpy as np
 
 import react_ipywidgets as react
+from react_ipywidgets.core import component, use_side_effect
 
 from . import logging  # noqa: F401
 from . import bqplot
@@ -26,9 +27,14 @@ def count():
     return len(widgets.Widget.widgets)
 
 
+@component
+def MyComponent():
+    return w.Button()
+
+
 def test_create_element():
     clear()
-    button: react.core.Element[widgets.Button] = react.core.Element[widgets.Button](w.ButtonWithClick)
+    button: react.core.Element[widgets.Button] = react.core.Element[widgets.Button](MyComponent)
     hbox = widgets.HBox()
     assert count() == 2
     react.render(button, hbox, "children")
@@ -171,8 +177,8 @@ def test_state_outside():
     after = dict(ipywidgets.Widget.widgets)
     diff = set(after) - set(before)
     extra = list(diff)
-    assert len(extra) == 2
-    assert count() == 2 + 3 + 3 + 2  # added button and button style (layout is reused)
+    assert count() == 2 + 3 + 3 + 3  # added button and button style (layout is not reused, because we are not aware of it being created)
+    assert len(extra) == 3
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
     assert hbox.children[0].description == "Button"
@@ -182,8 +188,8 @@ def test_state_outside():
     after = dict(ipywidgets.Widget.widgets)
     diff = set(after) - set(before)
     extra = list(diff)
-    assert len(extra) == 2
-    assert count() == 2 + 3 + 3 + 2 + 2  # Label and Layout gets created, TODO: reuse it
+    assert len(extra) == 3
+    assert count() == 2 + 3 + 3 + 3 + 3  # Label and Layout gets created, TODO: reuse it
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Label)
     assert hbox.children[0].description == "Label"
@@ -365,7 +371,9 @@ def test_use_side_effect():
     def Button2():
         clicks, set_clicks = react.use_state(0)
 
-        def add_event_handler(button: widgets.Button):
+        def add_event_handler():
+            button: widgets.Button = react.core.get_widget(button_el)
+
             def handler(change):
                 set_clicks(clicks + 1)
 
@@ -373,7 +381,8 @@ def test_use_side_effect():
             return lambda: button.on_click(handler, remove=True)
 
         react.use_side_effect(add_event_handler)
-        return w.Button(description=f"Clicked {clicks} times")
+        button_el = w.Button(description=f"Clicked {clicks} times")
+        return button_el
 
     react.render(Button2(), hbox, "children")
     assert count() == 2 + 3  # label + button
@@ -394,7 +403,7 @@ def test_use_side_effect_no_deps():
 
     @react.component
     def TestNoDeps(a, b):
-        def test_side_effect(widget):
+        def test_side_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -424,7 +433,7 @@ def test_use_side_effect_once():
 
     @react.component
     def TestNoDeps(a, b):
-        def test_side_effect(widget):
+        def test_side_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -454,7 +463,7 @@ def test_use_side_effect_deps():
 
     @react.component
     def TestNoDeps(a, b):
-        def test_side_effect(widget):
+        def test_side_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -486,7 +495,7 @@ def test_use_button():
     @react.component
     def ButtonClicks():
         clicks, set_clicks = react.use_state(0)
-        return w.ButtonWithClick(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
+        return w.Button(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
 
     react.render(ButtonClicks(), hbox, "children")
     assert count() == 2 + 3  # label + button
@@ -501,7 +510,7 @@ def test_key():
     @react.component
     def ButtonClicks(nr, **kwargs):
         clicks, set_clicks = react.use_state(0)
-        return w.ButtonWithClick(description=f"{nr}: Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1), **kwargs)
+        return w.Button(description=f"{nr}: Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1), **kwargs)
 
     @react.component
     def Buttons():
@@ -543,28 +552,13 @@ def test_vue():
     @react.component
     def Single():
         clicks, set_clicks = react.use_state(0)
-        v.use_event("click", lambda *ignore: set_clicks(clicks + 1))
-        return v.Btn(children=[f"Clicks {clicks}"])
+        btn = v.Btn(children=[f"Clicks {clicks}"])
+        v.use_event(btn, "click", lambda *_ignore: set_clicks(clicks + 1))
+        return btn
 
-    hbox = react.make(Single())
-    btn = hbox.children[0]
+    btn, _rc = react.render_fixed(Single())
     btn.fire_event("click", {})
     assert btn.children[0] == "Clicks 1"
-    assert len(btn._event_handlers_map["click"].callbacks) == 1
-
-    @react.component
-    def Multiple():
-        clicks, set_clicks = react.use_state(0)
-        # use event will add the listener too all children
-        v.use_event("click", lambda *ignore: set_clicks(clicks + 1))
-        return [v.Btn(children=[f"Clicks {clicks}"]), v.Btn(children=[f"Clicks {clicks}"])]
-
-    hbox = react.make(Multiple())
-    btn = hbox.children[0]
-    btn.fire_event("click", {})
-    assert hbox.children[0].children[0] == "Clicks 1"
-    assert hbox.children[1].children[0] == "Clicks 1"
-    assert hbox.children[0] is not hbox.children[1]
     assert len(btn._event_handlers_map["click"].callbacks) == 1
 
 
@@ -593,7 +587,7 @@ def test_use_reducer():
     @react.component
     def Button():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
-        return w.ButtonWithClick(description=f"Clicked {clicks} times", on_click=lambda: dispatch("increment"))
+        return w.Button(description=f"Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     react.render(Button(), hbox, "children")
     button = hbox.children[0]
@@ -625,7 +619,7 @@ def test_context():
     @react.component
     def Child1():
         clicks, dispatch = react.use_context(tuple)
-        return w.ButtonWithClick(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
+        return w.Button(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     @react.component
     def App():
@@ -722,3 +716,22 @@ def test_container_context_bqplot():
     box, rc = react.render_fixed(ContainerContext())
     assert len(box.children) == 1
     # assert isinstance(box.children[0],
+
+
+def test_get_widget():
+
+    button = None
+
+    @component
+    def Multiple():
+        def get_widgets():
+            nonlocal button
+            button = react.core.get_widget(button1el)
+
+        use_side_effect(get_widgets)
+        with w.VBox() as main:
+            button1el = w.Button(description="1")
+        return main
+
+    box, _rc = react.render_fixed(Multiple())
+    assert box.children[0] is button
