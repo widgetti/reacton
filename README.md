@@ -1,26 +1,26 @@
 # React for ipywidgets
 
-Making writing Web based UI from Python, using ipywidgets, easier, fun and without bugs.
+Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
 
 ## What is it?
 
-A way to write reusable components in a React like way, to make Python based UI's using the ipywidgets ecosystem (ipywidgets, ipyvolume, bqplot, threejs, leaflet, ipyvuetify, ...).
+A way to write reusable components in a React-like way, to make Python-based UI's using the ipywidgets ecosystem (ipywidgets, ipyvolume, bqplot, threejs, leaflet, ipyvuetify, ...).
 
-## Why ? What is the problem?
+## Why? What is the problem?
 
-Non-declerative UI's are hard, you have to attach and detatch event handlers at the right point. There are many possibles states your UI can be in, and moving from one state to the other can be very hard to do manually, and is very error prone.
+Non-declarative UI's are complex: You have to attach and detach event handlers at the right point, there are many possibles states your UI can be in, and moving from one state to the other can be very hard to do manually and is very error-prone.
 
-A common issue we also see, is that there is one piece of code to set up the UI, and scattered around in many event handler the changes that are almost repetitions of the initialization code.
+A common issue we also see is that there is one piece of code to set up the UI, and scattered around in many event handlers the changes that are almost repetitions of the initialization code.
 
-## Why using a React solution
+## Why use a React solution
 
-Using a declerative way, in a React (JS) style, makes your codebase smaller, less error prone, and easier to reason about. We don't see a good reason *not* to use it.
+Using a declarative way, in a React (JS) style, makes your codebase smaller, less error-prone, and easier to reason about. We don't see a good reason *not* to use it.
 
-Also, React has proven itself, and by adopting a proven technology we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
+Also, React has proven itself, and by adopting a proven technology, we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
 
 ## What does react-ipywidgets do for me?
 
-Instead of telling ipwidgets what to do, e.g.:
+Instead of telling ipywidgets what to do, e.g.:
 
   * Respond to events
   * Changing properties
@@ -32,7 +32,7 @@ You tell react-ipywidgets what you want (which Widgets you want to have), and yo
 
 ### Using plain ipywidgets
 
-Take for example this simple example of a button that counts the number of clicks
+Take, for example, this simple example of a button that counts the number of clicks
 ```python
 import ipywidgets as widgets
 
@@ -50,16 +50,16 @@ We see the following issues:
 
    * The button description text is repeated twice (once for initialization at `"Clicked 0 times"` and once in the event handler `f"Clicked {clicks} times"`)
    * An event handler is attached, which we need to detach if we do not want to leak resources
-   * There is not good place/namespace to store the `clicks` variables, did the `global` trigger you?
-   * This code is in no way re-useble / composable.
+   * There is no good place/namespace to store the `clicks` variables, did the `global` trigger you?
+   * This code is in no way re-useable / composable.
 
-Nothing that can be solved, but the burden is on you to come up with solutions.
+These issues can be solved, but the burden is on you to come up with solutions.
 
 ### Using react-ipywidgets
 
 If we solve the same problem using react-ipywidgets, we create (like ReactJS) a reusable component that describes the widgets we want, and it's up to `react_ipywidgets` to show/update/modify the widget in an efficient way.
 
-Using `react.use_state` we explicitly say we need a piece of local state, that we initialize it to 0. Using `on_click` your event handler will be attached and detached when needed, and your function will be re-executed when the state changes (the click count).
+Using `react.use_state`, we explicitly say we need a piece of local state, with an initialize value of `0`. Using `on_click`, your event handler will be attached and detached when needed, and your function will be re-executed when the state changes (the click count).
 
 ```python
 import react_ipywidgets as react
@@ -73,7 +73,7 @@ def ButtonClick(label="Hi"):
 ButtonClick()
 ```
 
-We now have a simple component that we can reuse, e.g. like this:
+We now have a simple component that we can reuse, e.g., like this:
 ```python
 @react.component
 def ManyButtons(count=10):
@@ -84,14 +84,14 @@ def ManyButtons(count=10):
 display(ManyButtons())
 ```
 
-We take care of not re-creating new Buttons widgets all the time (which is relatively expensive). We reuse existing widgest when we can, and create new ones when needed.
+We take care of not re-creating new Buttons widgets (which is relatively expensive). We reuse existing widgets when we can and create new ones when needed.
 
-*Try creating the `ManyButtons` component without using ipywidgets, and you will really appriciate react-ipywidgets*
+*Try creating the `ManyButtons` component without using pure ipywidgets, and you will really appreciate react-ipywidgets*
 
 
 ## Markdown component example
 
-Given this [nice suggestion](https://github.com/jupyter-widgets/ipywidgets/issues/2428#issuecomment-500084610) on how to make a widget with markdown, we don't have an obvious path forward to make a new Markdown widget that can be re-used. Should we inherit? From which class? Should we compose and inherit from VBox or HBox and add the HTML widget as a single child?
+Given this [suggestion](https://github.com/jupyter-widgets/ipywidgets/issues/2428#issuecomment-500084610) on how to make a widget with markdown, we don't have an obvious path forward to create a new Markdown widget that can be reused. Should we inherit? From which class? Should we compose and inherit from VBox or HBox and add the HTML widget as a single child?
 
 With react-ipywidgest there is an obvious way:
 ```python
@@ -102,7 +102,7 @@ def Markdown(md: str):
     return w.HTML(value=html)
 ```
 
-This `Markdown` component, can now be re-used to create a markdown editor:
+This `Markdown` component can now be reused to create a markdown editor:
 
 ```python
 @react.component
@@ -116,7 +116,7 @@ def MarkdownEditor(md : str):
 display(MarkdownEditor("Mark-*down* **component**"))
 ```
 
-This also shows another feature we can provide: All container widgets (like HBox, VBox, and all ipyvuetify widgets) can act as context manager, which will add all widgets elements created underneeth it. This leads to much more readable code, less parenthesis and parenthsis issues.
+The `MarkdownEditor` component also shows another feature we can provide: All container widgets (like HBox, VBox, and all ipyvuetify widgets) can act as a context manager, which will add all widgets elements created within it as its children. Using a context manager leads to better readable code (less parenthesis and parenthsis issues).
 
 # API docs
 
