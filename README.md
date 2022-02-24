@@ -68,8 +68,8 @@ import react_ipywidgets.ipywidgets as w
 @react.component
 def ButtonClick(label="Hi"):
     clicks, set_clicks = react.use_state(0)
-    return w.ButtonWithClick(description=f"{label}: Clicked {clicks} times",
-                             on_click=lambda: set_clicks(clicks+1))
+    return w.Button(description=f"{label}: Clicked {clicks} times",
+                    on_click=lambda: set_clicks(clicks+1))
 ButtonClick()
 ```
 
