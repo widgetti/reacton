@@ -13,6 +13,10 @@ dynamic = ["version", "description"]
 packages = [
     { include = "react_ipywidgets" }
 ]
+dependencies = [
+    "ipywidgets",
+    "rich",
+]
 
 [tool.flit.module]
 name = "react_ipywidgets"

@@ -10,6 +10,8 @@ ReactJS - ipywidgets relation:
 import logging  # type: ignore
 import threading
 from inspect import isclass
+import inspect
+import sys
 from types import GeneratorType
 from typing import (
     Any,
@@ -26,6 +28,7 @@ from typing import (
     cast,
 )
 
+import rich.traceback
 import ipywidgets as widgets  # type: ignore
 
 from . import _version
@@ -39,6 +42,7 @@ EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
 KEY_NAME = "__key__"
 logger = logging.getLogger("react")  # type: ignore
+DEBUG = 1
 
 
 def element(cls, **kwargs):
@@ -46,6 +50,12 @@ def element(cls, **kwargs):
 
 
 widgets.Widget.element = classmethod(element)
+
+
+class ComponentCreateError(RuntimeError):
+    def __init__(self, rich_traceback):
+        super().__init__(rich_traceback)
+        self.rich_traceback = rich_traceback
 
 
 class Component:
@@ -59,9 +69,24 @@ class Element(Generic[W]):
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
+        self._current_context = None
         rc = _get_render_context(required=False)
+        if rc:
+            self._current_context = rc.context
         if rc and rc.context.container_adders:
             rc.context.container_adders[-1].add(self)
+        if DEBUG:
+            # since we construct widgets or components from a different code path
+            # we want to preserve the original call stack, by manually tracking frames
+            try:
+                assert False
+            except AssertionError:
+                self.traceback = sys.exc_info()[2]
+
+            frame_py = self.traceback.tb_frame.f_back.f_back
+            filename = inspect.getsourcefile(frame_py)
+            locals = frame_py.f_locals
+            self.frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name="<unknown>", locals=locals)
 
     def split_kwargs(self, kwargs):
         listeners = {}
@@ -85,7 +110,15 @@ class Element(Generic[W]):
                 widget.observe(handler_wrapper, name)
 
     def __repr__(self):
-        return f"{self.component}.element(**{self.kwargs})"
+        args = ', '.join(f'{key} = {value!r}' for key, value in self.kwargs.items())
+        if isinstance(self.component, ComponentFunction):
+            name = self.component.f.__name__
+            return f"{name}({args})"
+        if isinstance(self.component, ComponentWidget):
+            name = self.component.widget.__module__ + "." + self.component.widget.__name__
+            return f"{name}.element({args})"
+        else:
+            raise RuntimeError(f'No repr for {type(self)}')
 
     def on(self, name, callback):
         self.handlers.append((name, callback))
@@ -97,11 +130,14 @@ class Element(Generic[W]):
     def __enter__(self):
         rc = _get_render_context()
         ca = ContainerAdder[T](self, "children")
+        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         rc.context.container_adders.append(ca)
         return self
 
     def __exit__(self, *args, **kwargs):
+
         rc = _get_render_context()
+        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         ca = rc.context.container_adders.pop()
         ca.assign()
 
@@ -181,6 +217,8 @@ def force_update():
 def get_widget(el: Element):
     """Returns the real underlying widget, can only be used in use_side_effect"""
     rc = _get_render_context()
+    if el not in rc.context.widgets_shared:
+        raise KeyError(f"Element {el} not found in all known widgets for the component {rc.context.widgets_shared}")
     return rc.context.widgets_shared[el]
 
 
@@ -293,6 +331,7 @@ class ElementContext:
         self.user_contexts: Dict[Any, Any] = {}
         self.memo: List[Any] = []
         self.container_adders: List[ContainerAdder] = []
+        self.needs_render: bool = False
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -334,6 +373,7 @@ class _RenderContext:
         self._state_changed = False
         self._state_changed_reason: Optional[str] = None
         self.thread_lock = threading.RLock()
+        self.frames = []
 
     def use_memo(self, f, args, kwargs, debug_name: str = None):
         assert self.context is not None
@@ -376,13 +416,14 @@ class _RenderContext:
             logger.info("Got state = %r for key %r", state, key)
             return state, self.make_setter(key, self.context)
 
-    def make_setter(self, key, context):
+    def make_setter(self, key, context: ElementContext):
         def set(value):
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r)", value, key, context.state[key])
             if context.state[key] != value:
                 context.state[key] = value
+                context.needs_render = True
                 if self._state_changed is False:
                     self._state_changed = True
                     self._state_changed_reason = f"{key} changed"
@@ -414,9 +455,17 @@ class _RenderContext:
             self.context.effects[self.context.effect_index] = Effect(effect, dependencies, previous=previous_effect)
             self.context.effect_index += 1
 
-    def render(self, element: Element, container: widgets.Widget = None):
+    def render(self, element: Element, container: widgets.Widget = None, handle_error: bool = True):
         with self.thread_lock:
-            return self._render(element, container)
+            try:
+                return self._render(element, container)
+            except ComponentCreateError as e:
+                if handle_error:
+                    from rich.console import Console
+                    console = Console()
+                    console.print(e.rich_traceback)
+                else:
+                    raise e
 
     def _render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
@@ -431,6 +480,8 @@ class _RenderContext:
         container = container or self.container
         assert self.context is not None
         try:
+            frame = rich.traceback.Frame(filename=__file__, lineno=inspect.getsourcelines(self.update)[1], name="update")
+            self.frames.append(frame)
             widget = self.update(element, "children")
             if self.last_root_widget is None:
                 self.last_root_widget = widget
@@ -451,13 +502,15 @@ class _RenderContext:
                     container.children = [widget]
             self.first_render = False
         finally:
-            self.context = context_prev
+            self.frames.pop()
             if main_render_phase:
                 # we started the rendering loop, so we keep going
                 while self._state_changed:
                     logger.info("Entering nested render phase: %r", self._state_changed_reason)
-                    self.render(element, container)
+                    self._render(element, container)
+                assert self.context is self.context_root
                 self._is_rendering = False
+            self.context = context_prev
             logger.info("Done with render phase: %r", render_count)
         if not container:
             return widget
@@ -491,7 +544,19 @@ class _RenderContext:
                 self.context.state_index = 0
                 self.context.effect_index = 0
                 self.context.memo_index = 0
-                child = el.component.f(*el.args, **el.kwargs)
+                try:
+                    # the call that creates the component
+                    self.frames.append(el.frame)
+                    # the call to to component
+                    filename = inspect.getsourcefile(el.component.f)
+                    frame = rich.traceback.Frame(filename=filename, lineno=inspect.getsourcelines(el.component.f)[1], name=el.component.f.__name__)
+                    self.frames.append(frame)
+                    child = el.component.f(*el.args, **el.kwargs)
+                except Exception as e:
+                    stack = rich.traceback.Stack(type(e), e.args[0], frames=self.frames.copy())
+                    trace = rich.traceback.Trace(stacks=[stack])
+                    tb = rich.traceback.Traceback(trace)
+                    raise ComponentCreateError(tb)
                 if isinstance(child, GeneratorType):
                     child = list(child)
                 if self.render_count != render_count:
@@ -511,14 +576,16 @@ class _RenderContext:
                     widgets.append(widget)
                 result = widgets if is_sequence else widgets[0]
                 self.context.result = result
+                self.context.widgets_shared[el] = result
 
                 for effect in self.context.effects:
                     effect()
 
             finally:
                 self.context = self.context.parent
+                self.frames.pop()
+                self.frames.pop()
             assert self.context is not None
-            self.context.widgets_shared[el] = result
             return result
         else:
             raise NotImplementedError
@@ -595,10 +662,10 @@ class _RenderContext:
 _rc: Optional[_RenderContext] = None
 
 
-def render(element: Element[T], container: widgets.Widget, children_trait="children") -> _RenderContext:
+def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True) -> _RenderContext:
     global _rc
     _rc = _RenderContext(element, container, children_trait=children_trait)
-    _rc.render(element, container)
+    _rc.render(element, container, handle_error=handle_error)
     return _rc
 
 

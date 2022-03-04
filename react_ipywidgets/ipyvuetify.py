@@ -31,6 +31,16 @@ if __name__ == "__main__":
     ignore_traits = "".split()
     generate(__file__, [ipyvuetify], ignore_traits=ignore_traits)
 
+
+def toggle_buttons(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
+    key = key or str(value) + str(description) + str(options)
+    value, set_value = react.use_state(value, key)
+    with BtnToggle(v_model=value, on_v_model=set_value, group=True):
+        for option in options:
+            Btn(children=[option], value=option)
+    return value
+
+
 # generated code:
 
 
