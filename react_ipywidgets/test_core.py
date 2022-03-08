@@ -609,7 +609,7 @@ def test_context():
 
     @react.component
     def SubChild2():
-        clicks, _dispatch = react.use_context(tuple)
+        clicks, _dispatch = react.use_context("store")
         return w.Button(description=f"Child2: Clicked {clicks} times")
 
     @react.component
@@ -618,13 +618,13 @@ def test_context():
 
     @react.component
     def Child1():
-        clicks, dispatch = react.use_context(tuple)
+        clicks, dispatch = react.use_context("store")
         return w.Button(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     @react.component
     def App():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
-        react.provide_context((clicks, dispatch))
+        react.provide_context("store", (clicks, dispatch))
         return [Child1(), Child2()]
 
     react.render(App(), hbox, "children")

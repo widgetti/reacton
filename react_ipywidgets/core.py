@@ -277,15 +277,15 @@ def use_reducer(reduce, initial_state):
     return state, dispatch
 
 
-def use_context(cls: Type[T]) -> T:
+def use_context(key: str) -> T:
     rc = _get_render_context()
     value: Optional[T] = None
     context = rc.context
     while value is None and context is not None:
-        value = context.user_contexts.get(cls)
+        value = context.user_contexts.get(key)
         context = context.parent
     if value is None:
-        raise KeyError(f"No value found in element or parent element under key {cls}")
+        raise KeyError(f"No value found in element or parent element under key {key}")
     return value
 
 
@@ -310,10 +310,10 @@ def use_callback(f, dependencies):
     use_memo(wrapper, args=dependencies)
 
 
-def provide_context(obj):
+def provide_context(key : str, obj : any):
     rc = _get_render_context()
     context = rc.context
-    context.user_contexts[type(obj)] = obj
+    context.user_contexts[key] = obj
 
 
 class ElementContext:
