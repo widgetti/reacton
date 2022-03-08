@@ -43,6 +43,7 @@ EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
 KEY_NAME = "__key__"
 logger = logging.getLogger("react")  # type: ignore
 DEBUG = 1
+TRACEBACK_LOCALS = 1
 
 
 def element(cls, **kwargs):
@@ -86,7 +87,12 @@ class Element(Generic[W]):
             frame_py = self.traceback.tb_frame.f_back.f_back
             filename = inspect.getsourcefile(frame_py)
             locals = frame_py.f_locals
-            self.frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name="<unknown>", locals=locals)
+            name = "unknown"
+            if rc:
+                parent_component = rc.context.element.component
+                assert isinstance(parent_component, ComponentFunction)
+                name = parent_component.f.__name__
+            self.frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name=name, locals=locals if TRACEBACK_LOCALS else None)
 
     def split_kwargs(self, kwargs):
         listeners = {}
@@ -310,15 +316,16 @@ def use_callback(f, dependencies):
     use_memo(wrapper, args=dependencies)
 
 
-def provide_context(key : str, obj : any):
+def provide_context(key: str, obj: any):
     rc = _get_render_context()
     context = rc.context
     context.user_contexts[key] = obj
 
 
 class ElementContext:
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, element: Element = None) -> None:
         self.parent = parent
+        self.element = element
         self.state: Dict = {}
         self.effects: List[Effect] = []
         self.widgets: Dict[str, widgets.Widget] = {}
@@ -477,6 +484,7 @@ class _RenderContext:
         # if we got called recursively, self.context is not the root context
         context_prev = self.context
         self.context = self.context_root
+        self.context.element = element
         container = container or self.container
         assert self.context is not None
         try:
@@ -534,7 +542,7 @@ class _RenderContext:
             if key in self.context.children:
                 self.context = self.context.children[key]
             else:
-                self.context = ElementContext(parent=self.context)
+                self.context = ElementContext(parent=self.context, element=el)
                 self.context.parent.children[key] = self.context
             # we will reset this every render loop, since new element are created every render loop
             self.context.widgets_shared = {}
@@ -547,13 +555,17 @@ class _RenderContext:
                 try:
                     # the call that creates the component
                     self.frames.append(el.frame)
-                    # the call to to component
-                    filename = inspect.getsourcefile(el.component.f)
-                    frame = rich.traceback.Frame(filename=filename, lineno=inspect.getsourcelines(el.component.f)[1], name=el.component.f.__name__)
-                    self.frames.append(frame)
                     child = el.component.f(*el.args, **el.kwargs)
                 except Exception as e:
-                    stack = rich.traceback.Stack(type(e), e.args[0], frames=self.frames.copy())
+                    # get the real exception
+                    frame_py = e.__traceback__.tb_next.tb_frame
+                    filename = inspect.getsourcefile(frame_py)
+                    locals = frame_py.f_locals
+                    name = el.component.f.__name__
+                    frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name=name, locals=locals if TRACEBACK_LOCALS else None)
+                    self.frames.append(frame)
+
+                    stack = rich.traceback.Stack(type(e), e.args[0] if e.args else None, frames=self.frames.copy())
                     trace = rich.traceback.Trace(stacks=[stack])
                     tb = rich.traceback.Traceback(trace)
                     raise ComponentCreateError(tb)
@@ -583,7 +595,6 @@ class _RenderContext:
 
             finally:
                 self.context = self.context.parent
-                self.frames.pop()
                 self.frames.pop()
             assert self.context is not None
             return result
