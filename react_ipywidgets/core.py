@@ -659,7 +659,7 @@ class _RenderContext:
         self.pool[type(widget)] = widget
 
 
-_rc: Optional[_RenderContext] = None
+_rc = None
 
 
 def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True) -> _RenderContext:
