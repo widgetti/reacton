@@ -9,7 +9,7 @@ from .core import component
 def without_default(func: Callable, kwargs):
     sig = inspect.signature(func)
     {name: param.default for name, param in sig.parameters.items()}
-    non_default_kwargs = {name: kwargs[name] for name, param in sig.parameters.items() if kwargs[name] != param.default}
+    non_default_kwargs = {name: kwargs[name] for name, param in sig.parameters.items() if kwargs[name] is not param.default}
     return non_default_kwargs
 
 

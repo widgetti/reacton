@@ -107,7 +107,7 @@ def test_state():
             set_description(f"Value = {value}")
             set_value(value)
 
-        return w.FloatSlider(value=0, on_value=on_value, description=description)
+        return w.FloatSlider(value=value, on_value=on_value, description=description)
 
     react.render(slider_text(), hbox, "children")
     assert count() == 2 + 3
@@ -139,7 +139,7 @@ def test_state_complicated():
             set_value(value)
             set_description(f"Value = {value}")
 
-        return w.FloatSlider(value=0, on_value=on_value, description=description)
+        return w.FloatSlider(value=value, on_value=on_value, description=description)
 
     react.render(slider_text(), hbox, "children")
     slider = hbox.children[0]
