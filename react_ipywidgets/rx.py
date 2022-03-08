@@ -1,9 +1,9 @@
-import rx
+import reactivex
 
 from . import use_side_effect, use_state
 
 
-def use_observable_state(obserable: rx.Observable, initial_valie):
+def use_observable_state(obserable: reactivex.Observable, initial_valie):
     value, set_value = use_state(initial_valie)
 
     def init():

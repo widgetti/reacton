@@ -1,4 +1,4 @@
-import rx.subject
+import reactivex.subject
 
 import react_ipywidgets as react
 import react_ipywidgets.rx as iprx
@@ -8,7 +8,7 @@ from . import logging  # noqa: F401
 
 
 def test_basic():
-    source = rx.subject.BehaviorSubject("a")
+    source = reactivex.subject.BehaviorSubject("a")
 
     @react.component
     def Test():
