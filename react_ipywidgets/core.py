@@ -618,8 +618,9 @@ class _RenderContext:
             self.add_to_pool(current_widget)
             current_widget = None
         if current_widget is not None:
-            for name, value in normal_kwargs.items():
-                self.update_widget_prop(current_widget, name, value)
+            with current_widget.hold_sync():
+                for name, value in normal_kwargs.items():
+                    self.update_widget_prop(current_widget, name, value)
         else:
             widget = component.widget(**normal_kwargs)
             # we only add widgets to the cache where they are originally are created
