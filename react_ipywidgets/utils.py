@@ -18,3 +18,29 @@ def wrap(mod, globals):
         cls = getattr(mod, cls_name)
         if inspect.isclass(cls) and issubclass(cls, widgets.Widget):
             globals[cls_name] = component(cls)
+
+
+def not_equals(a, b):
+    return a != b
+    if a is None and b is not None:
+        return True
+    if a is not None and b is None:
+        return True
+    if a is b:
+        return False
+
+    def numpyish(obj):
+        import sys
+        if 'pandas' in sys.modules:
+            import pandas as pd
+            if isinstance(obj, pd.Series):
+                return True
+        if 'numpy' in sys.modules:
+            import numpy as np
+            if isinstance(obj, np.ndarray):
+                return True
+        return False
+    if numpyish(a) or numpyish(b):
+        return (a != b).any()
+    else:
+        return a != b

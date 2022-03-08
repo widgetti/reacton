@@ -73,7 +73,9 @@ def text(value="Hi there", description="", key=None, **kwargs):
 def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
     key = key or str(value) + str(description) + str(options)
     value, set_value = react.use_state(value, key)
-    Dropdown(value=value, description=description, options=options, on_value=set_value)
+    def set_index(index):
+        set_value(options[index])
+    Dropdown(value=value, description=description, options=options, on_index=set_index)
     return value
 
 

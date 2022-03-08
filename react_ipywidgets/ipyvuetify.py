@@ -18,7 +18,7 @@ def BtnWithClick(on_click=None, **kwargs):
     btn = Btn(**kwargs)
     if on_click is not None:
         # TODO: in react, we cannot do this conditionally, we can appearently
-        def drop_arguments():
+        def drop_arguments(*args):
             on_click()
 
         use_event(btn, "click", drop_arguments)

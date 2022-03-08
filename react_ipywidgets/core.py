@@ -428,6 +428,7 @@ class _RenderContext:
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r)", value, key, context.state[key])
+
             if context.state[key] != value:
                 context.state[key] = value
                 context.needs_render = True
@@ -621,7 +622,6 @@ class _RenderContext:
                 logger.debug("current widget in element cache key=%r: %r", key, current_widget)
         else:
             logger.debug("current widget in widget cache key=%r: %r", key, current_widget)
-
         normal_kwargs, custom_kwargs = el.split_kwargs(el.kwargs)
         normal_kwargs = {name: self._possible_create_widget(key, name, value) for name, value in normal_kwargs.items()}
         if type(current_widget) is not component.widget:
@@ -651,8 +651,6 @@ class _RenderContext:
         return widget
 
     def update_widget_prop(self, widget: widgets.Widget, name, value):
-        # if isinstance(value, (int, float)):
-        #     print("set", name, value)
         setattr(widget, name, value)
 
     def _possible_create_widget(self, key, name, value):
