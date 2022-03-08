@@ -464,8 +464,10 @@ class _RenderContext:
             self.context.effect_index += 1
 
     def render(self, element: Element, container: widgets.Widget = None, handle_error: bool = True):
+        global _rc
         with self.thread_lock:
             try:
+                _rc = self
                 return self._render(element, container)
             except ComponentCreateError as e:
                 if handle_error:
@@ -474,6 +476,8 @@ class _RenderContext:
                     console.print(e.rich_traceback)
                 else:
                     raise e
+            finally:
+                _rc = None
 
     def _render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
@@ -673,14 +677,12 @@ _rc = None
 
 
 def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True) -> _RenderContext:
-    global _rc
     _rc = _RenderContext(element, container, children_trait=children_trait)
     _rc.render(element, container, handle_error=handle_error)
     return _rc
 
 
 def render_fixed(element: Element[T]) -> Tuple[T, _RenderContext]:
-    global _rc
     _rc = _RenderContext(element)
     widget = _rc.render(element)
     return widget, _rc
