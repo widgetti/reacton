@@ -283,7 +283,7 @@ def use_reducer(reduce, initial_state):
     return state, dispatch
 
 
-def use_context(key: str) -> T:
+def use_context(key: str):
     rc = _get_render_context()
     value: Optional[T] = None
     context = rc.context
