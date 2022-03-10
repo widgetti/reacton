@@ -366,7 +366,7 @@ class Effect:
 class _RenderContext:
     context: Optional[ElementContext] = None
 
-    def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children"):
+    def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True):
         self.element = element
         self.container = container
         self.children_trait = children_trait
@@ -381,6 +381,7 @@ class _RenderContext:
         self._state_changed_reason: Optional[str] = None
         self.thread_lock = threading.RLock()
         self.frames = []
+        self.handle_error = handle_error
 
     def use_memo(self, f, args, kwargs, debug_name: str = None):
         assert self.context is not None
@@ -463,14 +464,14 @@ class _RenderContext:
             self.context.effects[self.context.effect_index] = Effect(effect, dependencies, previous=previous_effect)
             self.context.effect_index += 1
 
-    def render(self, element: Element, container: widgets.Widget = None, handle_error: bool = True):
+    def render(self, element: Element, container: widgets.Widget = None):
         global _rc
         with self.thread_lock:
             try:
                 _rc = self
                 return self._render(element, container)
             except ComponentCreateError as e:
-                if handle_error:
+                if self.handle_error:
                     from rich.console import Console
                     console = Console()
                     console.print(e.rich_traceback)
@@ -562,18 +563,21 @@ class _RenderContext:
                     self.frames.append(el.frame)
                     child = el.component.f(*el.args, **el.kwargs)
                 except Exception as e:
-                    # get the real exception
-                    frame_py = e.__traceback__.tb_next.tb_frame
-                    filename = inspect.getsourcefile(frame_py)
-                    locals = frame_py.f_locals
-                    name = el.component.f.__name__
-                    frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name=name, locals=locals if TRACEBACK_LOCALS else None)
-                    self.frames.append(frame)
+                    if self.handle_error:
+                        # get the real exception
+                        frame_py = e.__traceback__.tb_next.tb_frame
+                        filename = inspect.getsourcefile(frame_py)
+                        locals = frame_py.f_locals
+                        name = el.component.f.__name__
+                        frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name=name, locals=locals if TRACEBACK_LOCALS else None)
+                        self.frames.append(frame)
 
-                    stack = rich.traceback.Stack(type(e), e.args[0] if e.args else None, frames=self.frames.copy())
-                    trace = rich.traceback.Trace(stacks=[stack])
-                    tb = rich.traceback.Traceback(trace)
-                    raise ComponentCreateError(tb)
+                        stack = rich.traceback.Stack(type(e), str(e), frames=self.frames.copy())
+                        trace = rich.traceback.Trace(stacks=[stack])
+                        tb = rich.traceback.Traceback(trace)
+                        raise ComponentCreateError(tb)
+                    else:
+                        raise
                 if isinstance(child, GeneratorType):
                     child = list(child)
                 if self.render_count != render_count:
@@ -677,13 +681,13 @@ _rc = None
 
 
 def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True) -> _RenderContext:
-    _rc = _RenderContext(element, container, children_trait=children_trait)
-    _rc.render(element, container, handle_error=handle_error)
+    _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error)
+    _rc.render(element, container)
     return _rc
 
 
-def render_fixed(element: Element[T]) -> Tuple[T, _RenderContext]:
-    _rc = _RenderContext(element)
+def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _RenderContext]:
+    _rc = _RenderContext(element, handle_error=handle_error)
     widget = _rc.render(element)
     return widget, _rc
 
