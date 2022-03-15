@@ -126,6 +126,38 @@ def test_state():
     assert count() == 2 + 3
 
 
+def test_restore_default():
+    @react.component
+    def Slider(value):
+        return w.IntSlider(value=value, description=f'Value {value}')
+
+    slider, rc = react.render_fixed(Slider(2))
+    assert slider.description == "Value 2"
+    assert slider.value == 2
+
+    rc.render(Slider(0))
+    assert slider.description == "Value 0"
+    assert slider.value == 0
+
+    rc.render(Slider(2))
+    assert slider.description == "Value 2"
+    assert slider.value == 2
+
+    # now start with the default
+
+    slider, rc = react.render_fixed(Slider(0))
+    assert slider.description == "Value 0"
+    assert slider.value == 0
+
+    rc.render(Slider(2))
+    assert slider.description == "Value 2"
+    assert slider.value == 2
+
+    rc.render(Slider(0))
+    assert slider.description == "Value 0"
+    assert slider.value == 0
+
+
 def test_state_complicated():
     hbox = widgets.HBox()
 

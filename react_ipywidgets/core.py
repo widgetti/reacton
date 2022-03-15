@@ -329,7 +329,7 @@ class ElementContext:
         self.state: Dict = {}
         self.effects: List[Effect] = []
         self.widgets: Dict[str, widgets.Widget] = {}
-        self.widgets_shared: Dict[Element, widgets.Widget] = {}
+        self.used_arguments: Dict[str, Set[str]] = {}
         self.state_index = 0
         self.effect_index = 0
         self.memo_index = 0
