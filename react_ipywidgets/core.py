@@ -223,9 +223,9 @@ def force_update():
 def get_widget(el: Element):
     """Returns the real underlying widget, can only be used in use_side_effect"""
     rc = _get_render_context()
-    if el not in rc.context.widgets_shared:
-        raise KeyError(f"Element {el} not found in all known widgets for the component {rc.context.widgets_shared}")
-    return rc.context.widgets_shared[el]
+    if el not in rc._widgets:
+        raise KeyError(f"Element {el} not found in all known widgets for the component {rc._widgets}")
+    return rc._widgets[el]
 
 
 def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
@@ -382,6 +382,7 @@ class _RenderContext:
         self.thread_lock = threading.RLock()
         self.frames = []
         self.handle_error = handle_error
+        self._widgets: Dict[Element, widgets.Widget] = {}
 
     def use_memo(self, f, args, kwargs, debug_name: str = None):
         assert self.context is not None
@@ -484,6 +485,8 @@ class _RenderContext:
         main_render_phase = not self._is_rendering
         render_count = self.render_count  # make a copy
         logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
+        # we will reset this every render loop, since new element are created every render loop
+        self._widgets = {}
         self._is_rendering = True
         self._state_changed = False
         self.render_count += 1
@@ -508,7 +511,7 @@ class _RenderContext:
                         )
                 assert self.context is self.context_root
             is_sequence = isinstance(widget, (list, tuple))
-            self.context.widgets_shared = {}
+            self.context._widgets = {}
             if container:
                 if is_sequence:
                     container.children = list(widget)
@@ -540,18 +543,19 @@ class _RenderContext:
             widget = self.update_widget(el, key)
             return widget
         elif isinstance(el.component, ComponentFunction):
-            if el in self.context.widgets_shared:
-                return self.context.widgets_shared[el]
+            if el in self._widgets:
+                return self._widgets[el]
             if KEY_NAME in el.kwargs:
                 key = el.kwargs.pop(KEY_NAME)
             # call the function, and recurse into, until we hit leafs
             if key in self.context.children:
                 self.context = self.context.children[key]
+                if self.context.element is None:
+                    # what about when element changes.. ?
+                    self.context.element = el
             else:
                 self.context = ElementContext(parent=self.context, element=el)
                 self.context.parent.children[key] = self.context
-            # we will reset this every render loop, since new element are created every render loop
-            self.context.widgets_shared = {}
             logger.debug("enter context %r", key)
             render_count = self.render_count
             try:
@@ -625,9 +629,10 @@ class _RenderContext:
         current_widget = self.context.widgets.get(key)
         if current_widget is None:
             # we might have already created the widget for this
-            current_widget = self.context.widgets_shared.get(el)
+            current_widget = self._widgets.get(el)
             if current_widget:
                 logger.debug("current widget in element cache key=%r: %r", key, current_widget)
+                return current_widget
         else:
             logger.debug("current widget in widget cache key=%r: %r", key, current_widget)
         normal_kwargs, custom_kwargs = el.split_kwargs(el.kwargs)
@@ -640,19 +645,28 @@ class _RenderContext:
             with current_widget.hold_sync():
                 for name, value in normal_kwargs.items():
                     self.update_widget_prop(current_widget, name, value)
+                # if we previously gave an argument, but now we don't
+                # we have to restore the default
+                cls = current_widget.__class__
+                traits = cls.class_traits()
+                dropped_arguments = set(self.context.used_arguments[key]) - set(normal_kwargs)
+                for name in dropped_arguments:
+                    value = traits[name].default()
+                    self.update_widget_prop(current_widget, name, value)
         else:
             widget = component.widget(**normal_kwargs)
             # we only add widgets to the cache where they are originally are created
             # other references have to get the same widget via the element cache
             self.context.widgets[key] = widget
             logger.debug("create new widget for key %r %r", key, widget)
+        self.context.used_arguments[key] = set(normal_kwargs)
 
         if current_widget:
             widget = current_widget
 
         # make sure we can reused the widget belonging to this element
         # so we don't create it twice
-        self.context.widgets_shared[el] = widget
+        self._widgets[el] = widget
 
         el.handle_custom_kwargs(widget, custom_kwargs)
 

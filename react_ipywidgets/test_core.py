@@ -314,6 +314,24 @@ def test_shared_instance():
     assert vbox.children[1].tooltip == ""
 
 
+def test_shared_instance_via_component():
+    clear()
+
+    @react.component
+    def Child(button):
+        return button
+
+    @react.component
+    def Buttons():
+        button = w.Button(description="Button shared")
+        return w.VBox(children=[Child(button), Child(button)])
+
+    vbox, rc = react.render_fixed(Buttons())
+    assert vbox.children[0].description == "Button shared"
+    assert vbox.children[1].description == "Button shared"
+    assert vbox.children[0] is vbox.children[1]
+
+
 def test_bqplot():
     clear()
 
