@@ -539,7 +539,8 @@ class _RenderContext:
                     container.children = [widget]
             self.first_render = False
         finally:
-            self.frames.pop()
+            if DEBUG:
+                self.frames.pop()
             if main_render_phase:
                 # we started the rendering loop, so we keep going
                 while self._state_changed:
@@ -584,7 +585,8 @@ class _RenderContext:
                 self.context.memo_index = 0
                 try:
                     # the call that creates the component
-                    self.frames.append(el.frame)
+                    if DEBUG:
+                        self.frames.append(el.frame)
                     child = el.component.f(*el.args, **el.kwargs)
                 except Exception as e:
                     if self.handle_error:
@@ -621,14 +623,15 @@ class _RenderContext:
                     widgets.append(widget)
                 result = widgets if is_sequence else widgets[0]
                 self.context.result = result
-                self.context.widgets_shared[el] = result
+                self._widgets[el] = result
 
                 for effect in self.context.effects:
                     effect()
 
             finally:
                 self.context = self.context.parent
-                self.frames.pop()
+                if DEBUG:
+                    self.frames.pop()
             assert self.context is not None
             return result
         else:
