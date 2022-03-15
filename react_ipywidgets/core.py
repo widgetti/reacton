@@ -366,7 +366,25 @@ class Effect:
 class _RenderContext:
     context: Optional[ElementContext] = None
 
-    def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True):
+    def state_get(self, context: Optional[ElementContext] = None):
+        if context is None:
+            context = self.context_root
+        data = {}
+        data['state'] = context.state
+        if context.children:
+            children_state = data['children'] = {}
+            for name, context in context.children.items():
+                children_state[name] = self.state_get(context)
+        return data
+
+    def state_set(self, context: ElementContext, state):
+        context.state = state.get('state', {})
+        for name, state in state.get('children', {}).items():
+            context.children[name] = ElementContext(parent=context)
+            self.state_set(context.children[name], state)
+
+
+    def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
         self.container = container
         self.children_trait = children_trait
@@ -382,6 +400,8 @@ class _RenderContext:
         self.thread_lock = threading.RLock()
         self.frames = []
         self.handle_error = handle_error
+        if initial_state:
+            self.state_set(self.context_root, initial_state)
         self._widgets: Dict[Element, widgets.Widget] = {}
 
     def use_memo(self, f, args, kwargs, debug_name: str = None):
@@ -694,8 +714,8 @@ class _RenderContext:
 _rc = None
 
 
-def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True) -> _RenderContext:
-    _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error)
+def render(element: Element[T], container: widgets.Widget, children_trait="children", handle_error: bool = True, initial_state=None) -> _RenderContext:
+    _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
     _rc.render(element, container)
     return _rc
 
