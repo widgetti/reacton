@@ -228,7 +228,7 @@ def get_widget(el: Element):
     return rc._widgets[el]
 
 
-def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
+def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[T], T]]:
     """Returns a (value, setter) tuple that is used to manage state in a component.
 
     This function can only be called from a component function.
@@ -241,7 +241,7 @@ def use_state(initial: T, key: str = None) -> Tuple[T, Callable[[T], T]]:
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
-    return _rc.use_state(initial, key)
+    return _rc.use_state(initial, key, eq)
 
 
 def use_side_effect(effect: EffectCallable, dependencies=None):
@@ -431,7 +431,7 @@ class _RenderContext:
             self.context.memo_index += 1
             return value
 
-    def use_state(self, initial, key: str = None) -> Tuple[T, Callable[[T], T]]:
+    def use_state(self, initial, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[T], T]]:
         assert self.context is not None
         if key is None:
             key = str(self.context.state_index)
@@ -439,19 +439,21 @@ class _RenderContext:
         if key not in self.context.state:
             self.context.state[key] = initial
             logger.info("Initial state = %r for key %r", initial, key)
-            return initial, self.make_setter(key, self.context)
+            return initial, self.make_setter(key, self.context, eq)
         else:
             state = self.context.state[key]
             logger.info("Got state = %r for key %r", state, key)
-            return state, self.make_setter(key, self.context)
+            return state, self.make_setter(key, self.context, eq)
 
-    def make_setter(self, key, context: ElementContext):
+    def make_setter(self, key, context: ElementContext, eq: Callable[[Any, Any], bool]):
         def set(value):
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r)", value, key, context.state[key])
 
-            if context.state[key] != value:
+            should_update = not eq(context.state[key], value) if eq is not None else context.state[key] != value
+
+            if should_update:
                 context.state[key] = value
                 context.needs_render = True
                 if self._state_changed is False:
