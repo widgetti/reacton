@@ -1,3 +1,6 @@
+import pytest
+
+pytest.importorskip("reactivex")
 import reactivex.subject
 
 import react_ipywidgets as react

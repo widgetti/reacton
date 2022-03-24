@@ -21,6 +21,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -37,6 +38,7 @@ __version__ = _version.__version__
 T = TypeVar("T")
 W = TypeVar("W")  # used for widgets
 E = TypeVar("E")  # used for elements
+
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
@@ -84,8 +86,12 @@ class Element(Generic[W]):
             except AssertionError:
                 self.traceback = sys.exc_info()[2]
 
+            assert self.traceback is not None
+            assert self.traceback.tb_frame is not None
+            assert self.traceback.tb_frame.f_back is not None
             frame_py = self.traceback.tb_frame.f_back.f_back
-            filename = inspect.getsourcefile(frame_py)
+            assert frame_py is not None
+            filename = inspect.getsourcefile(frame_py) or "<unknown>"
             locals = frame_py.f_locals
             name = "unknown"
             if rc:
@@ -116,7 +122,7 @@ class Element(Generic[W]):
                 widget.observe(handler_wrapper, name)
 
     def __repr__(self):
-        args = ', '.join(f'{key} = {value!r}' for key, value in self.kwargs.items())
+        args = ", ".join(f"{key} = {value!r}" for key, value in self.kwargs.items())
         if isinstance(self.component, ComponentFunction):
             name = self.component.f.__name__
             return f"{name}({args})"
@@ -124,7 +130,7 @@ class Element(Generic[W]):
             name = self.component.widget.__module__ + "." + self.component.widget.__name__
             return f"{name}.element({args})"
         else:
-            raise RuntimeError(f'No repr for {type(self)}')
+            raise RuntimeError(f"No repr for {type(self)}")
 
     def on(self, name, callback):
         self.handlers.append((name, callback))
@@ -146,6 +152,9 @@ class Element(Generic[W]):
         assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         ca = rc.context.container_adders.pop()
         ca.assign()
+
+
+FuncT = TypeVar("FuncT", bound=Callable[..., Element])
 
 
 def find_children(el):
@@ -208,11 +217,14 @@ class ComponentFunction(Component):
         return Element(self, *args, **kwargs)
 
 
-def component(obj: Union[Type[widgets.Widget], Callable]) -> Component:
+# it is actually this...
+# def component(obj: Union[Type[widgets.Widget], FuncT]) -> Union[ComponentWidget, ComponentFunction[FuncT]]:
+# but this gives much better type hints (e.g. argument types checks etc)
+def component(obj: FuncT) -> FuncT:
     if isclass(obj) and issubclass(obj, widgets.Widget):
-        return ComponentWidget(widget=obj)
+        return cast(FuncT, ComponentWidget(widget=obj))
     else:
-        return ComponentFunction(f=obj)
+        return cast(FuncT, ComponentFunction(f=obj))
 
 
 def force_update():
@@ -260,7 +272,7 @@ def use_state_widget(widget: widgets.Widget, prop_name):
     if _rc.first_render:
 
         def handler(change):
-            setter(change.new)
+            setter(change.new)  # type: ignore
 
         widget.observe(handler, prop_name)
     return value
@@ -285,7 +297,7 @@ def use_reducer(reduce, initial_state):
 
 def use_context(key: str):
     rc = _get_render_context()
-    value: Optional[T] = None
+    value = None
     context = rc.context
     while value is None and context is not None:
         value = context.user_contexts.get(key)
@@ -316,7 +328,7 @@ def use_callback(f, dependencies):
     use_memo(wrapper, args=dependencies)
 
 
-def provide_context(key: str, obj: any):
+def provide_context(key: str, obj: Any):
     rc = _get_render_context()
     context = rc.context
     context.user_contexts[key] = obj
@@ -370,19 +382,18 @@ class _RenderContext:
         if context is None:
             context = self.context_root
         data = {}
-        data['state'] = context.state
+        data["state"] = context.state
         if context.children:
-            children_state = data['children'] = {}
+            children_state = data["children"] = {}
             for name, context in context.children.items():
                 children_state[name] = self.state_get(context)
         return data
 
     def state_set(self, context: ElementContext, state):
-        context.state = state.get('state', {})
-        for name, state in state.get('children', {}).items():
+        context.state = state.get("state", {})
+        for name, state in state.get("children", {}).items():
             context.children[name] = ElementContext(parent=context)
             self.state_set(context.children[name], state)
-
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
@@ -398,7 +409,7 @@ class _RenderContext:
         self._state_changed = False
         self._state_changed_reason: Optional[str] = None
         self.thread_lock = threading.RLock()
-        self.frames = []
+        self.frames: List[Any] = []
         self.handle_error = handle_error
         if initial_state:
             self.state_set(self.context_root, initial_state)
@@ -445,7 +456,7 @@ class _RenderContext:
             logger.info("Got state = %r for key %r", state, key)
             return state, self.make_setter(key, self.context, eq)
 
-    def make_setter(self, key, context: ElementContext, eq: Callable[[Any, Any], bool]):
+    def make_setter(self, key, context: ElementContext, eq: Callable[[Any, Any], bool] = None):
         def set(value):
             if callable(value):
                 value = value(context.state[key])
@@ -496,12 +507,13 @@ class _RenderContext:
             except ComponentCreateError as e:
                 if self.handle_error:
                     from rich.console import Console
+
                     console = Console()
                     console.print(e.rich_traceback)
                 else:
                     raise e
             finally:
-                _rc = None
+                _rc = None  # type: ignore
 
     def _render(self, element: Element, container: widgets.Widget = None):
         main_render_phase = not self._is_rendering
@@ -533,7 +545,7 @@ class _RenderContext:
                         )
                 assert self.context is self.context_root
             is_sequence = isinstance(widget, (list, tuple))
-            self.context._widgets = {}
+            self._widgets = {}
             if container:
                 if is_sequence:
                     container.children = list(widget)
@@ -593,14 +605,16 @@ class _RenderContext:
                 except Exception as e:
                     if self.handle_error:
                         # get the real exception
+                        assert e.__traceback__ is not None
+                        assert e.__traceback__.tb_next is not None
                         frame_py = e.__traceback__.tb_next.tb_frame
-                        filename = inspect.getsourcefile(frame_py)
+                        filename = inspect.getsourcefile(frame_py) or "<unkown>"
                         locals = frame_py.f_locals
                         name = el.component.f.__name__
                         frame = rich.traceback.Frame(filename=filename, lineno=frame_py.f_lineno, name=name, locals=locals if TRACEBACK_LOCALS else None)
                         self.frames.append(frame)
 
-                        stack = rich.traceback.Stack(type(e), str(e), frames=self.frames.copy())
+                        stack = rich.traceback.Stack(str(type(e)), str(e), frames=self.frames.copy())
                         trace = rich.traceback.Trace(stacks=[stack])
                         tb = rich.traceback.Traceback(trace)
                         raise ComponentCreateError(tb)
