@@ -286,7 +286,7 @@ def _get_render_context(required=True):
     return _rc
 
 
-def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> tuple[T, Callable[[U], None]]:
+def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Callable[[U], None]]:
     state, set_state = use_state(initial_state)
 
     def dispatch(action):
