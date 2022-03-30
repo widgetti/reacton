@@ -342,7 +342,7 @@ def provide_context(key: str, obj: Any):
     context.user_contexts[key] = obj
 
 
-class ElementContext:
+class ComponentContext:
     def __init__(self, parent=None, element: Element = None) -> None:
         self.parent = parent
         self.element = element
@@ -353,7 +353,7 @@ class ElementContext:
         self.state_index = 0
         self.effect_index = 0
         self.memo_index = 0
-        self.children: Dict[str, ElementContext] = {}
+        self.children: Dict[str, ComponentContext] = {}
         self.result: WidgetOrList = None
         self.user_contexts: Dict[Any, Any] = {}
         self.memo: List[Any] = []
@@ -384,9 +384,9 @@ class Effect:
 
 
 class _RenderContext:
-    context: Optional[ElementContext] = None
+    context: Optional[ComponentContext] = None
 
-    def state_get(self, context: Optional[ElementContext] = None):
+    def state_get(self, context: Optional[ComponentContext] = None):
         if context is None:
             context = self.context_root
         data = {}
@@ -397,10 +397,10 @@ class _RenderContext:
                 children_state[name] = self.state_get(context)
         return data
 
-    def state_set(self, context: ElementContext, state):
+    def state_set(self, context: ComponentContext, state):
         context.state = state.get("state", {})
         for name, state in state.get("children", {}).items():
-            context.children[name] = ElementContext(parent=context)
+            context.children[name] = ComponentContext(parent=context)
             self.state_set(context.children[name], state)
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
@@ -408,7 +408,7 @@ class _RenderContext:
         self.container = container
         self.children_trait = children_trait
         self.first_render = True
-        self.context = ElementContext()
+        self.context = ComponentContext()
         self.context_root = self.context
         self.pool: Dict[Type[widgets.Widget], List[widgets.Widget]] = {}
         self.render_count = 0
@@ -464,7 +464,7 @@ class _RenderContext:
             logger.info("Got state = %r for key %r", state, key)
             return state, self.make_setter(key, self.context, eq)
 
-    def make_setter(self, key, context: ElementContext, eq: Callable[[Any, Any], bool] = None):
+    def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
         def set(value):
             if callable(value):
                 value = value(context.state[key])
@@ -599,10 +599,10 @@ class _RenderContext:
                 else:
                     if self.context.element.component != el.component:
                         # TODO: cleanup old context
-                        self.context = ElementContext(parent=self.context.parent, element=el)
+                        self.context = ComponentContext(parent=self.context.parent, element=el)
                         self.context.parent.children[key] = self.context
             else:
-                self.context = ElementContext(parent=self.context, element=el)
+                self.context = ComponentContext(parent=self.context, element=el)
                 self.context.parent.children[key] = self.context
             logger.debug("enter context %r", key)
             render_count = self.render_count
