@@ -30,7 +30,7 @@ from typing import (
 )
 
 import rich.traceback
-import ipywidgets as widgets  # type: ignore
+import ipywidgets as widgets
 
 from . import _version
 
@@ -113,16 +113,21 @@ class Element(Generic[W]):
                 normal_kwargs[name] = value
         return normal_kwargs, listeners
 
-    def handle_custom_kwargs(self, widget, kwargs):
+    def handle_custom_kwargs(self, widget: widgets.widgets.Widget, kwargs):
         listeners = kwargs
-        widget.unobserve_all()
         for name, listener in listeners.items():
-            if listener is not None:
 
-                def handler_wrapper(change, listener=listener):
+            def add_event_handler(name=name, listener=listener):
+                def event_handler(change):
                     listener(change.new)
 
-                widget.observe(handler_wrapper, name)
+                def cleanup():
+                    widget.unobserve(event_handler, name)
+
+                widget.observe(event_handler, name)
+                return cleanup
+
+            use_side_effect(add_event_handler)
 
     def __repr__(self):
         args = ", ".join(f"{key} = {value!r}" for key, value in self.kwargs.items())

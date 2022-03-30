@@ -811,3 +811,36 @@ def test_on_trait():
     widget, _rc = react.render_fixed(SomeWidget.element(on_hover=mock))
     assert widget.on_hover is mock
     # mock.assert_called()
+
+
+def test_other_event_handlers():
+    # previously, we used unobserve_all, which removed event handlers not attached via on_ arguments
+    mock = unittest.mock.Mock()
+
+    @component
+    def Test():
+        value, set_value = react.use_state("hi")
+        text = w.Text(value=value, on_value=set_value)
+
+        def add_my_own_event_handler():
+            widget = react.get_widget(text)
+
+            def event_handler(change):
+                mock(change.new)
+
+            # react is not aware of this event handler, and should not
+            # remove it
+            widget.observe(event_handler, "value")
+            return lambda: None
+
+        use_side_effect(add_my_own_event_handler, [])  # only add it once
+        return text
+
+    text, _rc = react.render_fixed(Test())
+    # first time, it's always ok
+    text.value = "hallo"
+    mock.assert_called()
+    mock.reset_mock()
+    # second time, we executed the render loop again, did we remove the event handler?
+    text.value = "ola"
+    mock.assert_called()
