@@ -844,3 +844,43 @@ def test_other_event_handlers():
     # second time, we executed the render loop again, did we remove the event handler?
     text.value = "ola"
     mock.assert_called()
+
+
+def test_state_leak_different_components():
+    @react.component
+    def SliderComponent():
+        value, set_value = react.use_state(1)
+        return w.IntSlider(value=value, on_value=set_value)
+
+    @react.component
+    def OtherComponent():
+        value, set_value = react.use_state(10)
+        return w.IntText(value=value, on_value=set_value)
+
+    set_show_other = None
+
+    @react.component
+    def Test():
+        nonlocal set_show_other
+        show_other, set_show_other = react.use_state(False)
+        with w.VBox() as main:
+            if show_other:
+                OtherComponent()
+            else:
+                SliderComponent()
+        return main
+
+    test, _rc = react.render_fixed(Test())
+    assert set_show_other is not None
+    assert test.children[0].value == 1
+    set_show_other(True)
+    assert test.children[0].value == 10
+    test.children[0].value = 11
+    set_show_other(False)
+    assert test.children[0].value == 1
+    test.children[0].value = 2
+    set_show_other(True)
+    # the state should be reset, if the component was detached
+    assert test.children[0].value == 10
+    set_show_other(False)
+    assert test.children[0].value == 1

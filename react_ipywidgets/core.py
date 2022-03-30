@@ -596,6 +596,11 @@ class _RenderContext:
                 if self.context.element is None:
                     # what about when element changes.. ?
                     self.context.element = el
+                else:
+                    if self.context.element.component != el.component:
+                        # TODO: cleanup old context
+                        self.context = ElementContext(parent=self.context.parent, element=el)
+                        self.context.parent.children[key] = self.context
             else:
                 self.context = ElementContext(parent=self.context, element=el)
                 self.context.parent.children[key] = self.context
