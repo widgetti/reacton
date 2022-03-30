@@ -104,8 +104,10 @@ class Element(Generic[W]):
     def split_kwargs(self, kwargs):
         listeners = {}
         normal_kwargs = {}
+        assert isinstance(self.component, ComponentWidget)
+        args = self.component.widget.class_trait_names()
         for name, value in kwargs.items():
-            if name.startswith("on_"):
+            if name.startswith("on_") and name not in args:
                 listeners[name[3:]] = value
             else:
                 normal_kwargs[name] = value

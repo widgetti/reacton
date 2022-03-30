@@ -1,4 +1,6 @@
 from typing import List, TypeVar
+import unittest.mock
+import traitlets
 
 import ipywidgets
 import ipywidgets as widgets
@@ -129,7 +131,7 @@ def test_state():
 def test_restore_default():
     @react.component
     def Slider(value):
-        return w.IntSlider(value=value, description=f'Value {value}')
+        return w.IntSlider(value=value, description=f"Value {value}")
 
     slider, rc = react.render_fixed(Slider(2))
     assert slider.description == "Value 2"
@@ -785,3 +787,27 @@ def test_get_widget():
 
     box, _rc = react.render_fixed(Multiple())
     assert box.children[0] is button
+
+
+def test_on_argument():
+    # since we have special treatment with on_, lets test special cases
+    # like an argument with the same name
+    @component
+    def Test(on_test):
+        on_test("hi")
+        return w.Button()
+
+    mock = unittest.mock.Mock()
+    box, _rc = react.render_fixed(Test(on_test=mock))
+    mock.assert_called()
+
+
+def test_on_trait():
+    # similar to an argument, but now a trait that happens to start with on_
+    class SomeWidget(widgets.Button):
+        on_hover = traitlets.traitlets.Callable(None, allow_none=True)
+
+    mock = unittest.mock.Mock()
+    widget, _rc = react.render_fixed(SomeWidget.element(on_hover=mock))
+    assert widget.on_hover is mock
+    # mock.assert_called()
