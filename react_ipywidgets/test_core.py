@@ -1,5 +1,6 @@
 from typing import List, TypeVar
 import unittest.mock
+import pytest
 import traitlets
 
 import ipywidgets
@@ -884,3 +885,19 @@ def test_state_leak_different_components():
     assert test.children[0].value == 10
     set_show_other(False)
     assert test.children[0].value == 1
+
+
+def test_exceptions(capsys):
+    @react.component
+    def Test():
+        return w.Button()
+
+    with pytest.raises(TypeError):
+        test, _rc = react.render_fixed(Test(non_existing_arg=1), handle_error=False)  # type: ignore
+    assert react.render_fixed(Test(non_existing_arg=1), handle_error=True)[0] is None  # type: ignore
+    out = str(capsys.readouterr().out)
+    # put in
+    # extra lines
+    # to avoid the stderr
+    # to in include the next line
+    assert "non_existing_arg" in out

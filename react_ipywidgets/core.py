@@ -619,8 +619,10 @@ class _RenderContext:
                     if self.handle_error:
                         # get the real exception
                         assert e.__traceback__ is not None
-                        assert e.__traceback__.tb_next is not None
-                        frame_py = e.__traceback__.tb_next.tb_frame
+                        traceback = e.__traceback__
+                        if traceback.tb_next:  # we prefer to skip the traceback with el.component.f(..) abiove
+                            traceback = traceback.tb_next
+                        frame_py = traceback.tb_frame
                         filename = inspect.getsourcefile(frame_py) or "<unkown>"
                         locals = frame_py.f_locals
                         name = el.component.f.__name__
