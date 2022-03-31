@@ -901,3 +901,12 @@ def test_exceptions(capsys):
     # to avoid the stderr
     # to in include the next line
     assert "non_existing_arg" in out
+
+
+def test_mime_bundle():
+    @react.component(mime_bundle={"text/plain": "text"})
+    def Test(a=1):
+        return w.Button()
+
+    el = Test()
+    assert el.mime_bundle["text/plain"] == "text"

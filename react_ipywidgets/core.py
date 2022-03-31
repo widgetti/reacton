@@ -7,11 +7,11 @@ ReactJS - ipywidgets relation:
 
 """
 
+import inspect
 import logging  # type: ignore
+import sys
 import threading
 from inspect import isclass
-import inspect
-import sys
 from types import GeneratorType
 from typing import (
     Any,
@@ -27,10 +27,11 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
-import rich.traceback
 import ipywidgets as widgets
+import rich.traceback
 
 from . import _version
 
@@ -47,6 +48,14 @@ KEY_NAME = "__key__"
 logger = logging.getLogger("react")  # type: ignore
 DEBUG = 1
 TRACEBACK_LOCALS = 1
+MIME_WIDGETS = "application/vnd.jupyter.widget-view+json"
+
+
+widget_render_error_msg = (
+    """Cannot show widget. You probably want to rerun the code cell above (<i>Click in the code cell, and press Shift+Enter <kbd>⇧</kbd>+<kbd>↩</kbd></i>)."""
+)
+
+mime_bundle_default = {"text/plain": "Cannot show ipywidgets in text", "text/html": widget_render_error_msg}
 
 
 def element(cls, **kwargs):
@@ -70,6 +79,7 @@ class Component:
 class Element(Generic[W]):
     def __init__(self, component, *args, **kwargs):
         self.component = component
+        self.mime_bundle = mime_bundle_default
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
@@ -145,7 +155,7 @@ class Element(Generic[W]):
         return self
 
     def _ipython_display_(self, **kwargs):
-        display(self)
+        display(self, self.mime_bundle)
 
     def __enter__(self):
         rc = _get_render_context()
@@ -207,32 +217,58 @@ class ContainerAdder(Generic[W]):
 
 
 class ComponentWidget(Component):
-    def __init__(self, widget: Type[widgets.Widget]):
+    def __init__(self, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
+        self.mime_bundle = mime_bundle
         self.widget = widget
 
     def __repr__(self):
         return f"Component[{self.widget!r}]"
 
     def __call__(self, *args, **kwargs):
-        return Element(self, *args, **kwargs)
+        el = Element(self, *args, **kwargs)
+        # TODO: temporary, we cannot change the constructor
+        # otherwise we need to generate the wrapper code again for all libraries
+        el.mime_bundle = self.mime_bundle
+        return el
 
 
 class ComponentFunction(Component):
-    def __init__(self, f: Callable[[], Union[Iterable[Element], Element]]):
+    def __init__(self, f: Callable[[], Union[Iterable[Element], Element]], mime_bundle=mime_bundle_default):
+        self.mime_bundle = mime_bundle
         self.f = f
 
     def __call__(self, *args, **kwargs):
-        return Element(self, *args, **kwargs)
+        el = Element(self, *args, **kwargs)
+        el.mime_bundle = self.mime_bundle
+        return el
 
 
 # it is actually this...
 # def component(obj: Union[Type[widgets.Widget], FuncT]) -> Union[ComponentWidget, ComponentFunction[FuncT]]:
 # but this gives much better type hints (e.g. argument types checks etc)
-def component(obj: FuncT) -> FuncT:
-    if isclass(obj) and issubclass(obj, widgets.Widget):
-        return cast(FuncT, ComponentWidget(widget=obj))
+
+
+@overload
+def component(obj: None, mime_bundle=mime_bundle_default) -> Callable[[FuncT], FuncT]:
+    ...
+
+
+@overload
+def component(obj: FuncT, mime_bundle=mime_bundle_default) -> FuncT:
+    ...
+
+
+def component(obj: FuncT = None, mime_bundle=mime_bundle_default):
+    def wrapper(obj: FuncT) -> FuncT:
+        if isclass(obj) and issubclass(obj, widgets.Widget):
+            return cast(FuncT, ComponentWidget(widget=obj, mime_bundle=mime_bundle))
+        else:
+            return cast(FuncT, ComponentFunction(f=obj, mime_bundle=mime_bundle))
+
+    if obj is not None:
+        return wrapper(obj)
     else:
-        return cast(FuncT, ComponentFunction(f=obj))
+        return wrapper
 
 
 def force_update():
@@ -760,10 +796,18 @@ def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _Re
     return widget, _rc
 
 
-def display(el: Element):
+def display(el: Element, mime_bundle=mime_bundle_default):
     import IPython.display  # type: ignore
 
-    IPython.display.display(make(el))
+    widget = make(el)
+
+    data = {
+        **mime_bundle_default,
+        **mime_bundle,
+        MIME_WIDGETS: {"version_major": 2, "version_minor": 0, "model_id": widget._model_id},
+    }
+    IPython.display.display(data, raw=True)
+    widget._handle_displayed()
 
 
 def make(el: Element):
