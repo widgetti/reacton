@@ -910,3 +910,18 @@ def test_mime_bundle():
 
     el = Test()
     assert el.mime_bundle["text/plain"] == "text"
+
+
+def test_use_state_with_function():
+    @react.component
+    def ButtonClick(label="Hi"):
+        clicks, set_clicks = react.use_state(0)
+
+        def update_click(click):
+            return click + 1
+
+        return w.Button(description=f"{label}: Clicked {clicks} times", on_click=lambda: set_clicks(update_click))
+
+    clicker, _rc = react.render_fixed(ButtonClick())
+    clicker.click()
+    assert clicker.description == "Hi: Clicked 1 times"

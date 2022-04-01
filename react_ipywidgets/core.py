@@ -284,7 +284,7 @@ def get_widget(el: Element):
     return rc._widgets[el]
 
 
-def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[T], T]]:
+def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], T]]:
     """Returns a (value, setter) tuple that is used to manage state in a component.
 
     This function can only be called from a component function.
