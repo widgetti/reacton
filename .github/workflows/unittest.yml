@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install
         run: pip install ".[dev]"
       - name: test
         run: pytest --cov=react_ipywidgets react_ipywidgets
