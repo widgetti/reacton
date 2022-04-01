@@ -810,9 +810,9 @@ def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     widget._handle_displayed()
 
 
-def make(el: Element):
+def make(el: Element, handle_error: bool = True):
     hbox = widgets.VBox()
-    render(el, hbox, "children")
+    render(el, hbox, "children", handle_error=handle_error)
     return hbox
 
 
