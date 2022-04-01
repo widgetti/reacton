@@ -32,6 +32,12 @@ dev = [
     "black",
     "mypy",
     "pre-commit",
+    "coverage",
+    "pytest",
+    "pytest-cov",
+    "bqplot",
+    "numpy",
+    "ipyvuetify",
 ]
 
 [project.urls]
