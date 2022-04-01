@@ -69,6 +69,7 @@ def setup():
     from rich.logging import RichHandler
 
     log_handler = RichHandler()
+    assert log_handler is not None
     log_handler.setLevel(logging.DEBUG)
     # add console handler to logger
     logger.addHandler(log_handler)

@@ -17,6 +17,8 @@
 
 # -- Project information -----------------------------------------------------
 
+from typing import List
+
 project = "react-ipywidgets"
 copyright = "2022, Maarten A. Breddels"
 author = "Maarten A. Breddels"
@@ -38,7 +40,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns: List[str] = []
 
 
 # -- Options for HTML output -------------------------------------------------

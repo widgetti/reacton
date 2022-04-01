@@ -31,15 +31,19 @@ def not_equals(a, b):
 
     def numpyish(obj):
         import sys
-        if 'pandas' in sys.modules:
+
+        if "pandas" in sys.modules:
             import pandas as pd
+
             if isinstance(obj, pd.Series):
                 return True
-        if 'numpy' in sys.modules:
+        if "numpy" in sys.modules:
             import numpy as np
+
             if isinstance(obj, np.ndarray):
                 return True
         return False
+
     if numpyish(a) or numpyish(b):
         return (a != b).any()
     else:

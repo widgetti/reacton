@@ -1,20 +1,14 @@
-import datetime
 import typing
 from typing import Any, Dict, Union
 
 import ipycanvas
 import ipywidgets
-import numpy as np
-import traitlets
-from numpy import ndarray
 
 import react_ipywidgets as react
 from react_ipywidgets.core import Element
 
-from .ipywidgets import Layout
-from .utils import without_default
 from . import ipywidgets as w
-
+from .utils import without_default
 
 if __name__ == "__main__":
 
@@ -22,6 +16,7 @@ if __name__ == "__main__":
 
     ignore_traits = "domain_class".split()
     generate(__file__, [ipycanvas], ignore_traits=ignore_traits)
+
 
 # generated code:
 def Canvas(
@@ -231,4 +226,3 @@ def RoughCanvas(
     widget_cls = ipycanvas.canvas.RoughCanvas
     comp = react.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
-

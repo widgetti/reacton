@@ -5,16 +5,14 @@ from typing import Any, Dict, Union
 import bqplot
 import ipywidgets
 import numpy as np
-import traitlets
 from numpy import ndarray
 
 import react_ipywidgets as react
 from react_ipywidgets.core import Element
 
+from . import ipywidgets as w
 from .ipywidgets import Layout
 from .utils import without_default
-from . import ipywidgets as w
-
 
 if __name__ == "__main__":
 
@@ -22,6 +20,7 @@ if __name__ == "__main__":
 
     ignore_traits = "domain_class".split()
     generate(__file__, [bqplot], ignore_traits=ignore_traits)
+
 
 # generated code:
 def Albers(
@@ -3150,4 +3149,3 @@ def Tooltip(
     widget_cls = bqplot.default_tooltip.Tooltip
     comp = react.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
-

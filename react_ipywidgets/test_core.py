@@ -1,11 +1,11 @@
-from typing import List, TypeVar
 import unittest.mock
-import pytest
-import traitlets
+from typing import List, TypeVar
 
 import ipywidgets
 import ipywidgets as widgets
 import numpy as np
+import pytest
+import traitlets
 
 import react_ipywidgets as react
 from react_ipywidgets.core import component, use_side_effect

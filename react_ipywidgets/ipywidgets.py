@@ -13,7 +13,6 @@ from react_ipywidgets.core import Element
 
 from .utils import without_default
 
-
 # def use_on_click(on_click):
 #     def add_event_handler(button: widgets.Button):
 #         def handler(change):
@@ -73,8 +72,10 @@ def text(value="Hi there", description="", key=None, **kwargs):
 def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
     key = key or str(value) + str(description) + str(options)
     value, set_value = react.use_state(value, key)
+
     def set_index(index):
         set_value(options[index])
+
     Dropdown(value=value, description=description, options=options, on_index=set_index)
     return value
 

@@ -225,7 +225,7 @@ class ComponentWidget(Component):
         return f"Component[{self.widget!r}]"
 
     def __call__(self, *args, **kwargs):
-        el = Element(self, *args, **kwargs)
+        el: Element = Element(self, *args, **kwargs)
         # TODO: temporary, we cannot change the constructor
         # otherwise we need to generate the wrapper code again for all libraries
         el.mime_bundle = self.mime_bundle
@@ -238,7 +238,7 @@ class ComponentFunction(Component):
         self.f = f
 
     def __call__(self, *args, **kwargs):
-        el = Element(self, *args, **kwargs)
+        el: Element = Element(self, *args, **kwargs)
         el.mime_bundle = self.mime_bundle
         return el
 
@@ -249,16 +249,16 @@ class ComponentFunction(Component):
 
 
 @overload
-def component(obj: None, mime_bundle=mime_bundle_default) -> Callable[[FuncT], FuncT]:
+def component(obj: None = None, mime_bundle=...) -> Callable[[FuncT], FuncT]:
     ...
 
 
 @overload
-def component(obj: FuncT, mime_bundle=mime_bundle_default) -> FuncT:
+def component(obj: FuncT, mime_bundle=...) -> FuncT:
     ...
 
 
-def component(obj: FuncT = None, mime_bundle=mime_bundle_default):
+def component(obj: FuncT = None, mime_bundle: Dict[str, Any] = mime_bundle_default):
     def wrapper(obj: FuncT) -> FuncT:
         if isclass(obj) and issubclass(obj, widgets.Widget):
             return cast(FuncT, ComponentWidget(widget=obj, mime_bundle=mime_bundle))
@@ -796,12 +796,12 @@ def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _Re
     return widget, _rc
 
 
-def display(el: Element, mime_bundle=mime_bundle_default):
+def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     import IPython.display  # type: ignore
 
     widget = make(el)
 
-    data = {
+    data: Dict[str, Any] = {
         **mime_bundle_default,
         **mime_bundle,
         MIME_WIDGETS: {"version_major": 2, "version_minor": 0, "model_id": widget._model_id},
