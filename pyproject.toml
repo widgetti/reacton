@@ -38,6 +38,7 @@ dev = [
     "bqplot",
     "numpy",
     "ipyvuetify",
+    "bump2version",
 ]
 
 [project.urls]
