@@ -372,6 +372,19 @@ def use_callback(f, dependencies):
     use_memo(wrapper, args=dependencies)
 
 
+class Ref(Generic[T]):
+    def __init__(self, initial_value: T):
+        self.current = initial_value
+
+
+def use_ref(initial_value: T) -> Ref[T]:
+    def make_ref():
+        return Ref(initial_value)
+
+    ref = use_memo(make_ref, args=[])
+    return ref
+
+
 def provide_context(key: str, obj: Any):
     rc = _get_render_context()
     context = rc.context

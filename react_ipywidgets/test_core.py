@@ -925,3 +925,21 @@ def test_use_state_with_function():
     clicker, _rc = react.render_fixed(ButtonClick())
     clicker.click()
     assert clicker.description == "Hi: Clicked 1 times"
+
+
+def test_use_ref():
+    last = None
+
+    @react.component
+    def ButtonClick(label="Hi"):
+        nonlocal last
+        clicks, set_clicks = react.use_state(0)
+        ref = react.use_ref({"hi": 1})
+        last = ref.current
+        return w.Button(description=f"{label}: Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
+
+    clicker, _rc = react.render_fixed(ButtonClick())
+    clicker.click()
+    last1 = last
+    clicker.click()
+    assert last is last1
