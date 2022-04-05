@@ -1,16 +1,20 @@
-from typing import cast
+from typing import Any, Callable, cast
 
 import ipyvue
 
 import react_ipywidgets as react
 
 
-def use_event(el: react.core.Element, event_and_modifiers, callback):
+def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], None]):
+    # to avoid add_event_handler having a stale reference to callback
+    callback_ref = react.use_ref(callback)
+    callback_ref.current = callback
+
     def add_event_handler():
         vue_widget = cast(ipyvue.VueWidget, react.core.get_widget(el))
 
         def handler(*args):
-            callback(*args)
+            callback_ref.current(*args)
 
         vue_widget.on_event(event_and_modifiers, handler)
 
@@ -19,4 +23,4 @@ def use_event(el: react.core.Element, event_and_modifiers, callback):
 
         return cleanup
 
-    react.use_side_effect(add_event_handler)
+    react.use_side_effect(add_event_handler, [event_and_modifiers])
