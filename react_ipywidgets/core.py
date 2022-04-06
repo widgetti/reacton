@@ -333,8 +333,9 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
     state, set_state = use_state(initial_state)
 
     def dispatch(action):
-        new_state = reduce(state, action)
-        set_state(new_state)
+        def state_updater(state):
+            return reduce(state, action)
+        set_state(state_updater)
 
     return state, dispatch
 
