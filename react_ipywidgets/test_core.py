@@ -1,3 +1,4 @@
+import traceback
 import unittest.mock
 from typing import List, TypeVar
 
@@ -30,36 +31,111 @@ def count():
     return len(widgets.Widget.widgets)
 
 
+# components used for testing
+
+
 @component
 def MyComponent():
     return w.Button()
 
 
+@react.component
+def ButtonComponentFunction(**kwargs):
+    return w.Button(**kwargs)
+
+
+@react.component
+def ButtonNumber(value):
+    # to test state reuse
+    value, set_value = react.use_state(value)
+    return w.Button(description=str(value))
+
+
+@react.component
+def ButtonNumber2(value):
+    # to test state reuse
+    value, set_value = react.use_state(value)
+    return w.Button(description=str(value))
+
+
+@react.component
+def Container(children=[]):
+    return w.HBox(children=children)
+
+
+@pytest.fixture(autouse=True)
+def cleanup_guard():
+    before = set(widgets.Widget.widgets)
+    yield
+    after = set(widgets.Widget.widgets)
+    leftover = after - before
+    if leftover:
+        leftover_widgets = [widgets.Widget.widgets[k] for k in leftover]
+        assert not leftover_widgets
+        # raise RuntimeError(f"{leftover_widgets}")
+
+
+# @pytest.fixture(params=["ButtonComponentWidget", "ButtonComponentFunction"])
+@pytest.fixture(params=["ButtonComponentWidget"])
+def ButtonComponent(request):
+    return dict(ButtonComponentWidget=w.Button, ButtonComponentFunction=ButtonComponentFunction)[request.param]
+
+
+def test_internals():
+    @react.component
+    def Child():
+        # return w.VBox(children=[w.Button(__key__="button")], __key__="box")
+        return w.VBox()
+
+    @react.component
+    def App():
+        return Child(__key__="child")  # type: ignore
+
+    app = App()
+
+    # root_context:
+    #     element: App
+    #     children:
+    #     - '/':
+    widget, rc = react.render_fixed(app, handle_error=False)
+    assert rc.context_root.root_element == app
+    assert list(rc.context_root.children_next) == []
+    assert list(rc.context_root.children) == ["/"]
+
+    app_context = rc.context_root.children["/"]
+    assert list(app_context.children_next) == []
+    assert list(app_context.children) == ["child"]
+    assert app_context.invoke_element is app
+
+    rc.close()
+
+    # assert app_context.children["child"].invoke_element is app_context.elements["child"]
+    # assert list(rc.context_root.children["/"].children["child"].invoke_element) == ["child"]
+
+
 def test_create_element():
     clear()
     button: react.core.Element[widgets.Button] = react.core.Element[widgets.Button](MyComponent)
-    hbox = widgets.HBox()
-    assert count() == 2
-    react.render(button, hbox, "children")
+    assert count() == 0
+    hbox, rc = react.render(button, handle_error=False)
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
     assert count() == 2 + 3  # button + button layout + button style
+    rc.close()
 
 
 def test_monkey_patch():
-    # TODO: we do really want to have the Widget.component class method?
     button = widgets.Button.element(description="Hi")
-    hbox = widgets.HBox()
-    react.render(button, hbox, "children")
+    hbox, rc = react.render(button)
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
     assert hbox.children[0].description == "Hi"
+    rc.close()
 
 
 def test_component_function():
     clear()
-    hbox = widgets.HBox()
-    assert count() == 2
+    assert count() == 0
 
     @react.component
     def button_or_label(make_button):
@@ -68,38 +144,24 @@ def test_component_function():
         else:
             return w.Label(description="Label")
 
-    react.render(button_or_label(make_button=False), hbox, "children")
+    hbox, rc = react.render(button_or_label(make_button=False))
     assert count() == 2 + 3  # label + label layout + label style
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Label)
     assert hbox.children[0].description == "Label"
+    rc.close()
 
-    assert count() == 2 + 3
-    react.render(button_or_label(make_button=True), hbox, "children")
+    assert count() == 0
+    hbox, rc = react.render(button_or_label(make_button=True), hbox, "children")
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
     assert hbox.children[0].description == "Button"
-    assert count() == 2 + 3 + 3  # button + label
+    assert count() == 3  # button + label
+    rc.close()
 
 
-def test_component_yield():
-    hbox = widgets.HBox()
-
-    @react.component
-    def button_and_label(make_button):
-        yield w.Button(description="Button")
-        yield w.Label(description="Label")
-
-    react.render(button_and_label(make_button=False), hbox, "children")
-    assert len(hbox.children) == 2
-    assert isinstance(hbox.children[0], widgets.Button)
-    assert isinstance(hbox.children[1], widgets.Label)
-
-
-def test_state():
+def test_state_simple():
     clear()
-    hbox = widgets.HBox()
-    assert count() == 2
 
     @react.component
     def slider_text():
@@ -112,7 +174,7 @@ def test_state():
 
         return w.FloatSlider(value=value, on_value=on_value, description=description)
 
-    react.render(slider_text(), hbox, "children")
+    hbox, rc = react.render(slider_text())
     assert count() == 2 + 3
 
     assert len(hbox.children) == 1
@@ -127,6 +189,7 @@ def test_state():
     assert slider is hbox.children[0]
     assert slider.description == "Value = 1.0"
     assert count() == 2 + 3
+    rc.close()
 
 
 def test_restore_default():
@@ -145,6 +208,7 @@ def test_restore_default():
     rc.render(Slider(2))
     assert slider.description == "Value 2"
     assert slider.value == 2
+    rc.close()
 
     # now start with the default
 
@@ -159,11 +223,10 @@ def test_restore_default():
     rc.render(Slider(0))
     assert slider.description == "Value 0"
     assert slider.value == 0
+    rc.close()
 
 
 def test_state_complicated():
-    hbox = widgets.HBox()
-
     @react.component
     def slider_text():
         value, set_value = react.use_state(0.0)
@@ -176,21 +239,20 @@ def test_state_complicated():
 
         return w.FloatSlider(value=value, on_value=on_value, description=description)
 
-    react.render(slider_text(), hbox, "children")
-    slider = hbox.children[0]
+    slider, rc = react.render_fixed(slider_text())
 
     assert slider.description == "Value = 0.0"
     assert slider.value == 0
 
     slider.value = 1
     assert slider.description == "Value = 1.0"
+    rc.close()
 
 
 def test_state_outside():
     clear()
-    hbox = widgets.HBox()
     checkbox = widgets.Checkbox(value=False, description="Show button?")
-    assert count() == 2 + 3
+    assert count() == 3
 
     @react.component
     def button_or_label(checkbox):
@@ -201,8 +263,9 @@ def test_state_outside():
             return w.Label(description="Label")
 
     el = button_or_label(checkbox=checkbox)
-    react.render(el, hbox, "children")
-    assert count() == 2 + 3 + 3  # added label
+    hbox, rc = react.render(el)
+
+    assert count() == 3 + 2 + 3  # checkbox, box, label
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Label)
     assert hbox.children[0].description == "Label"
@@ -212,7 +275,7 @@ def test_state_outside():
     after = dict(ipywidgets.Widget.widgets)
     diff = set(after) - set(before)
     extra = list(diff)
-    assert count() == 2 + 3 + 3 + 3  # added button and button style (layout is not reused, because we are not aware of it being created)
+    assert count() == 3 + 2 + 3  # similar
     assert len(extra) == 3
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
@@ -224,52 +287,61 @@ def test_state_outside():
     diff = set(after) - set(before)
     extra = list(diff)
     assert len(extra) == 3
-    assert count() == 2 + 3 + 3 + 3 + 3  # Label and Layout gets created, TODO: reuse it
+    assert count() == 3 + 2 + 3
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Label)
     assert hbox.children[0].description == "Label"
+    rc.close()
+    checkbox.layout.close()
+    checkbox.style.close()
+    checkbox.close()
 
 
 def test_children():
     clear()
-    hbox = widgets.HBox()
-    slider = widgets.IntSlider(value=2, description="How many buttons?")
-    assert count() == 2 + 3
+    # hbox = widgets.HBox()
+    # slider = widgets.IntSlider(value=2, description="How many buttons?")
 
     @react.component
-    def buttons(slider):
-        buttons = react.use_state_widget(slider, "value")
-        return [w.Button(description=f"Button {i}") for i in range(buttons)]
+    def buttons():
+        buttons, set_buttons = react.use_state(2)
+        with w.HBox() as main:
+            _ = w.IntSlider(value=buttons, on_value=set_buttons, description="How many buttons?")
+            _ = [w.Button(description=f"Button {i}") for i in range(buttons)]
+        return main
 
-    el = buttons(slider)
-    rc = react.render(el, hbox, "children")
+    hbox, rc = react.render_fixed(buttons())
+    slider = hbox.children[0]
+    # hbox + slider: 2 + 3
     assert count() == 2 + 3 + 2 * 3  # added 2 buttons
-    assert len(hbox.children) == 2
-    assert isinstance(hbox.children[0], widgets.Button)
-    assert isinstance(hbox.children[1], widgets.Button)
-    assert hbox.children[0] != hbox.children[1]
-    assert hbox.children[0].description == "Button 0"
-    assert hbox.children[1].description == "Button 1"
-
-    slider.value = 3
-    assert count() == 2 + 3 + 2 * 3 + 3  # added 1 button
-    assert len(hbox.children) == 3
-    assert isinstance(hbox.children[0], widgets.Button)
+    assert len(hbox.children) == 1 + 2
     assert isinstance(hbox.children[1], widgets.Button)
     assert isinstance(hbox.children[2], widgets.Button)
-    assert hbox.children[0] != hbox.children[1]
-    assert hbox.children[0] != hbox.children[2]
     assert hbox.children[1] != hbox.children[2]
-    assert hbox.children[0].description == "Button 0"
-    assert hbox.children[1].description == "Button 1"
-    assert hbox.children[2].description == "Button 2"
+    assert hbox.children[1].description == "Button 0"
+    assert hbox.children[2].description == "Button 1"
+
+    slider.value = 3
+    assert len(hbox.children) == 1 + 3
+    assert count() == 2 + 3 + 2 * 3 + 3  # added 1 button
+    assert isinstance(hbox.children[1], widgets.Button)
+    assert isinstance(hbox.children[2], widgets.Button)
+    assert isinstance(hbox.children[3], widgets.Button)
+    assert hbox.children[1] != hbox.children[2]
+    assert hbox.children[1] != hbox.children[3]
+    assert hbox.children[2] != hbox.children[3]
+    assert hbox.children[1].description == "Button 0"
+    assert hbox.children[2].description == "Button 1"
+    assert hbox.children[3].description == "Button 2"
 
     slider.value = 2
-    assert count() == 2 + 3 + 2 * 3 + 3  # nothing added, just 1 unused
-    assert len(rc.pool) == 1  # which is added to the pool
-    assert len(hbox.children) == 2
-    assert isinstance(hbox.children[0], widgets.Button)
+    assert count() == 2 + 3 + 2 * 3  # nothing added, just 1 unused
+    # TODO: what do we do with pool?
+    # assert len(rc.pool) == 1  # which is added to the pool
+    assert len(hbox.children) == 1 + 2
     assert isinstance(hbox.children[1], widgets.Button)
+    assert isinstance(hbox.children[2], widgets.Button)
+    rc.close()
 
 
 def test_display():
@@ -281,10 +353,14 @@ def test_display():
         return w.Button(description=f"Button {buttons}")
 
     react.display(buttons(slider))
+    assert react.core._last_rc is not None
+    react.core._last_rc.close()
+    slider.style.close()
+    slider.layout.close()
+    slider.close()
 
 
 def test_box():
-    clear()
     hbox = widgets.HBox()
     slider = widgets.IntSlider(value=2, description="How many buttons?")
     assert count() == 2 + 3
@@ -295,7 +371,7 @@ def test_box():
         return w.VBox(children=[w.Button(description=f"Button {i}") for i in range(buttons)])
 
     el = buttons(slider)
-    react.render(el, hbox, "children")
+    hbox, rc = react.render(el, hbox, "children")
     assert count() == 2 + 3 + 2 + 2 * 3  # add vbox and 2 buttons
     assert len(hbox.children[0].children) == 2
     assert isinstance(hbox.children[0].children[0], widgets.Button)
@@ -309,76 +385,111 @@ def test_box():
     assert isinstance(hbox.children[0].children[2], widgets.Button)
 
     slider.value = 2
-    assert count() == 2 + 3 + 2 + 2 * 3 + 3  # nothing should happen
+    assert count() == 2 + 3 + 2 + 2 * 3  # should clean up
     assert len(hbox.children[0].children) == 2
     assert isinstance(hbox.children[0].children[0], widgets.Button)
     assert isinstance(hbox.children[0].children[1], widgets.Button)
+    rc.close()
+    slider.style.close()
+    slider.layout.close()
+    slider.close()
 
 
 def test_shared_instance():
-    clear()
-    hbox = widgets.HBox()
-    slider = widgets.IntSlider(value=2, description="How many buttons?")
+    # TODO: put in place ButtonComponent fixture
+    # this doesn't work yet, since
+    ButtonComponent = ButtonComponentFunction
+    # ButtonComponent = w.Button
     checkbox = widgets.Checkbox(value=True, description="Share button")
-    assert count() == 2 + 3 + 3
 
     @react.component
-    def Buttons(slider, checkbox):
-        buttons = react.use_state_widget(slider, "value")
-        share = react.use_state_widget(checkbox, "value")
+    def Buttons(checkbox):
+        share = react.use_state_widget(checkbox, "value", "share")
         if share:
-            button_shared = w.Button(description="Button shared", tooltip="shared")
+            button_shared = ButtonComponent(description="Button shared", tooltip="shared")
             return w.VBox(children=[button_shared, button_shared])
         else:
-            return w.VBox(children=[w.Button(description=f"Button {i}") for i in range(buttons)])
+            return w.VBox(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
 
-    react.render(Buttons(slider, checkbox), hbox, "children")
+    hbox, rc = react.render(Buttons(checkbox))
     vbox = hbox.children[0]
     assert vbox.children[0] is vbox.children[1]
     assert vbox.children[0].description == "Button shared"
     assert vbox.children[0].tooltip == "shared"
-    assert count() == 2 + 3 + 3 + 2 + 3  # 1 vbox, 1 button
 
     checkbox.value = False
-    assert count() == 2 + 3 + 3 + 2 + 3 + 3  # 1 extra button
     assert vbox.children[0] is not vbox.children[1]
     assert vbox.children[0].description == "Button 0"
     assert vbox.children[1].description == "Button 1"
-    # TODO: fix
-    # assert vbox.children[0].tooltip is None
+    assert vbox.children[0].tooltip == ""
     assert vbox.children[1].tooltip == ""
+    rc.close()
+    checkbox.style.close()
+    checkbox.layout.close()
+    checkbox.close()
 
 
-def test_shared_instance_via_component():
-    clear()
+@pytest.mark.xfail
+def test_shared_instance_non_working():
+    # TODO: merge with test above
+    # this doesn't work because we find the same alias element
+    ButtonComponent = w.Button
+    checkbox = widgets.Checkbox(value=True, description="Share button")
 
+    @react.component
+    def Buttons(checkbox):
+        share = react.use_state_widget(checkbox, "value", "share")
+        if share:
+            button_shared = ButtonComponent(description="Button shared", tooltip="shared")
+            return w.VBox(children=[button_shared, button_shared])
+        else:
+            return w.VBox(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
+
+    hbox, rc = react.render(Buttons(checkbox))
+    vbox = hbox.children[0]
+    assert vbox.children[0] is vbox.children[1]
+    assert vbox.children[0].description == "Button shared"
+    assert vbox.children[0].tooltip == "shared"
+
+    checkbox.value = False
+    assert vbox.children[0] is not vbox.children[1]
+    assert vbox.children[0].description == "Button 0"
+    assert vbox.children[1].description == "Button 1"
+    assert vbox.children[0].tooltip == ""
+    assert vbox.children[1].tooltip == ""
+    rc.close()
+    checkbox.style.close()
+    checkbox.layout.close()
+    checkbox.close()
+
+
+def test_shared_instance_via_component(ButtonComponent):
     @react.component
     def Child(button):
         return button
 
     @react.component
     def Buttons():
-        button = w.Button(description="Button shared")
+        button = ButtonComponent(description="Button shared")
         return w.VBox(children=[Child(button), Child(button)])
 
     vbox, rc = react.render_fixed(Buttons())
     assert vbox.children[0].description == "Button shared"
     assert vbox.children[1].description == "Button shared"
     assert vbox.children[0] is vbox.children[1]
+    rc.close()
 
 
 def test_bqplot():
     clear()
 
-    hbox = widgets.HBox()
     exponent = widgets.FloatSlider(min=0.1, max=2, value=1.0, description="Exponent")
-    assert count() == 2 + 3
+    assert count() == 3
 
     @react.component
     def Plot(exponent, x, y):
         exponent_value = react.use_state_widget(exponent, "value")
         x = x**exponent_value
-        print(x)
         x_scale = bqplot.LinearScale(allow_padding=False)
         y_scale = bqplot.LinearScale(allow_padding=False)
         lines = bqplot.Lines(x=x, y=y, scales={"x": x_scale, "y": y_scale}, stroke_width=3, colors=["red"], display_legend=True, labels=["Line chart"])
@@ -389,7 +500,7 @@ def test_bqplot():
 
     x = np.arange(4)
     y = x**exponent.value
-    react.render(Plot(exponent, x, y), hbox, "children")
+    hbox, rc = react.render(Plot(exponent, x, y))
     widgets_initial = count()
 
     figure = hbox.children[0]
@@ -413,13 +524,13 @@ def test_bqplot():
     assert count() == widgets_initial  # nothing should be recreated
     # figure = box.children[0]
     assert figure.marks[0].x.tolist() == (x**2).tolist()
+    exponent.style.close()
+    exponent.layout.close()
+    exponent.close()
+    rc.close()
 
 
 def test_use_side_effect():
-    clear()
-    hbox = widgets.HBox()
-    assert count() == 2
-
     @react.component
     def Button2():
         clicks, set_clicks = react.use_state(0)
@@ -437,20 +548,17 @@ def test_use_side_effect():
         button_el = w.Button(description=f"Clicked {clicks} times")
         return button_el
 
-    react.render(Button2(), hbox, "children")
+    hbox, rc = react.render(Button2())
     assert count() == 2 + 3  # label + button
     button = hbox.children[0]
     assert button.description == "Clicked 0 times"
     button.click()
     assert len(button._click_handlers.callbacks) == 1
     assert button.description == "Clicked 1 times"
+    rc.close()
 
 
 def test_use_side_effect_no_deps():
-    clear()
-    hbox = widgets.HBox()
-    assert count() == 2
-
     calls = 0
     cleanups = 0
 
@@ -468,24 +576,24 @@ def test_use_side_effect_no_deps():
         react.use_side_effect(test_side_effect)
         return w.Button()
 
-    rc = react.render(TestNoDeps(a=1, b=1), hbox, "children")
+    hbox, rc = react.render(TestNoDeps(a=1, b=1))
     assert calls == 1
     assert cleanups == 0
     rc.render(TestNoDeps(a=1, b=1), hbox)
     assert calls == 2
     assert cleanups == 1
+    rc.close()
 
 
 def test_use_side_effect_once():
-    clear()
-    hbox = widgets.HBox()
-    assert count() == 2
-
     calls = 0
     cleanups = 0
+    counters_seen = []
 
     @react.component
     def TestNoDeps(a, b):
+        counter, set_counter = react.use_state(0)
+
         def test_side_effect():
             def cleanup():
                 nonlocal cleanups
@@ -493,24 +601,30 @@ def test_use_side_effect_once():
 
             nonlocal calls
             calls += 1
+            # we should only be executed after the last render
+            # when counter is 1
+            counters_seen.append(counter)
             return cleanup
+
+        # this forces a rerender, but the use_effect should
+        # still be called just once
+        if counter == 0:
+            set_counter(1)
 
         react.use_side_effect(test_side_effect, [])
         return w.Button()
 
-    rc = react.render(TestNoDeps(a=1, b=1), hbox, "children")
+    hbox, rc = react.render(TestNoDeps(a=1, b=1))
     assert calls == 1
     assert cleanups == 0
+    assert counters_seen == [1]
     rc.render(TestNoDeps(a=1, b=1), hbox)
     assert calls == 1
     assert cleanups == 0
+    rc.close()
 
 
 def test_use_side_effect_deps():
-    clear()
-    hbox = widgets.HBox()
-    assert count() == 2
-
     calls = 0
     cleanups = 0
 
@@ -528,7 +642,7 @@ def test_use_side_effect_deps():
         react.use_side_effect(test_side_effect, [a, b])
         return w.Button()
 
-    rc = react.render(TestNoDeps(a=1, b=1), hbox, "children")
+    hbox, rc = react.render(TestNoDeps(a=1, b=1))
     assert calls == 1
     assert cleanups == 0
     rc.render(TestNoDeps(a=1, b=1), hbox)
@@ -538,28 +652,70 @@ def test_use_side_effect_deps():
     rc.render(TestNoDeps(a=1, b=2), hbox)
     assert calls == 2
     assert cleanups == 1
+    rc.close()
+
+
+@react.component
+def ButtonClicks(**kwargs):
+    clicks, set_clicks = react.use_state(0)
+    return w.Button(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1), **kwargs)
 
 
 def test_use_button():
-    clear()
-    hbox = widgets.HBox()
-    assert count() == 2
-
-    @react.component
-    def ButtonClicks():
-        clicks, set_clicks = react.use_state(0)
-        return w.Button(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
-
-    react.render(ButtonClicks(), hbox, "children")
+    hbox, rc = react.render(ButtonClicks())
     assert count() == 2 + 3  # label + button
     button = hbox.children[0]
     assert button.description == "Clicked 0 times"
     button.click()
     assert len(button._click_handlers.callbacks) == 1
     assert button.description == "Clicked 1 times"
+    rc.close()
 
 
-def test_key():
+def test_key_widget():
+    set_reverse = None
+
+    @react.component
+    def Buttons():
+        nonlocal set_reverse
+        reverse, set_reverse = react.use_state(False)
+        with w.VBox() as main:
+            if reverse:
+                widgets.IntSlider.element(value=4, __key__="slider")
+                widgets.Button.element(description="Hi", __key__="btn")
+            else:
+                widgets.Button.element(description="Hi", __key__="btn")
+                widgets.IntSlider.element(value=4, __key__="slider")
+        return main
+
+    box = react.make(Buttons(), handle_error=False)
+    assert set_reverse is not None
+    button1, slider1 = box.children[0].children
+    assert isinstance(button1, widgets.Button)
+    assert isinstance(slider1, widgets.IntSlider)
+    set_reverse(True)
+    slider2, button2 = box.children[0].children
+    assert isinstance(button2, widgets.Button)
+    assert isinstance(slider2, widgets.IntSlider)
+    assert button1 is button2
+    assert slider1 is slider2
+    assert react.core._last_rc
+    react.core._last_rc.close()
+
+
+def test_key_root():
+    @react.component
+    def Buttons():
+        return widgets.Button.element(description="Hi", __key__="btn")
+
+    box = react.make(Buttons(), handle_error=False)
+    button = box.children[0]
+    assert isinstance(button, widgets.Button)
+    assert react.core._last_rc
+    react.core._last_rc.close()
+
+
+def test_key_component_function():
     @react.component
     def ButtonClicks(nr, **kwargs):
         clicks, set_clicks = react.use_state(0)
@@ -577,7 +733,7 @@ def test_key():
         buttons_box = w.VBox(children=buttons)
         return w.HBox(children=[slider, checkbox, buttons_box])
 
-    box = react.make(Buttons())
+    box = react.make(Buttons(), handle_error=False)
     slider, checkbox, buttons = box.children[0].children
     assert buttons.children[0].description == "0: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
@@ -599,6 +755,24 @@ def test_key():
     assert buttons.children[0].description == "2: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
     assert buttons.children[2].description == "0: Clicked 1 times"
+    assert react.core._last_rc
+    react.core._last_rc.close()
+
+
+def test_key_collision():
+    @react.component
+    def Child():
+        return w.Button()
+
+    @react.component
+    def Test():
+        with w.HBox() as main:
+            Child(__key__="collide")  # type: ignore
+            Child(__key__="collide")  # type: ignore
+        return main
+
+    with pytest.raises(KeyError, match="Duplicate"):
+        hbox, _rc = react.render_fixed(Test(), handle_error=False)
 
 
 def test_vue():
@@ -609,29 +783,44 @@ def test_vue():
         v.use_event(btn, "click", lambda *_ignore: set_clicks(clicks + 1))
         return btn
 
-    btn, _rc = react.render_fixed(Single())
+    btn, rc = react.render_fixed(Single())
     btn.fire_event("click", {})
     assert btn.children[0] == "Clicks 1"
     assert len(btn._event_handlers_map["click"].callbacks) == 1
+    rc.force_update()
+    rc.close()
 
 
 def test_interactive():
     @react.component_interactive(count=3)
     def f(count):
-        print("COUNT")
-        return [w.Button(description=f"Button {i}") for i in range(count)]
+        with w.HBox() as main:
+            [w.Button(description=f"Button {i}") for i in range(count)]
+        return main
 
     control = f.children[0]
     slider = control.children[0]
     assert isinstance(slider, widgets.IntSlider)
     box = f.children[1]
-    button0 = box.children[0]
+    hbox = box.children[0]
+    button0 = hbox.children[0]
     assert button0.description == "Button 0"
+    assert react.core._last_rc is not None
+    react.core._last_rc.close()
+    for widget in control.children:
+        if hasattr(widget, "layout"):
+            widget.layout.close()
+        if hasattr(widget, "style"):
+            widget.style.close()
+        widget.close()
+    control.close()
+    control.layout.close()
+    assert react.core._last_interactive_vbox is not None
+    react.core._last_interactive_vbox.layout.close()
+    react.core._last_interactive_vbox.close()
 
 
 def test_use_reducer():
-    hbox = widgets.HBox()
-
     def click_reducer(state, action):
         if action == "increment":
             state = state + 1
@@ -642,19 +831,17 @@ def test_use_reducer():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
         return w.Button(description=f"Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
-    react.render(Button(), hbox, "children")
+    hbox, rc = react.render(Button())
     button = hbox.children[0]
     assert button.description == "Clicked 0 times"
     button.click()
     assert button.description == "Clicked 1 times"
     button.click()
     assert button.description == "Clicked 2 times"
+    rc.close()
 
 
 def test_context():
-    clear()
-    hbox = widgets.HBox()
-
     def click_reducer(state, action):
         if action == "increment":
             state = state + 1
@@ -678,9 +865,12 @@ def test_context():
     def App():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
         react.provide_context("store", (clicks, dispatch))
-        return [Child1(), Child2()]
+        with w.HBox() as main:
+            Child1()
+            Child2()
+        return main
 
-    react.render(App(), hbox, "children")
+    hbox, rc = react.render_fixed(App())
     button1 = hbox.children[0]
     button2 = hbox.children[1]
     assert button1.description == "Child1: Clicked 0 times"
@@ -694,6 +884,7 @@ def test_context():
     button1.click()
     assert button1.description == "Child1: Clicked 2 times"
     assert button2.description == "Child2: Clicked 2 times"
+    rc.close()
 
 
 def test_memo():
@@ -736,6 +927,7 @@ def test_memo():
     assert calls_ab == 3
     assert calls_ac == 3
     assert label.value == "30 - 70"
+    rc.close()
 
 
 def test_container_context_simple():
@@ -749,6 +941,7 @@ def test_container_context_simple():
     box, rc = react.render_fixed(ContainerContext())
     assert len(box.children) == 2
     assert box.children[0]
+    rc.close()
 
 
 def test_container_context_bqplot():
@@ -768,26 +961,55 @@ def test_container_context_bqplot():
 
     box, rc = react.render_fixed(ContainerContext())
     assert len(box.children) == 1
-    # assert isinstance(box.children[0],
+    rc.close()
 
 
 def test_get_widget():
 
-    button = None
+    button1 = None
+    button2 = None
 
     @component
     def Multiple():
         def get_widgets():
-            nonlocal button
-            button = react.core.get_widget(button1el)
+            nonlocal button1
+            nonlocal button2
+            button1 = react.core.get_widget(button1el)
+            button2 = react.core.get_widget(button2el)
 
         use_side_effect(get_widgets)
         with w.VBox() as main:
             button1el = w.Button(description="1")
+            button2el = w.Button(description="2")
         return main
 
-    box, _rc = react.render_fixed(Multiple())
+    box, rc = react.render_fixed(Multiple())
+    assert box.children[0] is button1
+    assert box.children[1] is button2
+    rc.close()
+
+
+def test_get_widget_multi_render():
+    button = None
+
+    @component
+    def Multiple():
+        value, set_value = react.use_state(0)
+
+        def get_widgets():
+            nonlocal button
+            button = react.core.get_widget(button_el)
+
+        use_side_effect(get_widgets, [])
+        if value < 3:
+            set_value(value + 1)
+        with w.VBox() as main:
+            button_el = w.Button(description="1")
+        return main
+
+    box, rc = react.render_fixed(Multiple())
     assert box.children[0] is button
+    rc.close()
 
 
 def test_on_argument():
@@ -799,8 +1021,9 @@ def test_on_argument():
         return w.Button()
 
     mock = unittest.mock.Mock()
-    box, _rc = react.render_fixed(Test(on_test=mock))
+    box, rc = react.render_fixed(Test(on_test=mock))
     mock.assert_called()
+    rc.close()
 
 
 def test_on_trait():
@@ -809,9 +1032,10 @@ def test_on_trait():
         on_hover = traitlets.traitlets.Callable(None, allow_none=True)
 
     mock = unittest.mock.Mock()
-    widget, _rc = react.render_fixed(SomeWidget.element(on_hover=mock))
+    widget, rc = react.render_fixed(SomeWidget.element(on_hover=mock))
     assert widget.on_hover is mock
     # mock.assert_called()
+    rc.close()
 
 
 def test_other_event_handlers():
@@ -837,7 +1061,7 @@ def test_other_event_handlers():
         use_side_effect(add_my_own_event_handler, [])  # only add it once
         return text
 
-    text, _rc = react.render_fixed(Test())
+    text, rc = react.render_fixed(Test())
     # first time, it's always ok
     text.value = "hallo"
     mock.assert_called()
@@ -845,6 +1069,7 @@ def test_other_event_handlers():
     # second time, we executed the render loop again, did we remove the event handler?
     text.value = "ola"
     mock.assert_called()
+    rc.close()
 
 
 def test_state_leak_different_components():
@@ -871,7 +1096,7 @@ def test_state_leak_different_components():
                 SliderComponent()
         return main
 
-    test, _rc = react.render_fixed(Test())
+    test, rc = react.render_fixed(Test())
     assert set_show_other is not None
     assert test.children[0].value == 1
     set_show_other(True)
@@ -885,22 +1110,70 @@ def test_state_leak_different_components():
     assert test.children[0].value == 10
     set_show_other(False)
     assert test.children[0].value == 1
+    rc.close()
 
 
-def test_exceptions(capsys):
+@pytest.mark.skipif(not react.core.DEBUG, reason="only works in debug mode")
+def test_exceptions():
     @react.component
     def Test():
         return w.Button()
 
-    with pytest.raises(TypeError):
-        test, _rc = react.render_fixed(Test(non_existing_arg=1), handle_error=False)  # type: ignore
-    assert react.render_fixed(Test(non_existing_arg=1), handle_error=True)[0] is None  # type: ignore
-    out = str(capsys.readouterr().out)
-    # put in
-    # extra lines
-    # to avoid the stderr
-    # to in include the next line
-    assert "non_existing_arg" in out
+    try:
+        test, _rc = react.render_fixed(Test(non_existing_arg=1))  # type: ignore
+    except TypeError as e:
+        formatted = traceback.format_tb(e.__traceback__)
+        assert "Test" in formatted[3]
+        assert "non_existing_arg" in formatted[3]
+    else:
+        assert False, "no error occurred"
+
+
+@pytest.mark.skipif(not react.core.DEBUG, reason="only works in debug mode")
+def test_exceptions_debug_in_render_function():
+    @react.component
+    def Child():
+        # the stacktrace should include the next line
+        a = non_existing  # type: ignore # noqa
+        return w.Button()
+
+    @react.component
+    def Test():
+        return Child()  # but also this line, which is not an actual part of the stack trace
+
+    try:
+        test, rc = react.render_fixed(Test())  # type: ignore
+    except NameError as e:
+        formatted = traceback.format_tb(e.__traceback__)
+        assert "Child" in formatted[3]
+        assert "non_existing" in formatted[4]
+    else:
+        assert False, "no error occurred"
+
+
+@pytest.mark.skipif(not react.core.DEBUG, reason="only works in debug mode")
+def test_exceptions_debug_in_consolidate():
+    set_value = None
+
+    @react.component
+    def Child():
+        nonlocal set_value
+        value, set_value = react.use_state("label")
+        return w.Button(description=value)  # we'd like to see this line
+
+    @react.component
+    def Test():
+        return Child()
+
+    test, rc = react.render_fixed(Test())  # type: ignore
+    assert set_value is not None
+    try:
+        set_value(1)  # type: ignore
+    except Exception as e:
+        formatted = traceback.format_tb(e.__traceback__)
+        assert "Child" in formatted[3]
+        assert "Button" in formatted[4]
+    rc.close()
 
 
 def test_mime_bundle():
@@ -922,9 +1195,10 @@ def test_use_state_with_function():
 
         return w.Button(description=f"{label}: Clicked {clicks} times", on_click=lambda: set_clicks(update_click))
 
-    clicker, _rc = react.render_fixed(ButtonClick())
+    clicker, rc = react.render_fixed(ButtonClick())
     clicker.click()
     assert clicker.description == "Hi: Clicked 1 times"
+    rc.close()
 
 
 def test_use_ref():
@@ -938,8 +1212,329 @@ def test_use_ref():
         last = ref.current
         return w.Button(description=f"{label}: Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
 
-    clicker, _rc = react.render_fixed(ButtonClick())
+    clicker, rc = react.render_fixed(ButtonClick())
     clicker.click()
     last1 = last
     clicker.click()
     assert last is last1
+    rc.close()
+
+
+def test_render_many_consolidate_once():
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        if value >= 5 and value < 15:  # force 10 renders
+            set_value(value + 1)
+        return w.IntSlider(value=value)
+
+    mock = unittest.mock.Mock()
+    slider, rc = react.render_fixed(Test())
+    assert set_value is not None
+    slider.observe(lambda change: mock(change.new), "value")
+    set_value(4)
+    mock.assert_called_once_with(4)
+    set_value(5)
+    assert slider.value == 15
+    # even though we had many renders (from 5 to 15), we only reconsolidated once (i.e. 1 extra call)
+    mock.assert_has_calls([unittest.mock.call(4), unittest.mock.call(15)])
+    rc.close()
+
+
+def test_recover_exception(capsys):
+    set_fail = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+        if fail:
+            raise Exception("fail")
+        return w.IntSlider()
+
+    # with pytest.raises(Exception):
+    slider, rc = react.render_fixed(Test())
+    assert set_fail is not None
+    with pytest.raises(Exception, match="fail"):
+        set_fail(True)
+    set_fail(False)
+    rc.close()
+    assert isinstance(slider, ipywidgets.IntSlider)
+
+
+def test_state_get():
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.IntSlider(value=value)
+
+    slider, rc = react.render_fixed(Test())
+    assert set_value is not None
+    state = rc.state_get()
+    assert state == {"children": {"/": {"state": {"0": 0}}}, "state": {}}
+    set_value(42)
+    assert state == {"children": {"/": {"state": {"0": 42}}}, "state": {}}
+    assert slider.value == 42
+    rc.close()
+
+    box = widgets.VBox()
+    hbox, rc = react.render(Test(), box, initial_state=state, handle_error=False)
+    assert box.children[0].value == 42
+    rc.close()
+
+
+def test_cleanup():
+    set_count = None
+
+    @react.component
+    def Test():
+        nonlocal set_count
+        count, set_count = react.use_state(1)
+        with w.VBox() as main:
+            for i in range(count):
+                ButtonClicks()
+        return main
+
+    # with pytest.raises(Exception):
+    box, rc = react.render_fixed(Test())
+    assert set_count is not None
+
+    buttons = box.children
+    assert len(buttons) == 1
+    buttons[0].click()
+    assert buttons[0].description == "Clicked 1 times"
+
+    set_count(2)
+    buttons = box.children
+    assert len(buttons) == 2
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].description == "Clicked 0 times"
+    buttons[1].click()
+    buttons[1].click()
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].description == "Clicked 2 times"
+
+    set_count(1)
+    buttons = box.children
+    assert len(buttons) == 1
+    assert buttons[0].description == "Clicked 1 times"
+
+    set_count(2)
+    buttons = box.children
+    assert len(buttons) == 2
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].description == "Clicked 0 times"
+    rc.close()
+
+
+# same, but to react a different component
+@react.component
+def ButtonClicks2():
+    clicks, set_clicks = react.use_state(0)
+    with w.VBox() as main:
+        w.Label()
+        w.Text()
+        w.Button(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
+        w.VBox(children=[ButtonClicks3()])
+        w.VBox(children=[w.Checkbox()])
+    return main
+
+
+@react.component
+def ButtonClicks3():
+    clicks, set_clicks = react.use_state(0)
+    with w.VBox() as main:
+        w.Button(description=f"Clicked {clicks} times", on_click=lambda: set_clicks(clicks + 1))
+    return main
+
+
+def test_insert_no_key():
+    set_insert = None
+
+    @react.component
+    def Test():
+        nonlocal set_insert
+        insert, set_insert = react.use_state(False)
+        with w.VBox() as main:
+            ButtonClicks()
+            if insert:
+                ButtonClicks2()
+                w.Text()
+            ButtonClicks3()
+        return main
+
+    # with pytest.raises(Exception):
+    box, rc = react.render_fixed(Test(), handle_error=False)
+    assert set_insert is not None
+    # rc.force_update()
+
+    buttons = box.children
+    assert len(buttons) == 2
+    buttons[0].click()
+    buttons[1].children[0].click()
+    buttons[1].children[0].click()
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[0].description == "Clicked 2 times"
+    rc.force_update()
+
+    set_insert(True)
+    buttons = box.children
+    assert len(buttons) == 4
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 0 times"
+    assert buttons[3].children[0].description == "Clicked 0 times"
+    buttons[1].children[2].click()
+    buttons[1].children[2].click()
+    buttons[1].children[2].click()
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 3 times"
+    assert buttons[3].children[0].description == "Clicked 0 times"
+    rc.force_update()
+
+    set_insert(False)
+    buttons = box.children
+    assert len(buttons) == 2
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[0].description == "Clicked 0 times"
+    rc.force_update()
+
+    set_insert(True)
+    buttons = box.children
+    assert len(buttons) == 4
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 0 times"
+    assert buttons[3].children[0].description == "Clicked 0 times"
+    rc.force_update()
+    rc.close()
+
+
+def test_insert_with_key():
+    set_insert = None
+
+    @react.component
+    def Test():
+        nonlocal set_insert
+        insert, set_insert = react.use_state(False)
+        with w.VBox() as main:
+            ButtonClicks(__key__="1")  # type: ignore
+            if insert:
+                ButtonClicks2(__key__="2")  # type: ignore
+            ButtonClicks3(__key__="3")  # type: ignore
+        return main
+
+    # with pytest.raises(Exception):
+    box, rc = react.render_fixed(Test())
+    assert set_insert is not None
+    rc.force_update()
+
+    buttons = box.children
+    assert len(buttons) == 2
+    buttons[0].click()
+    buttons[1].children[0].click()
+    buttons[1].children[0].click()
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[0].description == "Clicked 2 times"
+    rc.force_update()
+
+    set_insert(True)
+    buttons = box.children
+    assert len(buttons) == 3
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 0 times"
+    assert buttons[2].children[0].description == "Clicked 2 times"
+    buttons[1].children[2].click()
+    buttons[1].children[2].click()
+    buttons[1].children[2].click()
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 3 times"
+    assert buttons[2].children[0].description == "Clicked 2 times"
+    rc.force_update()
+
+    set_insert(False)
+    buttons = box.children
+    assert len(buttons) == 2
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[0].description == "Clicked 2 times"
+    rc.force_update()
+
+    set_insert(True)
+    buttons = box.children
+    assert len(buttons) == 3
+    assert buttons[0].description == "Clicked 1 times"
+    assert buttons[1].children[2].description == "Clicked 0 times"
+    assert buttons[2].children[0].description == "Clicked 2 times"
+    rc.force_update()
+    rc.close()
+
+
+def test_vue_orphan_not_close():
+    import ipyvue
+
+    class MyTemplate(ipyvue.VueTemplate):
+        template_file = (__file__, "test.vue")
+
+    @react.component
+    def Test():
+        return MyTemplate.element()
+
+    box, rc = react.render(Test())
+    template = box.children[0].template
+    rc.close()
+    # make sure we can render after close (close should not close the template widget)
+    box2, rc2 = react.render(Test())
+    rc2.close()
+    template.close()
+
+
+def test_switch_component():
+    @react.component
+    def Child1():
+        with Container() as main:
+            w.Button(description="1")
+        return main
+
+    @react.component
+    def Child2():
+        with Container() as main:
+            ButtonNumber(2)
+        return main
+
+    @react.component
+    def Child3():
+        with Container() as main:
+            ButtonNumber(3)
+        return main
+
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(1)
+        children = [None, Child1, Child2, Child3]
+        component = children[value]
+        assert component is not None
+        return component()
+
+    box, rc = react.render(Test())
+    assert box.children[0].children[0].description == "1"
+    assert set_value is not None
+    set_value(2)
+    assert box.children[0].children[0].description == "2"
+    set_value(3)
+    assert box.children[0].children[0].description == "3"
+    set_value(1)
+    assert box.children[0].children[0].description == "1"
+    set_value(3)
+    assert box.children[0].children[0].description == "3"
+    set_value(2)
+    assert box.children[0].children[0].description == "2"
+    set_value(1)
+    assert box.children[0].children[0].description == "1"
+    rc.close()

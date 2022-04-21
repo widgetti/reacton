@@ -5,7 +5,7 @@ import ipyvue
 import react_ipywidgets as react
 
 
-def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], None]):
+def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], Any]):
     # to avoid add_event_handler having a stale reference to callback
     callback_ref = react.use_ref(callback)
     callback_ref.current = callback
