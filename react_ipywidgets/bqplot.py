@@ -8,7 +8,7 @@ import numpy as np
 from numpy import ndarray
 
 import react_ipywidgets as react
-from react_ipywidgets.core import Element
+from react_ipywidgets.core import ContainerAdder, Element, _get_render_context
 
 from . import ipywidgets as w
 from .ipywidgets import Layout
@@ -20,6 +20,18 @@ if __name__ == "__main__":
 
     ignore_traits = "domain_class".split()
     generate(__file__, [bqplot], ignore_traits=ignore_traits)
+
+
+class FigureElement(Element[bqplot.Figure]):
+    def __enter__(self):
+        rc = _get_render_context()
+        ca = ContainerAdder[bqplot.Figure](self, "marks")
+        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
+        rc.container_adders.append(ca)
+        return self
+
+
+element_classes = {bqplot.Figure: FigureElement}
 
 
 # generated code:
@@ -889,7 +901,7 @@ def Figure(
     on_theme: typing.Callable[[str], Any] = None,
     on_title: typing.Callable[[str], Any] = None,
     on_title_style: typing.Callable[[dict], Any] = None,
-) -> Element[bqplot.figure.Figure]:
+) -> FigureElement:
     """Main canvas for drawing a chart.
 
     The Figure object holds the list of Marks and Axes. It also holds an
@@ -979,7 +991,7 @@ def Figure(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = bqplot.figure.Figure
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return FigureElement(comp, **kwargs)
 
 
 ###
