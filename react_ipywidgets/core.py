@@ -167,14 +167,31 @@ class Element(Generic[W]):
 
     def __repr__(self):
         args = [f"{value!r}" for value in self.args]
-        kwargs = [f"{key} = {value!r}" for key, value in self.kwargs.items()]
+
+        def format_kwarg(key, value):
+            if key == "children":
+                if len(value) > 0:
+                    contains_elements = any(isinstance(child, Element) for child in value)
+                    if contains_elements:
+                        return "children = ..."
+            return f"{key} = {value!r}"
+
+        kwargs = [format_kwarg(key, value) for key, value in self.kwargs.items()]
         args_formatted = ", ".join(args + kwargs)
         if isinstance(self.component, ComponentFunction):
             name = self.component.f.__name__
             return f"{name}({args_formatted})"
         if isinstance(self.component, ComponentWidget):
-            name = self.component.widget.__module__ + "." + self.component.widget.__name__
-            return f"{name}.element({args_formatted})"
+            modulename = self.component.widget.__module__
+            # lets shorten e.g. ipyvuetify.generated.Label.Label to ipyvuetify.Label
+            shorten = "ipywidgets ipyvuetify ipyvue".split()
+            for prefix in shorten:
+                if modulename.startswith(prefix):
+                    modulename = prefix
+                    # don't replace ipyvuetify with ipyvue
+                    break
+            name = modulename + "." + self.component.widget.__name__
+            return f"{name}({args_formatted})"
         else:
             raise RuntimeError(f"No repr for {type(self)}")
 
