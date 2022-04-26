@@ -1558,3 +1558,52 @@ def test_switch_simple():
     assert box.children[0].children[0].description == "slider"
     rc.force_update()
     rc.close()
+
+
+def test_switch_widget_and_component():
+    set_value = None
+
+    effect = unittest.mock.Mock()
+    cleanup = unittest.mock.Mock()
+
+    @react.component
+    def Child():
+        def my_effect():
+            effect()
+            return cleanup
+
+        use_side_effect(my_effect, [])
+        return w.Button(description="child")
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(True)
+        with Container() as main:
+            if value:
+                w.Button(description="widget")
+            else:
+                Child()
+        return main
+
+    box, rc = react.render_fixed(Test())
+    assert set_value is not None
+    assert box.children[0].description == "widget"
+    rc.force_update()
+
+    set_value(False)
+    effect.assert_called_once()
+    cleanup.assert_not_called()
+    rc.force_update()
+    effect.assert_called_once()
+    cleanup.assert_not_called()
+    assert box.children[0].description == "child"
+
+    set_value(True)
+    assert box.children[0].description == "widget"
+    cleanup.assert_called_once()
+    rc.force_update()
+    cleanup.assert_called_once()
+
+    rc.force_update()
+    rc.close()

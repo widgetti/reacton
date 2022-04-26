@@ -269,6 +269,13 @@ class ComponentWidget(Component):
         self.widget = widget
         self.name = widget.__name__
 
+    def __eq__(self, rhs):
+        if self is rhs:
+            return True
+        if not isinstance(rhs, ComponentWidget):
+            return False
+        return self.widget == rhs.widget
+
     def __repr__(self):
         return f"Component[{self.widget!r}]"
 
@@ -285,6 +292,13 @@ class ComponentFunction(Component):
         self.f = f
         self.name = self.f.__name__
         self.mime_bundle = mime_bundle
+
+    def __eq__(self, rhs):
+        if self is rhs:
+            return True
+        if not isinstance(rhs, ComponentFunction):
+            return False
+        return self.f == rhs.f
 
     def __repr__(self):
         return f"react.component({self.f.__module__}.{self.f.__name__})"
@@ -932,17 +946,20 @@ class _RenderContext:
         if already_reconsolidated and el is not self.element:
 
             logger.debug("Reconsolidate: Using existing widget (prev = %r)", el_prev)
-            logger.debug("Current:")
-            for el_ in self._elements:
-                logger.debug("\t%r", el_)
-            logger.debug("Next:")
-            for el_ in self._elements_next:
-                logger.debug("\t%r", el_)
+            # keeping this for debugging
+            # logger.debug("Current:")
+            # for el_ in self._elements:
+            #     logger.debug("\t%r", el_)
+            # logger.debug("Next:")
+            # for el_ in self._elements_next:
+            #     logger.debug("\t%r", el_)
 
             return self._widgets[el]
 
         try:
             if isinstance(el.component, ComponentFunction):
+                if el_prev and isinstance(el_prev.component, ComponentWidget):
+                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     if el.args or el.kwargs:
@@ -969,6 +986,7 @@ class _RenderContext:
                     elements = dict(child_context.elements)
 
                     widget = self._reconsolidate(child_context.root_element, "/", new_parent_key)
+                    context.owns.add(el)
 
                     self._widgets[el] = widget
                     removed = set(elements) - set(elements_now)
@@ -1044,7 +1062,7 @@ class _RenderContext:
                         self._widgets[el] = self._create_widget(el, kwargs)
                         context.owns.add(el)
                     el.handle_custom_kwargs(self._widgets[el], custom_kwargs)
-                elif type(widget_previous) is el.component.widget:
+                elif el_prev is not None and el_prev.component == el.component:
                     logger.info("Updating widget: %r  → %r", el_prev, el)
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
@@ -1105,12 +1123,13 @@ class _RenderContext:
             assert el in self._elements_next
             self._elements_next.remove(el)
 
-            logger.debug("Current:")
-            for el_ in self._elements:
-                logger.debug("\t%r", el_)
-            logger.debug("Next:")
-            for el_ in self._elements_next:
-                logger.debug("\t%r", el_)
+            # keeping this for debugging
+            # logger.debug("Current:")
+            # for el_ in self._elements:
+            #     logger.debug("\t%r", el_)
+            # logger.debug("Next:")
+            # for el_ in self._elements_next:
+            #     logger.debug("\t%r", el_)
 
     def _create_widget(self, el: Element, kwargs):
         assert isinstance(el.component, ComponentWidget)
@@ -1165,6 +1184,11 @@ class _RenderContext:
         self._visit_children(el, key, parent_key, self._remove_element)
         if isinstance(el.component, ComponentFunction):
             self.context = context.children[key_created]
+
+            for effect_index, effect in enumerate(self.context.effects):
+                if effect.cleanup:
+                    effect.cleanup()
+
             try:
                 assert self.context.root_element is not None
                 new_parent_key = join_key(parent_key, key)
