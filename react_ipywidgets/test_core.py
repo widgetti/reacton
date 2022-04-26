@@ -84,12 +84,11 @@ def ButtonComponent(request):
 def test_internals():
     @react.component
     def Child():
-        # return w.VBox(children=[w.Button(__key__="button")], __key__="box")
         return w.VBox()
 
     @react.component
     def App():
-        return Child(__key__="child")  # type: ignore
+        return Child().key("child")  # type: ignore
 
     app = App()
 
@@ -100,9 +99,9 @@ def test_internals():
     widget, rc = react.render_fixed(app, handle_error=False)
     assert rc.context_root.root_element == app
     assert list(rc.context_root.children_next) == []
-    assert list(rc.context_root.children) == ["/"]
+    assert list(rc.context_root.children) == ["App/"]
 
-    app_context = rc.context_root.children["/"]
+    app_context = rc.context_root.children["App/"]
     assert list(app_context.children_next) == []
     assert list(app_context.children) == ["child"]
     assert app_context.invoke_element is app
@@ -378,6 +377,7 @@ def test_box():
     assert isinstance(hbox.children[0].children[1], widgets.Button)
 
     slider.value = 3
+    rc.force_update()
     assert count() == 2 + 3 + 2 + 2 * 3 + 3  # add 1 button
     assert len(hbox.children[0].children) == 3
     assert isinstance(hbox.children[0].children[0], widgets.Button)
@@ -385,6 +385,7 @@ def test_box():
     assert isinstance(hbox.children[0].children[2], widgets.Button)
 
     slider.value = 2
+    rc.force_update()
     assert count() == 2 + 3 + 2 + 2 * 3  # should clean up
     assert len(hbox.children[0].children) == 2
     assert isinstance(hbox.children[0].children[0], widgets.Button)
@@ -395,11 +396,7 @@ def test_box():
     slider.close()
 
 
-def test_shared_instance():
-    # TODO: put in place ButtonComponent fixture
-    # this doesn't work yet, since
-    ButtonComponent = ButtonComponentFunction
-    # ButtonComponent = w.Button
+def test_shared_instance(ButtonComponent):
     checkbox = widgets.Checkbox(value=True, description="Share button")
 
     @react.component
@@ -418,40 +415,7 @@ def test_shared_instance():
     assert vbox.children[0].tooltip == "shared"
 
     checkbox.value = False
-    assert vbox.children[0] is not vbox.children[1]
-    assert vbox.children[0].description == "Button 0"
-    assert vbox.children[1].description == "Button 1"
-    assert vbox.children[0].tooltip == ""
-    assert vbox.children[1].tooltip == ""
-    rc.close()
-    checkbox.style.close()
-    checkbox.layout.close()
-    checkbox.close()
-
-
-@pytest.mark.xfail
-def test_shared_instance_non_working():
-    # TODO: merge with test above
-    # this doesn't work because we find the same alias element
-    ButtonComponent = w.Button
-    checkbox = widgets.Checkbox(value=True, description="Share button")
-
-    @react.component
-    def Buttons(checkbox):
-        share = react.use_state_widget(checkbox, "value", "share")
-        if share:
-            button_shared = ButtonComponent(description="Button shared", tooltip="shared")
-            return w.VBox(children=[button_shared, button_shared])
-        else:
-            return w.VBox(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
-
-    hbox, rc = react.render(Buttons(checkbox))
-    vbox = hbox.children[0]
-    assert vbox.children[0] is vbox.children[1]
-    assert vbox.children[0].description == "Button shared"
-    assert vbox.children[0].tooltip == "shared"
-
-    checkbox.value = False
+    rc.force_update()
     assert vbox.children[0] is not vbox.children[1]
     assert vbox.children[0].description == "Button 0"
     assert vbox.children[1].description == "Button 1"
@@ -681,32 +645,35 @@ def test_key_widget():
         reverse, set_reverse = react.use_state(False)
         with w.VBox() as main:
             if reverse:
-                widgets.IntSlider.element(value=4, __key__="slider")
-                widgets.Button.element(description="Hi", __key__="btn")
+                widgets.IntSlider.element(value=4).key("slider")
+                widgets.Button.element(description="Hi").key("btn")
             else:
-                widgets.Button.element(description="Hi", __key__="btn")
-                widgets.IntSlider.element(value=4, __key__="slider")
+                widgets.Button.element(description="Hi").key("btn")
+                widgets.IntSlider.element(value=4).key("slider")
         return main
 
     box = react.make(Buttons(), handle_error=False)
+    assert react.core._last_rc
+    rc = react.core._last_rc
     assert set_reverse is not None
     button1, slider1 = box.children[0].children
     assert isinstance(button1, widgets.Button)
     assert isinstance(slider1, widgets.IntSlider)
     set_reverse(True)
+    rc.force_update()
     slider2, button2 = box.children[0].children
     assert isinstance(button2, widgets.Button)
     assert isinstance(slider2, widgets.IntSlider)
     assert button1 is button2
     assert slider1 is slider2
     assert react.core._last_rc
-    react.core._last_rc.close()
+    rc.close()
 
 
 def test_key_root():
     @react.component
     def Buttons():
-        return widgets.Button.element(description="Hi", __key__="btn")
+        return widgets.Button.element(description="Hi").key("btn")
 
     box = react.make(Buttons(), handle_error=False)
     button = box.children[0]
@@ -727,36 +694,41 @@ def test_key_component_function():
         reverse, set_reverse = react.use_state(False)
         slider = w.IntSlider(value=count, description="How many?", on_value=set_count)
         checkbox = w.Checkbox(value=reverse, on_value=lambda x: set_reverse(x), description="Reverse?")
-        buttons = [ButtonClicks(i, __key__=f"button-{i}") for i in range(count)]
+        buttons = [ButtonClicks(i).key(f"button-{i}") for i in range(count)]
         if reverse:
             buttons = buttons[::-1]
         buttons_box = w.VBox(children=buttons)
         return w.HBox(children=[slider, checkbox, buttons_box])
 
     box = react.make(Buttons(), handle_error=False)
+    assert react.core._last_rc
+    rc = react.core._last_rc
     slider, checkbox, buttons = box.children[0].children
     assert buttons.children[0].description == "0: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
     assert buttons.children[2].description == "2: Clicked 0 times"
     buttons.children[0].click()
+    rc.force_update()
     assert buttons.children[0].description == "0: Clicked 1 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
     assert buttons.children[2].description == "2: Clicked 0 times"
     checkbox.value = True
+    rc.force_update()
     assert buttons.children[0].description == "2: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
     assert buttons.children[2].description == "0: Clicked 1 times"
 
     slider.value = 2
+    rc.force_update()
     assert buttons.children[0].description == "1: Clicked 0 times"
     assert buttons.children[1].description == "0: Clicked 1 times"
 
     slider.value = 3
+    rc.force_update()
     assert buttons.children[0].description == "2: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
     assert buttons.children[2].description == "0: Clicked 1 times"
-    assert react.core._last_rc
-    react.core._last_rc.close()
+    rc.close()
 
 
 def test_key_collision():
@@ -767,8 +739,8 @@ def test_key_collision():
     @react.component
     def Test():
         with w.HBox() as main:
-            Child(__key__="collide")  # type: ignore
-            Child(__key__="collide")  # type: ignore
+            Child().key("collide")  # type: ignore
+            Child().key("collide")  # type: ignore
         return main
 
     with pytest.raises(KeyError, match="Duplicate"):
@@ -1100,15 +1072,19 @@ def test_state_leak_different_components():
     assert set_show_other is not None
     assert test.children[0].value == 1
     set_show_other(True)
+    rc.force_update()
     assert test.children[0].value == 10
     test.children[0].value = 11
     set_show_other(False)
+    rc.force_update()
     assert test.children[0].value == 1
     test.children[0].value = 2
     set_show_other(True)
+    rc.force_update()
     # the state should be reset, if the component was detached
     assert test.children[0].value == 10
     set_show_other(False)
+    rc.force_update()
     assert test.children[0].value == 1
     rc.close()
 
@@ -1277,9 +1253,9 @@ def test_state_get():
     slider, rc = react.render_fixed(Test())
     assert set_value is not None
     state = rc.state_get()
-    assert state == {"children": {"/": {"state": {"0": 0}}}, "state": {}}
+    assert state == {"children": {"Test/": {"state": {"0": 0}}}, "state": {}}
     set_value(42)
-    assert state == {"children": {"/": {"state": {"0": 42}}}, "state": {}}
+    assert state == {"children": {"Test/": {"state": {"0": 42}}}, "state": {}}
     assert slider.value == 42
     rc.close()
 
@@ -1311,6 +1287,7 @@ def test_cleanup():
     assert buttons[0].description == "Clicked 1 times"
 
     set_count(2)
+    rc.force_update()
     buttons = box.children
     assert len(buttons) == 2
     assert buttons[0].description == "Clicked 1 times"
@@ -1321,11 +1298,13 @@ def test_cleanup():
     assert buttons[1].description == "Clicked 2 times"
 
     set_count(1)
+    rc.force_update()
     buttons = box.children
     assert len(buttons) == 1
     assert buttons[0].description == "Clicked 1 times"
 
     set_count(2)
+    rc.force_update()
     buttons = box.children
     assert len(buttons) == 2
     assert buttons[0].description == "Clicked 1 times"
@@ -1422,10 +1401,10 @@ def test_insert_with_key():
         nonlocal set_insert
         insert, set_insert = react.use_state(False)
         with w.VBox() as main:
-            ButtonClicks(__key__="1")  # type: ignore
+            ButtonClicks().key("1")  # type: ignore
             if insert:
-                ButtonClicks2(__key__="2")  # type: ignore
-            ButtonClicks3(__key__="3")  # type: ignore
+                ButtonClicks2().key("2")  # type: ignore
+            ButtonClicks3().key("3")  # type: ignore
         return main
 
     # with pytest.raises(Exception):
@@ -1492,7 +1471,8 @@ def test_vue_orphan_not_close():
     template.close()
 
 
-def test_switch_component():
+@pytest.mark.parametrize("in_container", [False, True])
+def test_switch_component(in_container):
     @react.component
     def Child1():
         with Container() as main:
@@ -1520,21 +1500,61 @@ def test_switch_component():
         children = [None, Child1, Child2, Child3]
         component = children[value]
         assert component is not None
-        return component()
+        if in_container:
+            return Container(children=[component()])
+        else:
+            return component()
 
     box, rc = react.render(Test())
-    assert box.children[0].children[0].description == "1"
+
+    def get_description():
+        if in_container:
+            button = box.children[0].children[0].children[0]
+        else:
+            button = box.children[0].children[0]
+        return button.description
+
+    assert get_description() == "1"
     assert set_value is not None
-    set_value(2)
-    assert box.children[0].children[0].description == "2"
+    # set_value(2)
+    # assert get_description() == "2"
+    rc.force_update()
     set_value(3)
-    assert box.children[0].children[0].description == "3"
+    rc.force_update()
+    assert get_description() == "3"
     set_value(1)
-    assert box.children[0].children[0].description == "1"
+    rc.force_update()
+    assert get_description() == "1"
     set_value(3)
-    assert box.children[0].children[0].description == "3"
+    rc.force_update()
+    assert get_description() == "3"
     set_value(2)
-    assert box.children[0].children[0].description == "2"
+    rc.force_update()
+    assert get_description() == "2"
     set_value(1)
-    assert box.children[0].children[0].description == "1"
+    rc.force_update()
+    assert get_description() == "1"
+    rc.close()
+
+
+def test_switch_simple():
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(True)
+        if value:
+            return Container(children=[w.Button(description="button")])
+        else:
+            return Container(children=[w.IntSlider(description="slider")])
+
+    box, rc = react.render(Test())
+    assert set_value is not None
+    assert box.children[0].children[0].description == "button"
+    rc.force_update()
+    set_value(False)
+    rc.force_update()
+    assert box.children[0].children[0].description == "slider"
+    rc.force_update()
     rc.close()

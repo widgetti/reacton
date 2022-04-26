@@ -7,7 +7,6 @@ ReactJS - ipywidgets relation:
 
 """
 
-import collections
 import copy
 import logging
 import sys
@@ -18,7 +17,6 @@ from types import TracebackType
 from typing import (
     Any,
     Callable,
-    Counter,
     Dict,
     Generic,
     List,
@@ -48,7 +46,6 @@ E = TypeVar("E")  # used for elements
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
-KEY_NAME = "__key__"
 ROOT_KEY = "ROOT::"
 logger = logging.getLogger("react")  # type: ignore
 
@@ -74,7 +71,7 @@ widgets.Widget.element = classmethod(element)
 
 
 def join_key(parent_key, key):
-    return f"{parent_key},{key}"
+    return f"{parent_key}{key}"
 
 
 def pp(o):
@@ -97,6 +94,8 @@ class ComponentCreateError(RuntimeError):
 
 
 class Component:
+    name: str
+
     def __call__(self, *args, **kwargs) -> Union[widgets.Widget, "Element"]:
         pass
 
@@ -105,6 +104,7 @@ class Element(Generic[W]):
     def __init__(self, component, *args, **kwargs):
         self.component = component
         self.mime_bundle = mime_bundle_default
+        self._key: Optional[str] = None
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
@@ -128,6 +128,14 @@ class Element(Generic[W]):
             frame_py = self.traceback.tb_frame.f_back.f_back
             assert frame_py is not None
             self.traceback = TracebackType(tb_frame=frame_py, tb_lasti=self.traceback.tb_lasti, tb_lineno=frame_py.f_lineno, tb_next=None)
+
+    def key(self, value: str):
+        """Returns the same element with a custom key set.
+
+        This can help render performance. See documentation for details.
+        """
+        self._key = value
+        return self
 
     def split_kwargs(self, kwargs):
         listeners = {}
@@ -242,6 +250,7 @@ class ComponentWidget(Component):
     def __init__(self, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
         self.mime_bundle = mime_bundle
         self.widget = widget
+        self.name = widget.__name__
 
     def __repr__(self):
         return f"Component[{self.widget!r}]"
@@ -257,6 +266,7 @@ class ComponentWidget(Component):
 class ComponentFunction(Component):
     def __init__(self, f: Callable[[], Element], mime_bundle=mime_bundle_default):
         self.f = f
+        self.name = self.f.__name__
         self.mime_bundle = mime_bundle
 
     def __repr__(self):
@@ -486,6 +496,9 @@ class ComponentContext:
     used_keys: Set[str] = field(default_factory=set)
     # needs_render: bool = False
 
+    # elements created in this context go there
+    owns: Set[Element] = field(default_factory=set)
+
 
 TEffect = TypeVar("TEffect", bound="Effect")
 
@@ -527,16 +540,13 @@ class _RenderContext:
         if initial_state:
             self.state_set(self.context_root, initial_state)
         self._widgets: Dict[Element, widgets.Widget] = {}
+
         # each render phase, we track which elements we proccessed
         # so we don't render them twice (only 1 widget per element)
-        # we also keep trace of the reference count. Although not required
-        # this gives us extra certainty our code is correct
-        self._elements_next: Counter[Element] = collections.Counter()
-        # once reconcilidated, al element and its reference count
-        # moves here. The reference count is important here, because
-        # only when an element is removed AND its reference count is 0, we
-        # remove the widget.
-        self._elements: Counter[Element] = collections.Counter()
+        self._elements_next: Set[Element] = set()
+
+        # once reconcilidated, al elements moves here.
+        self._elements: Set[Element] = set()
 
         # widgets created as side effect (like Layout and Style)
         # key is the widget model id (because some widgets are not hashable, like plotly)
@@ -547,7 +557,7 @@ class _RenderContext:
 
     def close(self):
         with self.thread_lock:
-            self._remove_element(self.element, key="/", parent_key=ROOT_KEY)
+            self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
             assert self.context is self.context_root
         if self.container:
             self.container.close()
@@ -684,7 +694,7 @@ class _RenderContext:
                 assert self.context is not None
 
                 try:
-                    self._elements_next = collections.Counter()
+                    self._elements_next = set()
                     self._render(element, "/", parent_key=ROOT_KEY)
                     self.first_render = False
                 except BaseException:
@@ -700,7 +710,7 @@ class _RenderContext:
                             logger.info("Entering nested render phase: %r", self._state_changed_reason)
                             self._state_changed = False
                             self._state_changed_reason = None
-                            self._elements_next = collections.Counter()
+                            self._elements_next = set()
                             self._render(element, "/", parent_key=ROOT_KEY)
                             logger.info("Render done: %r %r", self._state_changed, self._state_changed_reason)
                             assert self.context is self.context_root
@@ -708,15 +718,19 @@ class _RenderContext:
                             if render_counts > 50:
                                 raise RuntimeError("Too many renders triggered, your render loop does not stop")
                         logger.debug("Render phase resulted in (next) elements:")
-                        for el, count in self._elements_next.items():
-                            logger.debug("\t%r: %r", count, el)
+                        for el in self._elements_next:
+                            logger.debug("\t%r", el)
 
-                        widget = self._reconsolidate(element, key="/", parent_key=ROOT_KEY)
+                        logger.debug("Current elements:")
+                        for el in self._elements:
+                            logger.debug("\t %r", el)
+
+                        widget = self._reconsolidate(element, default_key="/", parent_key=ROOT_KEY)
                         if self._elements_next:
                             raise RuntimeError(f"Element not reconsolidated: {self._elements_next}")
                         logger.debug("Reconsolidate phase resulted in elements:")
-                        for el, count in self._elements.items():
-                            logger.debug("\t%r: %r", count, el)
+                        for el in self._elements:
+                            logger.debug("\t%r", el)
                         # RESET
                         assert self.context is self.context_root
                         assert widget in self._widgets.values()
@@ -768,7 +782,7 @@ class _RenderContext:
                 _rc = None  # type: ignore
             return widget
 
-    def _render(self, element: Element, key: str, parent_key: str):
+    def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
         # for tracking stale data/elements when using get_widget
@@ -776,27 +790,31 @@ class _RenderContext:
         context = self.context
         assert context is not None
 
-        if key == "/":
+        if default_key == "/":
             # if this is the root element, reset
             context.used_keys.clear()
-        logger.debug("Render: (%s,%s)  - %r", parent_key, key, element)
+            default_key = element.component.name + "/"
 
         el = element
-        kwargs = el.kwargs.copy()
-        key = kwargs.pop(KEY_NAME, key)
+        # if we did not define a custom key, use the default key
+        key = el._key
+        if key is None:
+            key = default_key
+
+        logger.debug("Render: (%s,%s)  - %r", parent_key, key, element)
+
         if key in context.used_keys:
             if DEBUG:
                 self.tracebacks.append(el.traceback)
             raise KeyError(f"Duplicate key {key!r}")
         context.used_keys.add(key)
-        context.elements_next[key] = el
         # if an element is used in multiple places, we only render it once
         if el in self._elements_next:
-            # we already rendered it, just increase the refernce count
-            self._elements_next[el] += 1
+            # we already rendered it
             logger.debug("Render: Already rendered")
             return
-        self._elements_next[el] += 1
+        context.elements_next[key] = el
+        self._elements_next.add(el)
 
         if isinstance(el.component, ComponentWidget):
             assert not el.args, "no positional args supported for widgets"
@@ -853,7 +871,7 @@ class _RenderContext:
                 # Now, we actually execute the render function, and get
                 # back the root element
                 try:
-                    root_element: Element = el.component.f(*el.args, **kwargs)
+                    root_element: Element = el.component.f(*el.args, **el.kwargs)
                 except Exception as e:
                     if DEBUG:
                         # we might be interested in the traceback inside the call...
@@ -869,7 +887,8 @@ class _RenderContext:
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 context.root_element = root_element
-                self._render(root_element, "/", parent_key=parent_key)  # depth first
+                new_parent_key = join_key(parent_key, key)
+                self._render(root_element, "/", parent_key=new_parent_key)  # depth first
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
             finally:
@@ -877,38 +896,31 @@ class _RenderContext:
                 self.context = context.parent
             assert context is not None
 
-    def _reconsolidate(self, el: Element, key: str, parent_key: str):
+    def _reconsolidate(self, el: Element, default_key: str, parent_key: str):
+        # we don't use default_key, but we want the same signature for the visitor pattern
         kwargs = el.kwargs.copy()
-        key = kwargs.pop(KEY_NAME, key)
+        key = el._key
+        if key is None:
+            if default_key == "/":
+                default_key = el.component.name + "/"
+            key = default_key
+        assert key is not None
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
         context = self.context
         assert context is not None
-        assert key in context.elements_next, f"{key} not found, found: {list(context.elements_next)}"
-        assert context.elements_next[key] is not None
-        assert el is context.elements_next[key]
 
         el_prev = context.elements.get(key)
 
         already_reconsolidated = el in self._elements
         if already_reconsolidated and el is not self.element:
-            context.elements[key] = context.elements_next.pop(key)
-            # TODO: this code looks similar to that in finally, refactor?
-            if el_prev:
-                assert el_prev in self._elements
-                self._elements[el_prev] -= 1
-                if self._elements[el_prev] == 0:
-                    del self._elements[el_prev]
 
-            # inc ref
-            self._elements[el] += 1
-
-            # def ref
-            assert el in self._elements_next
-            self._elements_next[el] -= 1
-            if self._elements_next[el] == 0:
-                del self._elements_next[el]
-
-            logger.debug("Reconsolidate: Using existing widget (ref count = %s)", self._elements[el])
+            logger.debug("Reconsolidate: Using existing widget (prev = %r)", el_prev)
+            logger.debug("Current:")
+            for el_ in self._elements:
+                logger.debug("\t%r", el_)
+            logger.debug("Next:")
+            for el_ in self._elements_next:
+                logger.debug("\t%r", el_)
 
             return self._widgets[el]
 
@@ -924,14 +936,17 @@ class _RenderContext:
                         logger.debug("Reconsolidate: arguments done (children of %s,%s)", parent_key, key)
 
                     child_context_prev = context.children.get(key)
-                    self.context = child_context = context.children_next[key]
+                    child_context = context.children_next[key]
                     if child_context_prev is not None and child_context_prev is not child_context:
                         assert el_prev is not None, "prev child is not None, but element is"
                         # this happens when the component type changes
-                        assert child_context_prev.invoke_element is el_prev
-                        self._remove_element(el_prev, key="/", parent_key=parent_key)
+                        # this is not always true, it could be that there are two renders phases before this happened
+                        # where the first updated the invoke_element, and the second changed the component
+                        # assert child_context_prev.invoke_element is el_prev
+                        self._remove_element(el_prev, default_key="/", parent_key=parent_key)
 
                     logger.debug("Reconsolidate: enter context %r", new_parent_key)
+                    self.context = child_context
                     assert child_context.root_element
                     elements_now = dict(child_context.elements_next)
                     elements = dict(child_context.elements)
@@ -990,7 +1005,6 @@ class _RenderContext:
             else:
                 assert isinstance(el.component, ComponentWidget)
                 kwargs, custom_kwargs = el.split_kwargs(el.kwargs)
-                kwargs.pop(KEY_NAME, None)  # just remove it, for internal use
                 if el.args:
                     raise TypeError("Widget element only take keyword arguments")
 
@@ -1011,6 +1025,7 @@ class _RenderContext:
                     else:
                         logger.info("Creating new widget: %r", el)
                         self._widgets[el] = self._create_widget(el, kwargs)
+                        context.owns.add(el)
                     el.handle_custom_kwargs(self._widgets[el], custom_kwargs)
                 elif type(widget_previous) is el.component.widget:
                     logger.info("Updating widget: %r  → %r", el_prev, el)
@@ -1019,13 +1034,18 @@ class _RenderContext:
                     # assign to _widgets[el] first, before errors can occur
                     self._widgets[el] = widget_previous
                     self._update_widget(widget_previous, el, el_prev, kwargs)
+                    context.owns.add(el)
+                    context.owns.remove(el_prev)
                     el.handle_custom_kwargs(widget_previous, custom_kwargs)
                     assert el_prev is not el
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     logger.info("Replacing widget: %r → %r", el_prev, el)
+                    assert el_prev in context.owns
                     self._remove_element(el_prev, key, parent_key=parent_key)
+                    context.owns.remove(el_prev)
                     self._widgets[el] = self._create_widget(el, kwargs)
+                    context.owns.add(el)
                     el.handle_custom_kwargs(self._widgets[el], custom_kwargs)
                 after = set(widgets.Widget.widgets)
                 widget = self._widgets[el]
@@ -1057,22 +1077,25 @@ class _RenderContext:
         finally:
             # this marks the work as 'done'
             context.elements[key] = context.elements_next.pop(key)
-            if el_prev:
-                # if the widget was removed, it's removed from self._elements
-                # (this is different from above)
-                if el_prev in self._elements:
-                    self._elements[el_prev] -= 1
-                    if self._elements[el_prev] == 0:
-                        del self._elements[el_prev]
-            # inc ref
-            self._elements[el] += 1
-            # def rec
-            self._elements_next[el] -= 1
-            if self._elements_next[el] == 0:
-                del self._elements_next[el]
+
+            if el_prev in self._elements:
+                self._elements.remove(el_prev)
+
+            # move from _elemens_next to _elements
+            assert el not in self._elements
+            self._elements.add(el)
+
+            assert el in self._elements_next
+            self._elements_next.remove(el)
+
+            logger.debug("Current:")
+            for el_ in self._elements:
+                logger.debug("\t%r", el_)
+            logger.debug("Next:")
+            for el_ in self._elements_next:
+                logger.debug("\t%r", el_)
 
     def _create_widget(self, el: Element, kwargs):
-        assert KEY_NAME not in kwargs
         assert isinstance(el.component, ComponentWidget)
         try:
             widget = el.component.widget(**kwargs)
@@ -1092,7 +1115,7 @@ class _RenderContext:
                 cls = widget.__class__
                 traits = cls.class_traits()
                 used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
-                dropped_arguments = set(used_kwargs) - set(kwargs) - {KEY_NAME}
+                dropped_arguments = set(used_kwargs) - set(kwargs)
                 for name in dropped_arguments:
                     value = traits[name].default()
                     self._update_widget_prop(widget, name, value)
@@ -1100,46 +1123,39 @@ class _RenderContext:
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
 
-    def _remove_element(self, el: Element, key: str, parent_key):
+    def _remove_element(self, el: Element, default_key: str, parent_key):
+        key = el._key
+        if key is None:
+            if default_key == "/":
+                default_key = el.component.name + "/"
+            key = default_key
+        assert key is not None
         assert self.context is not None
         context = self.context
-        kwargs = el.kwargs.copy()
-        key = kwargs.pop(KEY_NAME, key)
         logger.info("Remove: (%s, %s) %r", parent_key, key, el)
 
         if el not in self._elements:
             return
         assert el in self._elements
-        self._elements[el] -= 1
-        ref_count = self._elements[el]
-        if ref_count > 0:
-            logger.info("Remove: only decreasing ref count to %s", ref_count)
-            # let the last one actually remove it
-            return
-        del self._elements[el]
+        self._elements.remove(el)
 
-        # walk up the context tree to find the context where el was created
-        context_created: Optional[ComponentContext] = context
-        while context_created is not None and context_created.parent is not None and el in context_created.parent.elements.values():
-            context_created = context_created.parent
-        if context_created is None:
+        key_created = [key_ for key_, value in context.elements.items() if el == value][0]
+        # TODO: why is this not key?
+        # assert key_created == key
+        if context is None:
             raise RuntimeError(f"Element {el} not found in context or parent context")
-        assert el in context_created.elements.values()
-        key_created = [key for key, value in context_created.elements.items() if el == value][0]
 
         self._visit_children(el, key, parent_key, self._remove_element)
         if isinstance(el.component, ComponentFunction):
-            if key_created not in context_created.children:
-                raise KeyError(f"{key_created} not found, only {list(context_created.children)}")
-            self.context = context_created.children[key_created]
+            self.context = context.children[key_created]
             try:
                 assert self.context.root_element is not None
-                # TODO: maybe if we store the parent key in the context, we can pass it here
-                self._remove_element(self.context.root_element, "/", parent_key="??")
+                new_parent_key = join_key(parent_key, key)
+                self._remove_element(self.context.root_element, "/", parent_key=new_parent_key)
             finally:
                 # restore context
                 self.context = context
-            del context_created.children[key_created]
+            del context.children[key_created]
         else:
             widget = self._widgets[el]
             for orphan in self._orphans.get(widget.model_id, set()):
@@ -1151,11 +1167,14 @@ class _RenderContext:
                 del self._orphans[widget.model_id]
             widget.close()
             del self._widgets[el]
-        del context_created.elements[key_created]
+        del context.elements[key_created]
 
-    def _visit_children(self, el: Element, key: str, parent_key: str, f: Callable):
+    def _visit_children(self, el: Element, default_key: str, parent_key: str, f: Callable):
         assert self.context is not None
-        key = el.kwargs.get(KEY_NAME, key)
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
         self._visit_children_values(el.kwargs, key, parent_key, f)
         self._visit_children_values(el.args, key, parent_key, f)
 
