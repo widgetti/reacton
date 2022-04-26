@@ -1607,3 +1607,54 @@ def test_switch_widget_and_component():
 
     rc.force_update()
     rc.close()
+
+
+def test_switch_component_key():
+    set_value = None
+
+    effect = unittest.mock.Mock()
+    cleanup = unittest.mock.Mock()
+
+    @react.component
+    def Child(value):
+        def my_effect():
+            effect()
+            return cleanup
+
+        use_side_effect(my_effect, [])
+        return w.Button(description=value)
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state("1")
+        with Container() as main:
+            Child(value=value).key(value)
+        return main
+
+    box, rc = react.render_fixed(Test())
+    assert set_value is not None
+    assert box.children[0].description == "1"
+    effect.assert_called_once()
+    cleanup.assert_not_called()
+    rc.force_update()
+
+    set_value("2")
+    assert box.children[0].description == "2"
+    effect.assert_has_calls([unittest.mock.call(), unittest.mock.call()])
+    cleanup.assert_called_once()
+    rc.force_update()
+    effect.assert_has_calls([unittest.mock.call(), unittest.mock.call()])
+    cleanup.assert_called_once()
+
+    set_value("3")
+    assert box.children[0].description == "3"
+    effect.assert_has_calls([unittest.mock.call(), unittest.mock.call(), unittest.mock.call()])
+    cleanup.assert_has_calls([unittest.mock.call(), unittest.mock.call()])
+    rc.force_update()
+    effect.assert_has_calls([unittest.mock.call(), unittest.mock.call(), unittest.mock.call()])
+    cleanup.assert_has_calls([unittest.mock.call(), unittest.mock.call()])
+
+    rc.force_update()
+    rc.close()
+    cleanup.assert_has_calls([unittest.mock.call(), unittest.mock.call(), unittest.mock.call()])
