@@ -24,7 +24,7 @@ from .utils import without_default
 #         button.on_click(handler)
 #         return cleanup
 
-#     react.use_side_effect(add_event_handler)
+#     react.use_effect(add_event_handler)
 
 
 def slider_int(value=1, description="", min=0, max=100, key=None, **kwargs):
@@ -117,7 +117,7 @@ class ButtonElement(react.core.Element):
                 button.on_click(handler)
                 return cleanup
 
-            react.use_side_effect(add_event_handler)
+            react.use_effect(add_event_handler)
 
         super().handle_custom_kwargs(widget, kwargs)
 

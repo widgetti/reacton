@@ -10,4 +10,4 @@ def use_work_threaded(callback, dependencies=[]):
 
         threading.Thread(target=runner).start()
 
-    react.use_side_effect(run, dependencies)
+    react.use_effect(run, dependencies)

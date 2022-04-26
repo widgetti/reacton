@@ -6,7 +6,6 @@ ReactJS - ipywidgets relation:
  * Component -- function
 
 """
-
 import copy
 import logging
 import sys
@@ -30,6 +29,7 @@ from typing import (
     cast,
     overload,
 )
+from warnings import warn
 
 import ipywidgets as widgets
 
@@ -163,7 +163,7 @@ class Element(Generic[W]):
                 widget.observe(event_handler, name)
                 return cleanup
 
-            use_side_effect(add_event_handler)
+            use_effect(add_event_handler)
 
     def __repr__(self):
         args = [f"{value!r}" for value in self.args]
@@ -343,7 +343,7 @@ def force_update():
 
 
 def get_widget(el: Element):
-    """Returns the real underlying widget, can only be used in use_side_effect"""
+    """Returns the real underlying widget, can only be used in use_effect"""
     rc = _get_render_context()
     if el not in rc._widgets:
         if id(el) in rc._old_element_ids:
@@ -369,11 +369,16 @@ def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None
     return _rc.use_state(initial, key, eq)
 
 
-def use_side_effect(effect: EffectCallable, dependencies=None):
+def use_effect(effect: EffectCallable, dependencies=None):
     global _rc
     if _rc is None:
         raise RuntimeError("No render context")
-    return _rc.use_side_effect(effect, dependencies=dependencies)
+    return _rc.use_effect(effect, dependencies=dependencies)
+
+
+def use_side_effect(effect: EffectCallable, dependencies=None):
+    warn("use_side_effect is deprecated, please use use_effect", DeprecationWarning, stacklevel=2)
+    return use_effect(effect=effect, dependencies=dependencies)
 
 
 def use_state_widget(widget: widgets.Widget, prop_name, key=None):
@@ -684,7 +689,7 @@ class _RenderContext:
         if not self._is_rendering:
             self.render(self.element, self.container)
 
-    def use_side_effect(self, effect: EffectCallable, dependencies=None):
+    def use_effect(self, effect: EffectCallable, dependencies=None):
         assert self.context is not None
         if len(self.context.effects) <= self.context.effect_index:
             self.context.effect_index += 1

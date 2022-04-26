@@ -9,7 +9,7 @@ import pytest
 import traitlets
 
 import react_ipywidgets as react
-from react_ipywidgets.core import component, use_side_effect
+from react_ipywidgets.core import component, use_effect
 
 from . import logging  # noqa: F401
 from . import bqplot
@@ -494,7 +494,7 @@ def test_bqplot():
     rc.close()
 
 
-def test_use_side_effect():
+def test_use_effect():
     @react.component
     def Button2():
         clicks, set_clicks = react.use_state(0)
@@ -508,7 +508,7 @@ def test_use_side_effect():
             button.on_click(handler)
             return lambda: button.on_click(handler, remove=True)
 
-        react.use_side_effect(add_event_handler)
+        react.use_effect(add_event_handler)
         button_el = w.Button(description=f"Clicked {clicks} times")
         return button_el
 
@@ -522,13 +522,13 @@ def test_use_side_effect():
     rc.close()
 
 
-def test_use_side_effect_no_deps():
+def test_use_effect_no_deps():
     calls = 0
     cleanups = 0
 
     @react.component
     def TestNoDeps(a, b):
-        def test_side_effect():
+        def test_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -537,7 +537,7 @@ def test_use_side_effect_no_deps():
             calls += 1
             return cleanup
 
-        react.use_side_effect(test_side_effect)
+        react.use_effect(test_effect)
         return w.Button()
 
     hbox, rc = react.render(TestNoDeps(a=1, b=1))
@@ -549,7 +549,7 @@ def test_use_side_effect_no_deps():
     rc.close()
 
 
-def test_use_side_effect_once():
+def test_use_effect_once():
     calls = 0
     cleanups = 0
     counters_seen = []
@@ -558,7 +558,7 @@ def test_use_side_effect_once():
     def TestNoDeps(a, b):
         counter, set_counter = react.use_state(0)
 
-        def test_side_effect():
+        def test_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -575,7 +575,7 @@ def test_use_side_effect_once():
         if counter == 0:
             set_counter(1)
 
-        react.use_side_effect(test_side_effect, [])
+        react.use_effect(test_effect, [])
         return w.Button()
 
     hbox, rc = react.render(TestNoDeps(a=1, b=1))
@@ -588,13 +588,13 @@ def test_use_side_effect_once():
     rc.close()
 
 
-def test_use_side_effect_deps():
+def test_use_effect_deps():
     calls = 0
     cleanups = 0
 
     @react.component
     def TestNoDeps(a, b):
-        def test_side_effect():
+        def test_effect():
             def cleanup():
                 nonlocal cleanups
                 cleanups += 1
@@ -603,7 +603,7 @@ def test_use_side_effect_deps():
             calls += 1
             return cleanup
 
-        react.use_side_effect(test_side_effect, [a, b])
+        react.use_effect(test_effect, [a, b])
         return w.Button()
 
     hbox, rc = react.render(TestNoDeps(a=1, b=1))
@@ -949,7 +949,7 @@ def test_get_widget():
             button1 = react.core.get_widget(button1el)
             button2 = react.core.get_widget(button2el)
 
-        use_side_effect(get_widgets)
+        use_effect(get_widgets)
         with w.VBox() as main:
             button1el = w.Button(description="1")
             button2el = w.Button(description="2")
@@ -972,7 +972,7 @@ def test_get_widget_multi_render():
             nonlocal button
             button = react.core.get_widget(button_el)
 
-        use_side_effect(get_widgets, [])
+        use_effect(get_widgets, [])
         if value < 3:
             set_value(value + 1)
         with w.VBox() as main:
@@ -1030,7 +1030,7 @@ def test_other_event_handlers():
             widget.observe(event_handler, "value")
             return lambda: None
 
-        use_side_effect(add_my_own_event_handler, [])  # only add it once
+        use_effect(add_my_own_event_handler, [])  # only add it once
         return text
 
     text, rc = react.render_fixed(Test())
@@ -1572,7 +1572,7 @@ def test_switch_widget_and_component():
             effect()
             return cleanup
 
-        use_side_effect(my_effect, [])
+        use_effect(my_effect, [])
         return w.Button(description="child")
 
     @react.component
@@ -1621,7 +1621,7 @@ def test_switch_component_key():
             effect()
             return cleanup
 
-        use_side_effect(my_effect, [])
+        use_effect(my_effect, [])
         return w.Button(description=value)
 
     @react.component

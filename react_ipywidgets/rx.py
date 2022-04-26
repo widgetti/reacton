@@ -1,6 +1,6 @@
 import reactivex
 
-from . import use_side_effect, use_state
+from . import use_effect, use_state
 
 
 def use_observable_state(obserable: reactivex.Observable, initial_valie):
@@ -11,5 +11,5 @@ def use_observable_state(obserable: reactivex.Observable, initial_valie):
         # d = obserable.on_next(set_value)
         return d.dispose
 
-    use_side_effect(init, [])
+    use_effect(init, [])
     return value

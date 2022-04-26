@@ -23,4 +23,4 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
 
         return cleanup
 
-    react.use_side_effect(add_event_handler, [event_and_modifiers])
+    react.use_effect(add_event_handler, [event_and_modifiers])
