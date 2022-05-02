@@ -166,7 +166,13 @@ class Element(Generic[W]):
             use_effect(add_event_handler)
 
     def __repr__(self):
-        args = [f"{value!r}" for value in self.args]
+        def format_arg(value):
+            value_repr = repr(value)
+            if len(value_repr) > 50:
+                value_repr = value_repr[:10] + "..." + value_repr[-10:]
+            return value_repr
+
+        args = [format_arg(value) for value in self.args]
 
         def format_kwarg(key, value):
             if key == "children":
@@ -174,7 +180,7 @@ class Element(Generic[W]):
                     contains_elements = any(isinstance(child, Element) for child in value)
                     if contains_elements:
                         return "children = ..."
-            return f"{key} = {value!r}"
+            return f"{key} = {format_arg(value)}"
 
         kwargs = [format_kwarg(key, value) for key, value in self.kwargs.items()]
         args_formatted = ", ".join(args + kwargs)
@@ -419,6 +425,7 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
     def dispatch(action):
         def state_updater(state):
             return reduce(state, action)
+
         set_state(state_updater)
 
     return state, dispatch
