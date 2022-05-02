@@ -1,6 +1,6 @@
 import datetime
 import typing
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Callable, Dict, Sequence, Union
 
 import ipywidgets
 import ipywidgets as widgets
@@ -89,37 +89,25 @@ def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kw
 
 
 class ButtonElement(react.core.Element):
-    def split_kwargs(self, kwargs: dict):
+    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+        if name == "on_click":
 
-        if "on_click" in kwargs:
-            kwargs = kwargs.copy()
-            on_click = kwargs.pop("on_click")
-            normal_kwargs, listeners = super().split_kwargs(kwargs)
-            listeners["on_click"] = on_click
-            return normal_kwargs, listeners
+            def on_click(change):
+                callback()
+
+            self._callback_wrappers[callback] = on_click
+            widget.on_click(on_click)
+
         else:
-            return super().split_kwargs(kwargs)
+            super()._add_widget_event_listener(widget, name, callback)
 
-    def handle_custom_kwargs(self, widget: ipywidgets.Widget, kwargs: dict):
-        if "on_click" in kwargs:
-            kwargs = kwargs.copy()
-            on_click = kwargs.pop("on_click")
+    def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+        if name == "on_click":
+            on_click = self._callback_wrappers[callback]
+            widget.on_click(on_click, remove=True)
 
-            def add_event_handler():
-                button: widgets.Button = react.core.get_widget(self)
-
-                def handler(change):
-                    on_click()
-
-                def cleanup():
-                    button.on_click(handler, remove=True)
-
-                button.on_click(handler)
-                return cleanup
-
-            react.use_effect(add_event_handler)
-
-        super().handle_custom_kwargs(widget, kwargs)
+        else:
+            super()._add_widget_event_listener(widget, name, callback)
 
 
 extra_arguments = {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}

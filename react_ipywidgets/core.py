@@ -101,6 +101,10 @@ class Component:
 
 
 class Element(Generic[W]):
+    # to make every unique on_value callback to a unique wrapper
+    # so that we can remove the listeners
+    _callback_wrappers: Dict[Callable, Callable] = {}
+
     def __init__(self, component, *args, **kwargs):
         self.component = component
         self.mime_bundle = mime_bundle_default
@@ -108,6 +112,7 @@ class Element(Generic[W]):
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
+
         self._current_context = None
         rc = _get_render_context(required=False)
         if rc:
@@ -136,34 +141,6 @@ class Element(Generic[W]):
         """
         self._key = value
         return self
-
-    def split_kwargs(self, kwargs):
-        listeners = {}
-        normal_kwargs = {}
-        assert isinstance(self.component, ComponentWidget)
-        args = self.component.widget.class_trait_names()
-        for name, value in kwargs.items():
-            if name.startswith("on_") and name not in args:
-                listeners[name[3:]] = value
-            else:
-                normal_kwargs[name] = value
-        return normal_kwargs, listeners
-
-    def handle_custom_kwargs(self, widget: widgets.widgets.Widget, kwargs):
-        listeners = kwargs
-        for name, listener in listeners.items():
-
-            def add_event_handler(name=name, listener=listener):
-                def event_handler(change):
-                    listener(change.new)
-
-                def cleanup():
-                    widget.unobserve(event_handler, name)
-
-                widget.observe(event_handler, name)
-                return cleanup
-
-            use_effect(add_event_handler)
 
     def __repr__(self):
         def format_arg(value):
@@ -223,6 +200,81 @@ class Element(Generic[W]):
         assert rc.context is not None
         ca = rc.container_adders.pop()
         ca.assign()
+
+    def _split_kwargs(self, kwargs):
+        # split into normal kwargs and events
+        listeners = {}
+        normal_kwargs = {}
+        assert isinstance(self.component, ComponentWidget)
+        args = self.component.widget.class_trait_names()
+        for name, value in kwargs.items():
+            if name.startswith("on_") and name not in args:
+                listeners[name] = value
+            else:
+                normal_kwargs[name] = value
+        return normal_kwargs, listeners
+
+    def _create_widget(self, kwargs):
+        # we can't use our own kwarg, since that contains elements, not widgets
+        kwargs, listeners = self._split_kwargs(kwargs)
+        assert isinstance(self.component, ComponentWidget)
+        try:
+            widget = self.component.widget(**kwargs)
+        except Exception:
+            raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
+        for name, callback in listeners.items():
+            self._add_widget_event_listener(widget, name, callback)
+        return widget
+
+    def _update_widget(self, widget: widgets.Widget, el_prev: "Element", kwargs):
+        assert isinstance(self.component, ComponentWidget)
+        assert isinstance(el_prev.component, ComponentWidget)
+        assert same_component(self.component, el_prev.component)
+        # used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
+        args = self.component.widget.class_trait_names()
+        with widget.hold_sync():
+            # update values
+            for name, value in kwargs.items():
+                if name.startswith("on_") and name not in args:
+                    self._update_widget_event_listener(widget, name, value, el_prev.kwargs.get(name))
+                else:
+                    self._update_widget_prop(widget, name, value)
+
+            # if we previously gave an argument, but now we don't
+            # we have to restore the default values, and remove listeners
+            cls = widget.__class__
+            traits = cls.class_traits()
+
+            dropped_arguments = set(el_prev.kwargs) - set(self.kwargs)
+            for name in dropped_arguments:
+                if name.startswith("on_") and name not in args:
+                    self._remove_widget_event_listener(widget, name, el_prev.kwargs[name])
+                else:
+                    value = traits[name].default()
+                    self._update_widget_prop(widget, name, value)
+
+    def _update_widget_prop(self, widget, name, value):
+        setattr(widget, name, value)
+
+    def _update_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable, callback_prev: Optional[Callable]):
+        # it's an event listener
+        if callback != callback_prev and callback_prev is not None:
+            self._remove_widget_event_listener(widget, name, callback_prev)
+        self._add_widget_event_listener(widget, name, callback)
+
+    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+        target_name = name[3:]
+
+        def on_change(change):
+            callback(change.new)
+
+        self._callback_wrappers[callback] = on_change
+        widget.observe(on_change, target_name)
+
+    def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+        target_name = name[3:]
+        on_change = self._callback_wrappers[callback]
+        widget.unobserve(on_change, target_name)
 
 
 FuncT = TypeVar("FuncT", bound=Callable[..., Element])
@@ -932,6 +984,8 @@ class _RenderContext:
                 context.root_element = root_element
                 new_parent_key = join_key(parent_key, key)
                 self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                if context.effect_index != len(context.effects):
+                    raise RuntimeError(f"Previously render had {len(context.effects)} effects, this run {context.effect_index}")
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
             finally:
@@ -1051,7 +1105,6 @@ class _RenderContext:
 
             else:
                 assert isinstance(el.component, ComponentWidget)
-                kwargs, custom_kwargs = el.split_kwargs(el.kwargs)
                 if el.args:
                     raise TypeError("Widget element only take keyword arguments")
 
@@ -1071,19 +1124,17 @@ class _RenderContext:
                         # logger.info("Using shared widget: %r", el)
                     else:
                         logger.info("Creating new widget: %r", el)
-                        self._widgets[el] = self._create_widget(el, kwargs)
+                        self._widgets[el] = el._create_widget(kwargs)
                         context.owns.add(el)
-                    el.handle_custom_kwargs(self._widgets[el], custom_kwargs)
                 elif el_prev is not None and el_prev.component == el.component:
                     logger.info("Updating widget: %r  → %r", el_prev, el)
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
                     # assign to _widgets[el] first, before errors can occur
                     self._widgets[el] = widget_previous
-                    self._update_widget(widget_previous, el, el_prev, kwargs)
+                    el._update_widget(widget_previous, el_prev, kwargs)
                     context.owns.add(el)
                     context.owns.remove(el_prev)
-                    el.handle_custom_kwargs(widget_previous, custom_kwargs)
                     assert el_prev is not el
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
@@ -1091,9 +1142,8 @@ class _RenderContext:
                     assert el_prev in context.owns
                     self._remove_element(el_prev, key, parent_key=parent_key)
                     context.owns.remove(el_prev)
-                    self._widgets[el] = self._create_widget(el, kwargs)
+                    self._widgets[el] = el._create_widget(kwargs)
                     context.owns.add(el)
-                    el.handle_custom_kwargs(self._widgets[el], custom_kwargs)
                 after = set(widgets.Widget.widgets)
                 widget = self._widgets[el]
                 orphans = (after - before) - {widget.model_id}
@@ -1142,34 +1192,6 @@ class _RenderContext:
             # logger.debug("Next:")
             # for el_ in self._elements_next:
             #     logger.debug("\t%r", el_)
-
-    def _create_widget(self, el: Element, kwargs):
-        assert isinstance(el.component, ComponentWidget)
-        try:
-            widget = el.component.widget(**kwargs)
-        except Exception:
-            raise RuntimeError(f"Could not create widget {el.component.widget} with {kwargs}")
-        return widget
-
-    def _update_widget(self, widget: widgets.Widget, el: Element, el_prev: Element, kwargs) -> widgets.Widget:
-        assert self.context is not None
-        assert isinstance(el.component, ComponentWidget)
-        assert isinstance(el_prev.component, ComponentWidget)
-        with widget.hold_sync():
-            for name, value in kwargs.items():
-                self._update_widget_prop(widget, name, value)
-                # if we previously gave an argument, but now we don't
-                # we have to restore the default
-                cls = widget.__class__
-                traits = cls.class_traits()
-                used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
-                dropped_arguments = set(used_kwargs) - set(kwargs)
-                for name in dropped_arguments:
-                    value = traits[name].default()
-                    self._update_widget_prop(widget, name, value)
-
-    def _update_widget_prop(self, widget, name, value):
-        setattr(widget, name, value)
 
     def _remove_element(self, el: Element, default_key: str, parent_key):
         key = el._key
