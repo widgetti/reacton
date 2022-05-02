@@ -602,14 +602,22 @@ class Effect:
     def __init__(self, callable: EffectCallable, dependencies: Optional[List[Any]] = None, next: Optional["Effect"] = None) -> None:
         self.callable = callable
         self.dependencies = dependencies
-        self.cleanup: Optional[EffectCleanupCallable] = None
+        self._cleanup: Optional[EffectCleanupCallable] = None
         self.next = next
         self.executed = False
+        self._cleaned_up = False
+
+    def cleanup(self):
+        if self._cleaned_up:
+            raise RuntimeError("Already cleaned up!")
+        if self._cleanup is not None:
+            self._cleanup()
+        self._cleaned_up = True
 
     def __call__(self):
         if self.executed:
             return
-        self.cleanup = self.callable()
+        self._cleanup = self.callable()
         self.executed = True
 
 
@@ -759,6 +767,7 @@ class _RenderContext:
             # we always set it, even replacing it when we didn't execute it
             # in the consolidation phase we decide what to do (e.g. skip it)
             logger.info("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
+            assert not previous_effect._cleaned_up
             if previous_effect.executed:
                 # line up...
                 previous_effect.next = Effect(effect, dependencies)
@@ -1085,6 +1094,9 @@ class _RenderContext:
                         else:
                             effect()
 
+                    if child_context.children_next:
+                        # if we had two render phases, we can have old context left over
+                        child_context.children_next.clear()
                     if child_context.elements_next:
                         # we can still have elements that are not used as a 'widget' in this context
                         # but we can still pass them down as an element.
