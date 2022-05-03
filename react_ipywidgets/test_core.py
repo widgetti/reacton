@@ -1658,3 +1658,29 @@ def test_switch_component_key():
     rc.force_update()
     rc.close()
     cleanup.assert_has_calls([unittest.mock.call(), unittest.mock.call(), unittest.mock.call()])
+
+
+def test_render_twice_different_element():
+    set_action = None
+
+    @react.component
+    def Test():
+        nonlocal set_action
+        action, set_action = react.use_state(0)
+        if action == 0:
+            return w.Button()
+        elif action == 1:
+            # render float slider, and text in the same render phase
+            set_action(2)
+            return w.FloatSlider()
+        else:
+            return w.Text()
+
+    box = react.make(Test())
+    assert isinstance(box.children[0], widgets.Button)
+    assert set_action is not None
+    set_action(1)
+
+    assert isinstance(box.children[0], widgets.Text)
+    assert react.core._last_rc is not None
+    react.core._last_rc.close()

@@ -972,6 +972,8 @@ class _RenderContext:
                 context.state_index = 0
                 context.effect_index = 0
                 context.memo_index = 0
+                # when we have nested renders, we can already have this filled
+                context.elements_next.clear()
                 # Now, we actually execute the render function, and get
                 # back the root element
                 try:
