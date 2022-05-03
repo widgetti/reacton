@@ -13,6 +13,7 @@ dynamic = ["version", "description"]
 dependencies = [
     "ipywidgets",
     "rich",
+    "typing_extensions"
 ]
 
 [tool.flit.module]

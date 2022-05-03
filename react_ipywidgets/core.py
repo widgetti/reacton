@@ -19,7 +19,6 @@ from typing import (
     Dict,
     Generic,
     List,
-    Literal,
     Optional,
     Set,
     Tuple,
@@ -32,6 +31,7 @@ from typing import (
 from warnings import warn
 
 import ipywidgets as widgets
+from typing_extensions import Literal
 
 from . import _version
 
