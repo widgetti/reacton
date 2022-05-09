@@ -10,16 +10,10 @@ from numpy import ndarray
 import react_ipywidgets as react
 from react_ipywidgets.core import ContainerAdder, Element, _get_render_context
 
+from . import generate
 from . import ipywidgets as w
 from .ipywidgets import Layout
 from .utils import without_default
-
-if __name__ == "__main__":
-
-    from .generate import generate
-
-    ignore_traits = "domain_class".split()
-    generate(__file__, [bqplot], ignore_traits=ignore_traits)
 
 
 class FigureElement(Element[bqplot.Figure]):
@@ -31,10 +25,24 @@ class FigureElement(Element[bqplot.Figure]):
         return self
 
 
-element_classes = {bqplot.Figure: FigureElement}
+class CodeGen(generate.CodeGen):
+    element_classes = {bqplot.Figure: FigureElement}
+    ignore_props = "domain_class".split() + generate.CodeGen.ignore_props
+
+    def get_extra_argument(self, cls):
+        return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
+
+
+if __name__ == "__main__":
+
+    current_module = __import__(__name__)
+
+    CodeGen([bqplot]).generate(__file__)
 
 
 # generated code:
+
+
 def Albers(
     allow_padding: bool = True,
     center: tuple = (0, 60),
@@ -901,7 +909,7 @@ def Figure(
     on_theme: typing.Callable[[str], Any] = None,
     on_title: typing.Callable[[str], Any] = None,
     on_title_style: typing.Callable[[dict], Any] = None,
-) -> FigureElement:
+) -> Element[bqplot.figure.Figure]:
     """Main canvas for drawing a chart.
 
     The Figure object holds the list of Marks and Axes. It also holds an

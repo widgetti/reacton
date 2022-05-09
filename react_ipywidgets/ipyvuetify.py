@@ -28,8 +28,7 @@ def BtnWithClick(on_click=None, **kwargs):
 if __name__ == "__main__":
     from .generate import generate
 
-    ignore_traits = "".split()
-    generate(__file__, [ipyvuetify], ignore_traits=ignore_traits)
+    generate(__file__, [ipyvuetify])
 
 
 def toggle_buttons(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
@@ -122,7 +121,7 @@ def Alert(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Alert
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -158,7 +157,7 @@ def App(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.App
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -262,7 +261,7 @@ def AppBar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.AppBar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -292,7 +291,7 @@ def AppBarNavIcon(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.AppBarNavIcon
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -460,7 +459,7 @@ def Autocomplete(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Autocomplete
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -512,7 +511,7 @@ def Avatar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Avatar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -582,7 +581,7 @@ def Badge(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Badge
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -650,7 +649,7 @@ def Banner(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Banner
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -726,7 +725,7 @@ def BottomNavigation(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BottomNavigation
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -808,7 +807,7 @@ def BottomSheet(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BottomSheet
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -848,7 +847,7 @@ def Breadcrumbs(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Breadcrumbs
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -878,7 +877,7 @@ def BreadcrumbsDivider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BreadcrumbsDivider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -934,7 +933,7 @@ def BreadcrumbsItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BreadcrumbsItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1056,7 +1055,7 @@ def Btn(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Btn
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1116,7 +1115,7 @@ def BtnToggle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BtnToggle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1216,7 +1215,7 @@ def Calendar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Calendar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1280,7 +1279,7 @@ def CalendarDaily(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarDaily
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1336,7 +1335,7 @@ def CalendarMonthly(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarMonthly
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1392,7 +1391,7 @@ def CalendarWeekly(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarWeekly
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1486,7 +1485,7 @@ def Card(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Card
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1516,7 +1515,7 @@ def CardActions(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardActions
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1546,7 +1545,7 @@ def CardSubtitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardSubtitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1576,7 +1575,7 @@ def CardText(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1606,7 +1605,7 @@ def CardTitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardTitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1686,7 +1685,7 @@ def Carousel(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Carousel
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1750,7 +1749,7 @@ def CarouselItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1790,7 +1789,7 @@ def CarouselReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1830,7 +1829,7 @@ def CarouselTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -1928,7 +1927,7 @@ def Checkbox(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Checkbox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2022,7 +2021,7 @@ def Chip(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Chip
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2080,7 +2079,7 @@ def ChipGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ChipGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2144,7 +2143,7 @@ def Col(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Col
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2204,7 +2203,7 @@ def ColorPicker(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPicker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2244,7 +2243,7 @@ def ColorPickerCanvas(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPickerCanvas
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2286,7 +2285,7 @@ def ColorPickerSwatches(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPickerSwatches
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2456,7 +2455,7 @@ def Combobox(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Combobox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2688,7 +2687,7 @@ def Container(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Container
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2916,7 +2915,7 @@ def Content(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Content
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -2954,7 +2953,7 @@ def Counter(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Counter
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3016,7 +3015,7 @@ def Data(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Data
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3074,7 +3073,7 @@ def DataFooter(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataFooter
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3166,7 +3165,7 @@ def DataIterator(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataIterator
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3284,7 +3283,7 @@ def DataTable(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataTable
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3316,7 +3315,7 @@ def DataTableHeader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataTableHeader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3406,7 +3405,7 @@ def DatePicker(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePicker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3472,7 +3471,7 @@ def DatePickerDateTable(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerDateTable
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3524,7 +3523,7 @@ def DatePickerHeader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerHeader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3584,7 +3583,7 @@ def DatePickerMonthTable(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerMonthTable
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3630,7 +3629,7 @@ def DatePickerTitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerTitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3672,7 +3671,7 @@ def DatePickerYears(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerYears
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3752,7 +3751,7 @@ def Dialog(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Dialog
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3792,7 +3791,7 @@ def DialogBottomTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DialogBottomTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3832,7 +3831,7 @@ def DialogTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DialogTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3870,7 +3869,7 @@ def Divider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Divider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3918,7 +3917,7 @@ def EditDialog(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.EditDialog
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3950,7 +3949,7 @@ def ExpandTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpandTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -3982,7 +3981,7 @@ def ExpandXTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpandXTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4018,7 +4017,7 @@ def ExpansionPanel(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanel
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4052,7 +4051,7 @@ def ExpansionPanelContent(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanelContent
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4092,7 +4091,7 @@ def ExpansionPanelHeader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanelHeader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4154,7 +4153,7 @@ def ExpansionPanels(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanels
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4194,7 +4193,7 @@ def FabTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FabTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4234,7 +4233,7 @@ def FadeTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FadeTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4370,7 +4369,7 @@ def FileInput(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FileInput
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -4982,7 +4981,7 @@ def Flex(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Flex
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5046,7 +5045,7 @@ def Footer(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Footer
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5080,7 +5079,7 @@ def Form(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Form
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5118,7 +5117,7 @@ def Hover(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Hover
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5150,7 +5149,7 @@ def Html(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.Html
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5206,7 +5205,7 @@ def Icon(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Icon
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5272,7 +5271,7 @@ def Img(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Img
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5352,7 +5351,7 @@ def Input(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Input
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5388,7 +5387,7 @@ def Item(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Item
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5432,7 +5431,7 @@ def ItemGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ItemGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5482,7 +5481,7 @@ def Label(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Label
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5796,7 +5795,7 @@ def Layout(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Layout
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5836,7 +5835,7 @@ def Lazy(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Lazy
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5910,7 +5909,7 @@ def List(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.List
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -5962,7 +5961,7 @@ def ListGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6038,7 +6037,7 @@ def ListItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6068,7 +6067,7 @@ def ListItemAction(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemAction
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6098,7 +6097,7 @@ def ListItemActionText(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemActionText
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6152,7 +6151,7 @@ def ListItemAvatar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemAvatar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6182,7 +6181,7 @@ def ListItemContent(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemContent
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6228,7 +6227,7 @@ def ListItemGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6258,7 +6257,7 @@ def ListItemIcon(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemIcon
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6288,7 +6287,7 @@ def ListItemSubtitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemSubtitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6318,7 +6317,7 @@ def ListItemTitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemTitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6430,7 +6429,7 @@ def Menu(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Menu
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6470,7 +6469,7 @@ def MenuTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.MenuTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6508,7 +6507,7 @@ def Messages(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Messages
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6594,7 +6593,7 @@ def NavigationDrawer(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.NavigationDrawer
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6766,7 +6765,7 @@ def OverflowBtn(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.OverflowBtn
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6810,7 +6809,7 @@ def Overlay(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Overlay
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6860,7 +6859,7 @@ def Pagination(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Pagination
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6896,7 +6895,7 @@ def Parallax(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Parallax
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6942,7 +6941,7 @@ def Picker(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Picker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -6986,7 +6985,7 @@ def ProgressCircular(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ProgressCircular
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7052,7 +7051,7 @@ def ProgressLinear(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ProgressLinear
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7108,7 +7107,7 @@ def Radio(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Radio
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7202,7 +7201,7 @@ def RadioGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.RadioGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7310,7 +7309,7 @@ def RangeSlider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.RangeSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7384,7 +7383,7 @@ def Rating(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Rating
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7428,7 +7427,7 @@ def Responsive(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Responsive
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7494,7 +7493,7 @@ def Row(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Row
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7534,7 +7533,7 @@ def ScaleTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScaleTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7574,7 +7573,7 @@ def ScrollXReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollXReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7614,7 +7613,7 @@ def ScrollXTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollXTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7654,7 +7653,7 @@ def ScrollYReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollYReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7694,7 +7693,7 @@ def ScrollYTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollYTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7852,7 +7851,7 @@ def Select(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Select
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7906,7 +7905,7 @@ def Sheet(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Sheet
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7956,7 +7955,7 @@ def SimpleCheckbox(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SimpleCheckbox
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -7996,7 +7995,7 @@ def SimpleTable(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SimpleTable
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8056,7 +8055,7 @@ def SkeletonLoader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SkeletonLoader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8110,7 +8109,7 @@ def SlideGroup(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideGroup
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8146,7 +8145,7 @@ def SlideItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8186,7 +8185,7 @@ def SlideXReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideXReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8226,7 +8225,7 @@ def SlideXTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideXTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8266,7 +8265,7 @@ def SlideYReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideYReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8306,7 +8305,7 @@ def SlideYTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideYTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8414,7 +8413,7 @@ def Slider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Slider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8464,7 +8463,7 @@ def Snackbar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Snackbar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8494,7 +8493,7 @@ def Spacer(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Spacer
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8560,7 +8559,7 @@ def Sparkline(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Sparkline
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8614,7 +8613,7 @@ def SpeedDial(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SpeedDial
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8656,7 +8655,7 @@ def Stepper(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Stepper
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8688,7 +8687,7 @@ def StepperContent(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperContent
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8718,7 +8717,7 @@ def StepperHeader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperHeader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8748,7 +8747,7 @@ def StepperItems(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperItems
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8794,7 +8793,7 @@ def StepperStep(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperStep
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8830,7 +8829,7 @@ def Subheader(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Subheader
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8924,7 +8923,7 @@ def Switch(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Switch
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -8972,7 +8971,7 @@ def SystemBar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SystemBar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9032,7 +9031,7 @@ def Tab(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tab
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9076,7 +9075,7 @@ def TabItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9116,7 +9115,7 @@ def TabReverseTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabReverseTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9156,7 +9155,7 @@ def TabTransition(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabTransition
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9186,7 +9185,7 @@ def TableOverflow(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TableOverflow
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9262,7 +9261,7 @@ def Tabs(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tabs
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9324,7 +9323,7 @@ def TabsItems(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabsItems
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9356,7 +9355,7 @@ def TabsSlider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabsSlider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9388,7 +9387,7 @@ def Text(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Text
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9510,7 +9509,7 @@ def TextField(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TextField
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9640,7 +9639,7 @@ def Textarea(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Textarea
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9676,7 +9675,7 @@ def ThemeProvider(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ThemeProvider
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9746,7 +9745,7 @@ def TimePicker(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePicker
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9802,7 +9801,7 @@ def TimePickerClock(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePickerClock
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9854,7 +9853,7 @@ def TimePickerTitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePickerTitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9894,7 +9893,7 @@ def Timeline(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Timeline
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -9946,7 +9945,7 @@ def TimelineItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimelineItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10022,7 +10021,7 @@ def Toolbar(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Toolbar
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10052,7 +10051,7 @@ def ToolbarItems(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ToolbarItems
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10082,7 +10081,7 @@ def ToolbarTitle(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ToolbarTitle
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10180,7 +10179,7 @@ def Tooltip(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tooltip
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10272,7 +10271,7 @@ def Treeview(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Treeview
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10342,7 +10341,7 @@ def TreeviewNode(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TreeviewNode
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10390,7 +10389,7 @@ def VirtualTable(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.VirtualTable
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10416,7 +10415,7 @@ def VuetifyTemplate(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.VuetifyTemplate
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10446,7 +10445,7 @@ def VuetifyWidget(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.VuetifyWidget
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10508,7 +10507,7 @@ def Window(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Window
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)
 
 
 ###
@@ -10550,4 +10549,4 @@ def WindowItem(
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.WindowItem
     comp = react.core.ComponentWidget(widget=widget_cls)
-    return react.core.Element(comp, **kwargs)
+    return Element(comp, **kwargs)

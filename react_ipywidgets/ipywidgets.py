@@ -11,6 +11,7 @@ import react_ipywidgets
 import react_ipywidgets as react
 from react_ipywidgets.core import Element
 
+from . import generate
 from .utils import without_default
 
 # def use_on_click(on_click):
@@ -110,15 +111,18 @@ class ButtonElement(react.core.Element):
             super()._add_widget_event_listener(widget, name, callback)
 
 
-extra_arguments = {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}
-element_classes = {ipywidgets.Button: ButtonElement}
+class CodeGen(generate.CodeGen):
+    element_classes = {ipywidgets.Button: ButtonElement}
+
+    def get_extra_argument(self, cls):
+        return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
+
 
 if __name__ == "__main__":
-    from .generate import generate
 
     current_module = __import__(__name__)
 
-    generate(__file__, [widgets, ipywidgets.widgets.widget_description, ipywidgets.widgets.widget_int], module_output=current_module)
+    CodeGen([widgets, ipywidgets.widgets.widget_description, ipywidgets.widgets.widget_int]).generate(__file__)
 
 
 def ViewcountVBox(on_view_count) -> Element[ipywidgets.widgets.widget_box.VBox]:

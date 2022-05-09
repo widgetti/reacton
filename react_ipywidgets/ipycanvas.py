@@ -14,14 +14,16 @@ if __name__ == "__main__":
 
     from .generate import generate
 
-    ignore_traits = "domain_class".split()
-    generate(__file__, [ipycanvas], ignore_traits=ignore_traits)
+    generate(__file__, [ipycanvas])
 
 
 # generated code:
+
+
 def Canvas(
     direction: str = "inherit",
     fill_style: typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]] = "black",
+    filter: str = "none",
     font: str = "12px serif",
     global_alpha: float = 1.0,
     global_composite_operation: str = "source-over",
@@ -44,6 +46,7 @@ def Canvas(
     width: int = 700,
     on_direction: typing.Callable[[str], Any] = None,
     on_fill_style: typing.Callable[[typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]]], Any] = None,
+    on_filter: typing.Callable[[str], Any] = None,
     on_font: typing.Callable[[str], Any] = None,
     on_global_alpha: typing.Callable[[float], Any] = None,
     on_global_composite_operation: typing.Callable[[str], Any] = None,
@@ -70,7 +73,6 @@ def Canvas(
     Args:
         width (int): The width (in pixels) of the canvas
         height (int): The height (in pixels) of the canvas
-        caching (boolean): Whether commands should be cached or not
 
 
     """
@@ -163,6 +165,7 @@ def RoughCanvas(
     bowing: float = 1,
     direction: str = "inherit",
     fill_style: typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]] = "black",
+    filter: str = "none",
     font: str = "12px serif",
     global_alpha: float = 1.0,
     global_composite_operation: str = "source-over",
@@ -188,6 +191,7 @@ def RoughCanvas(
     on_bowing: typing.Callable[[float], Any] = None,
     on_direction: typing.Callable[[str], Any] = None,
     on_fill_style: typing.Callable[[typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]]], Any] = None,
+    on_filter: typing.Callable[[str], Any] = None,
     on_font: typing.Callable[[str], Any] = None,
     on_global_alpha: typing.Callable[[float], Any] = None,
     on_global_composite_operation: typing.Callable[[str], Any] = None,
@@ -216,7 +220,6 @@ def RoughCanvas(
     Args:
         width (int): The width (in pixels) of the canvas
         height (int): The height (in pixels) of the canvas
-        caching (boolean): Whether commands should be cached or not
 
 
     """
