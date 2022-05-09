@@ -101,6 +101,7 @@ class Component:
 
 
 class Element(Generic[W]):
+    child_prop_name = "children"
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
     _callback_wrappers: Dict[Callable, Callable] = {}
@@ -199,14 +200,24 @@ class Element(Generic[W]):
         assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         assert rc.context is not None
         ca = rc.container_adders.pop()
-        ca.assign()
+        self.add_children(ca.collect())
+
+    def add_children(self, children):
+        if self.child_prop_name not in self.kwargs:
+            self.kwargs[self.child_prop_name] = []
+        # generic way to add to a list or tuple
+        container_prop_type = type(self.kwargs[self.child_prop_name])
+        self.kwargs[self.child_prop_name] = self.kwargs[self.child_prop_name] + container_prop_type(children)
+
+    def _get_widget_args(self):
+        return self.component.widget.class_trait_names()
 
     def _split_kwargs(self, kwargs):
         # split into normal kwargs and events
         listeners = {}
         normal_kwargs = {}
         assert isinstance(self.component, ComponentWidget)
-        args = self.component.widget.class_trait_names()
+        args = self._get_widget_args()
         for name, value in kwargs.items():
             if name.startswith("on_") and name not in args:
                 listeners[name] = value
@@ -218,13 +229,16 @@ class Element(Generic[W]):
         # we can't use our own kwarg, since that contains elements, not widgets
         kwargs, listeners = self._split_kwargs(kwargs)
         assert isinstance(self.component, ComponentWidget)
+        before = set(widgets.Widget.widgets)
         try:
             widget = self.component.widget(**kwargs)
         except Exception:
             raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
         for name, callback in listeners.items():
             self._add_widget_event_listener(widget, name, callback)
-        return widget
+        after = set(widgets.Widget.widgets)
+        orphans = (after - before) - {widget.model_id}
+        return widget, orphans
 
     def _update_widget(self, widget: widgets.Widget, el_prev: "Element", kwargs):
         assert isinstance(self.component, ComponentWidget)
@@ -309,16 +323,12 @@ class ContainerAdder(Generic[W]):
     def add(self, el):
         self.created.append(el)
 
-    def assign(self):
+    def collect(self):
         children = set()
         for el in self.created:
             children |= find_children(el)
         top_level = [k for k in self.created if k not in children]
-        if self.prop_name not in self.el.kwargs:
-            self.el.kwargs[self.prop_name] = []
-        # generic way to add to a list or tuple
-        container_prop_type = type(self.el.kwargs[self.prop_name])
-        self.el.kwargs[self.prop_name] = self.el.kwargs[self.prop_name] + container_prop_type(top_level)
+        return top_level
 
 
 class ComponentWidget(Component):
@@ -1127,7 +1137,7 @@ class _RenderContext:
                 assert self.context is context
                 logger.debug("Reconsolidate: arguments done (children of %s,%s)", parent_key, key)
 
-                before = set(widgets.Widget.widgets)
+                orphan_ids = set()
                 widget_previous = None
                 if el_prev is not None:
                     widget_previous = self._widgets[el_prev]
@@ -1138,7 +1148,7 @@ class _RenderContext:
                         # logger.info("Using shared widget: %r", el)
                     else:
                         logger.info("Creating new widget: %r", el)
-                        self._widgets[el] = el._create_widget(kwargs)
+                        self._widgets[el], orphan_ids = el._create_widget(kwargs)
                         context.owns.add(el)
                 elif el_prev is not None and el_prev.component == el.component:
                     logger.info("Updating widget: %r  → %r", el_prev, el)
@@ -1156,21 +1166,20 @@ class _RenderContext:
                     assert el_prev in context.owns
                     self._remove_element(el_prev, key, parent_key=parent_key)
                     context.owns.remove(el_prev)
-                    self._widgets[el] = el._create_widget(kwargs)
+                    self._widgets[el], orphan_ids = el._create_widget(kwargs)
                     context.owns.add(el)
-                after = set(widgets.Widget.widgets)
-                widget = self._widgets[el]
-                orphans = (after - before) - {widget.model_id}
                 # widgets are not always hashable, so store the model_id
-                orphan_widgets = set([widgets.Widget.widgets[k] for k in orphans])
-                if orphans:
+                orphan_widgets = set([widgets.Widget.widgets[k] for k in orphan_ids])
+                if orphan_ids:
                     for orphan_widget in orphan_widgets:
                         # these are shared widgets
                         if orphan_widget.__class__.__name__ == "Template" and orphan_widget.__class__.__module__ == "ipyvue.Template":
-                            orphans -= {orphan_widget.model_id}
-                if widget.model_id not in self._orphans:
-                    self._orphans[widget.model_id] = set()
-                self._orphans[widget.model_id].update(orphans)
+                            orphan_ids -= {orphan_widget.model_id}
+                    widget = self._widgets[el]
+                    if widget.model_id not in self._orphans:
+                        self._orphans[widget.model_id] = set()
+                    self._orphans[widget.model_id].update(orphan_ids)
+
                 # if is_root
             return self._widgets[el]
         except Exception as e:
