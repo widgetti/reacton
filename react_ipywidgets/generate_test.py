@@ -1,7 +1,7 @@
 import ipywidgets as widgets
 import traitlets
 
-from .generate import generate_component
+from .generate import CodeGen
 
 
 def test_basic():
@@ -9,7 +9,8 @@ def test_basic():
         a = traitlets.traitlets.Int(1)
         b = traitlets.traitlets.Int()
 
-    code = generate_component(MyTest).strip()
+    gen = CodeGen[widgets.Widget]([])
+    code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
 def MyTest(
@@ -35,7 +36,8 @@ def test_instance_non_widget():
 
     _ = MyTest()
 
-    code = generate_component(MyTest).strip()
+    gen = CodeGen[widgets.Widget]([])
+    code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
 def MyTest(
@@ -59,7 +61,8 @@ def test_instance_widget():
     class MyTest(traitlets.HasTraits):
         a = traitlets.traitlets.Instance(SomeWidget)
 
-    code = generate_component(MyTest).strip()
+    gen = CodeGen[widgets.Widget]([])
+    code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
 def MyTest(

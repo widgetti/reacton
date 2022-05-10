@@ -10,7 +10,6 @@ from numpy import ndarray
 import react_ipywidgets as react
 from react_ipywidgets.core import ContainerAdder, Element, _get_render_context
 
-from . import generate
 from . import ipywidgets as w
 from .ipywidgets import Layout
 from .utils import without_default
@@ -25,15 +24,16 @@ class FigureElement(Element[bqplot.Figure]):
         return self
 
 
-class CodeGen(generate.CodeGen):
-    element_classes = {bqplot.Figure: FigureElement}
-    ignore_props = "domain_class".split() + generate.CodeGen.ignore_props
-
-    def get_extra_argument(self, cls):
-        return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
-
-
 if __name__ == "__main__":
+
+    from . import generate
+
+    class CodeGen(generate.CodeGen):
+        element_classes = {bqplot.Figure: FigureElement}
+        ignore_props = "domain_class".split() + generate.CodeGen.ignore_props
+
+        def get_extra_argument(self, cls):
+            return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
 
     current_module = __import__(__name__)
 

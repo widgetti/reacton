@@ -11,7 +11,6 @@ import react_ipywidgets
 import react_ipywidgets as react
 from react_ipywidgets.core import Element
 
-from . import generate
 from .utils import without_default
 
 # def use_on_click(on_click):
@@ -111,14 +110,14 @@ class ButtonElement(react.core.Element):
             super()._add_widget_event_listener(widget, name, callback)
 
 
-class CodeGen(generate.CodeGen):
-    element_classes = {ipywidgets.Button: ButtonElement}
-
-    def get_extra_argument(self, cls):
-        return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
-
-
 if __name__ == "__main__":
+    from . import generate
+
+    class CodeGen(generate.CodeGen):
+        element_classes = {ipywidgets.Button: ButtonElement}
+
+        def get_extra_argument(self, cls):
+            return {ipywidgets.Button: [("on_click", None, typing.Callable[[], Any])]}.get(cls, [])
 
     current_module = __import__(__name__)
 
