@@ -1,6 +1,6 @@
 import traceback
 import unittest.mock
-from typing import List, TypeVar
+from typing import Callable, List, Optional, Tuple, TypeVar, cast
 
 import ipywidgets
 import ipywidgets as widgets
@@ -814,14 +814,17 @@ def test_use_reducer():
 
 
 def test_context():
-    def click_reducer(state, action):
+    v = cast(Optional[Tuple[int, Callable[[str], None]]], None)
+    store_context = react.create_context(v)
+
+    def click_reducer(state: int, action: str):
         if action == "increment":
             state = state + 1
         return state
 
     @react.component
     def SubChild2():
-        clicks, _dispatch = react.use_context("store")
+        clicks, _dispatch = react.use_context(store_context)
         return w.Button(description=f"Child2: Clicked {clicks} times")
 
     @react.component
@@ -830,13 +833,13 @@ def test_context():
 
     @react.component
     def Child1():
-        clicks, dispatch = react.use_context("store")
+        clicks, dispatch = react.use_context(store_context)
         return w.Button(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     @react.component
     def App():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
-        react.provide_context("store", (clicks, dispatch))
+        store_context.provide((clicks, dispatch))
         with w.HBox() as main:
             Child1()
             Child2()

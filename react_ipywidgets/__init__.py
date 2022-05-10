@@ -13,6 +13,7 @@ __version__ = _version.__version__
 from .core import (
     component,
     component_interactive,
+    create_context,
     display,
     get_widget,
     make,
@@ -38,6 +39,7 @@ __all__ = [
     "display",
     "get_widget",
     "use_context",
+    "create_context",
     "use_memo",
     "use_ref",
     "use_state",

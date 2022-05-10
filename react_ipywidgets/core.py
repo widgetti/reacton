@@ -493,18 +493,6 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
     return state, dispatch
 
 
-def use_context(key: str):
-    rc = _get_render_context()
-    value = None
-    context = rc.context
-    while value is None and context is not None:
-        value = context.user_contexts.get(key)
-        context = context.parent
-    if value is None:
-        raise KeyError(f"No value found in element or parent element under key {key}")
-    return value
-
-
 def use_memo(f, debug_name: str = None, args: Optional[List] = None, kwargs: Optional[Dict] = None):
     if debug_name is None:
         debug_name = f.__name__
@@ -539,11 +527,43 @@ def use_ref(initial_value: T) -> Ref[T]:
     return ref
 
 
-def provide_context(key: str, obj: Any):
+class UserContext(Generic[T]):
+    def __init__(self, _default_value: T, name: Optional[str]) -> None:
+        self._default_value: T = _default_value
+        self.name = name
+
+    def provide(self, obj: T):
+        rc = _get_render_context()
+        context = rc.context
+        assert context is not None
+        context.user_contexts[self] = obj
+
+    def __repr__(self):
+        return f"UserContext({self._default_value}, name={self.name})"
+
+
+def create_context(default_value: T, name: str = None) -> UserContext[T]:
+    return UserContext[T](default_value, name)
+
+
+# this does not work with mypy, UserContext[T] and obj:T
+# so for type hints it is better to use user_context.provide
+def provide_context(user_context: UserContext[T], obj: T):
+    user_context.provide(obj)
+
+
+def use_context(user_context: UserContext[T]):
     rc = _get_render_context()
+    value = None
     context = rc.context
-    assert context is not None
-    context.user_contexts[key] = obj
+    while value is None and context is not None:
+        if user_context in context.user_contexts:
+            value = context.user_contexts.get(user_context)
+            return cast(T, value)
+        else:
+            context = context.parent
+
+    return user_context._default_value
 
 
 """
