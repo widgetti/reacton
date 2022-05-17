@@ -16,6 +16,7 @@ from types import TracebackType
 from typing import (
     Any,
     Callable,
+    ContextManager,
     Dict,
     Generic,
     List,
@@ -38,6 +39,7 @@ from . import _version
 __version__ = _version.__version__
 
 _last_rc = None  # used for testing
+local = threading.local()
 T = TypeVar("T")
 U = TypeVar("U")
 W = TypeVar("W")  # used for widgets
@@ -105,6 +107,7 @@ class Element(Generic[W]):
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
     _callback_wrappers: Dict[Callable, Callable] = {}
+    create_lock: ContextManager = threading.Lock()
 
     def __init__(self, component, *args, **kwargs):
         self.component = component
@@ -229,14 +232,17 @@ class Element(Generic[W]):
         # we can't use our own kwarg, since that contains elements, not widgets
         kwargs, listeners = self._split_kwargs(kwargs)
         assert isinstance(self.component, ComponentWidget)
-        before = set(widgets.Widget.widgets)
-        try:
-            widget = self.component.widget(**kwargs)
-        except Exception:
-            raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
-        for name, callback in listeners.items():
-            self._add_widget_event_listener(widget, name, callback)
-        after = set(widgets.Widget.widgets)
+        # Because we look before and after, we need a lock.
+        # A different implementation might avoid this.
+        with self.create_lock:
+            before = set(widgets.Widget.widgets)
+            try:
+                widget = self.component.widget(**kwargs)
+            except Exception:
+                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
+            for name, callback in listeners.items():
+                self._add_widget_event_listener(widget, name, callback)
+            after = set(widgets.Widget.widgets)
         orphans = (after - before) - {widget.model_id}
         return widget, orphans
 
@@ -431,17 +437,13 @@ def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None
 
     Subsequent
     """
-    global _rc
-    if _rc is None:
-        raise RuntimeError("No render context")
-    return _rc.use_state(initial, key, eq)
+    rc = _get_render_context()
+    return rc.use_state(initial, key, eq)
 
 
 def use_effect(effect: EffectCallable, dependencies=None):
-    global _rc
-    if _rc is None:
-        raise RuntimeError("No render context")
-    return _rc.use_effect(effect, dependencies=dependencies)
+    rc = _get_render_context()
+    return rc.use_effect(effect, dependencies=dependencies)
 
 
 def use_side_effect(effect: EffectCallable, dependencies=None):
@@ -450,12 +452,10 @@ def use_side_effect(effect: EffectCallable, dependencies=None):
 
 
 def use_state_widget(widget: widgets.Widget, prop_name, key=None):
-    global _rc
-    if _rc is None:
-        raise RuntimeError("No render context")
+    rc = _get_render_context()
     initial_value = getattr(widget, prop_name)
     value, setter = use_state(initial_value, key=key)
-    if _rc.first_render:
+    if rc.first_render:
 
         def handler(change):
             setter(change.new)  # type: ignore
@@ -475,10 +475,10 @@ def _get_render_context(required: Literal[False] = ...) -> Optional["_RenderCont
 
 
 def _get_render_context(required=True):
-    global _rc
-    if _rc is None and required:
+    rc = getattr(local, "rc", None)
+    if rc is None and required:
         raise RuntimeError("No render context")
-    return _rc
+    return rc
 
 
 def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Callable[[U], None]]:
@@ -746,7 +746,7 @@ class _RenderContext:
             self.context.memo_index += 1
             return value
 
-    def use_state(self, initial, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[T], T]]:
+    def use_state(self, initial, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], T]]:
         assert self.context is not None
         if key is None:
             key = str(self.context.state_index)
@@ -808,11 +808,10 @@ class _RenderContext:
 
     def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
-        global _rc
         widget = None
         with self.thread_lock:
             try:
-                _rc = self
+                local.rc = self
                 self.element = element
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
@@ -913,7 +912,7 @@ class _RenderContext:
                     raise
 
             finally:
-                _rc = None  # type: ignore
+                local.rc = None  # type: ignore
             return widget
 
     def _render(self, element: Element, default_key: str, parent_key: str):
@@ -1311,9 +1310,6 @@ class _RenderContext:
             return value
 
 
-_rc = None
-
-
 @overload
 def render(
     element: Element[T], container: None = None, children_trait="children", handle_error: bool = True, initial_state=None
@@ -1329,11 +1325,10 @@ def render(
 
 
 def render(element: Element[T], container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
-    global _last_rc
     container = container or widgets.VBox()
     _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
     _rc.render(element, _rc.container)
-    _last_rc = _rc
+    local.last_rc = _rc
     return container, _rc
 
 
@@ -1341,7 +1336,7 @@ def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _Re
     global _last_rc
     _rc = _RenderContext(element, handle_error=handle_error)
     widget = _rc.render(element)
-    _last_rc = _rc
+    local.last_rc = _rc
     return widget, _rc
 
 
@@ -1391,3 +1386,9 @@ def component_interactive(static=None, **kwargs):
         return result
 
     return make
+
+
+def __getattr__(name):
+    if name == "_last_rc":
+        return getattr(local, "last_rc", None)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

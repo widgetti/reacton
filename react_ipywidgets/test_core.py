@@ -1,5 +1,7 @@
+import time
 import traceback
 import unittest.mock
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List, Optional, Tuple, TypeVar, cast
 
 import ipywidgets
@@ -352,8 +354,8 @@ def test_display():
         return w.Button(description=f"Button {buttons}")
 
     react.display(buttons(slider))
-    assert react.core._last_rc is not None
-    react.core._last_rc.close()
+    assert react.core.local.last_rc is not None
+    react.core.local.last_rc.close()
     slider.style.close()
     slider.layout.close()
     slider.close()
@@ -653,8 +655,8 @@ def test_key_widget():
         return main
 
     box = react.make(Buttons(), handle_error=False)
-    assert react.core._last_rc
-    rc = react.core._last_rc
+    assert react.core.local.last_rc
+    rc = react.core.local.last_rc
     assert set_reverse is not None
     button1, slider1 = box.children[0].children
     assert isinstance(button1, widgets.Button)
@@ -666,7 +668,7 @@ def test_key_widget():
     assert isinstance(slider2, widgets.IntSlider)
     assert button1 is button2
     assert slider1 is slider2
-    assert react.core._last_rc
+    assert react.core.local.last_rc
     rc.close()
 
 
@@ -678,8 +680,8 @@ def test_key_root():
     box = react.make(Buttons(), handle_error=False)
     button = box.children[0]
     assert isinstance(button, widgets.Button)
-    assert react.core._last_rc
-    react.core._last_rc.close()
+    assert react.core.local.last_rc
+    react.core.local.last_rc.close()
 
 
 def test_key_component_function():
@@ -701,8 +703,8 @@ def test_key_component_function():
         return w.HBox(children=[slider, checkbox, buttons_box])
 
     box = react.make(Buttons(), handle_error=False)
-    assert react.core._last_rc
-    rc = react.core._last_rc
+    assert react.core.local.last_rc
+    rc = react.core.local.last_rc
     slider, checkbox, buttons = box.children[0].children
     assert buttons.children[0].description == "0: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
@@ -777,8 +779,8 @@ def test_interactive():
     hbox = box.children[0]
     button0 = hbox.children[0]
     assert button0.description == "Button 0"
-    assert react.core._last_rc is not None
-    react.core._last_rc.close()
+    assert react.core.local.last_rc is not None
+    react.core.local.last_rc.close()
     for widget in control.children:
         if hasattr(widget, "layout"):
             widget.layout.close()
@@ -1685,5 +1687,36 @@ def test_render_twice_different_element():
     set_action(1)
 
     assert isinstance(box.children[0], widgets.Text)
-    assert react.core._last_rc is not None
-    react.core._last_rc.close()
+    assert react.core.local.last_rc is not None
+    react.core.local.last_rc.close()
+
+
+def test_multithreaded_support():
+    N = 1000
+
+    @react.component
+    def Test(i):
+        value, set_value = react.use_state(10)
+        # trigger a few calls to set_value which uses the thread local
+        # render context
+        if value == 10:
+            # a bit of sleep so we get real concurrency
+            time.sleep(0.001)
+            set_value(5)
+        if value == 5:
+            time.sleep(0.001)
+            set_value(1)
+        return w.Button(description=str(i))
+
+    def worker(i):
+        button, rc = react.render_fixed(Test(i))
+
+        assert button.description == str(i)
+        return button, rc
+
+    pool = ThreadPoolExecutor(max_workers=N)
+    results = pool.map(worker, range(100))
+
+    for _button, rc in results:
+        rc = cast(react.core._RenderContext, rc)
+        rc.close()
