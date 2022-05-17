@@ -38,6 +38,7 @@ dev = [
     "ipyvuetify",
     "bump2version",
 ]
+extra = []
 
 [project.urls]
 Home = "https://www.github.com/widgetti/react-ipywidgets"
