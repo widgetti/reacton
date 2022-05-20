@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: 3.7
       - name: Install flit
-        run: pip install flit
+        run: pip install flit "pip<22"
       - name: Install
         run: flit install
       - name: Uninstall
