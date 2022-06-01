@@ -688,6 +688,11 @@ class _RenderContext:
         # for detecting stale elements used get_widget
         self._old_element_ids: Set[int] = set()
 
+    def _find(self, cls: Type[W], **matches):
+        from .find import finder
+
+        return finder(self).find(cls, **matches)
+
     def close(self):
         with self.thread_lock:
             self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
