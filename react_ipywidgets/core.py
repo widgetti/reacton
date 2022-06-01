@@ -116,6 +116,7 @@ class Element(Generic[W]):
         self.args = args
         self.kwargs = kwargs
         self.handlers = []
+        self._meta = {}
 
         self._current_context = None
         rc = _get_render_context(required=False)
@@ -144,6 +145,14 @@ class Element(Generic[W]):
         This can help render performance. See documentation for details.
         """
         self._key = value
+        return self
+
+    def meta(self, **kwargs):
+        """Add metadata to the created widget.
+
+        This can be used to find a widget for testing.
+        """
+        self._meta = {**self._meta, **kwargs}
         return self
 
     def __repr__(self):
@@ -238,6 +247,8 @@ class Element(Generic[W]):
             before = set(widgets.Widget.widgets)
             try:
                 widget = self.component.widget(**kwargs)
+                if self._meta:
+                    widget._react_meta = dict(self._meta)
             except Exception:
                 raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
             for name, callback in listeners.items():

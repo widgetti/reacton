@@ -31,8 +31,16 @@ class Finder(Generic[W]):
             if isinstance(widget, widget_class):
                 for name, expected in matches.items():
                     if not hasattr(widget, name):
-                        raise AttributeError(f"Widget {widget} has no attribute {name}")
-                    value = getattr(widget, name)
+                        if name.startswith("meta_"):
+                            meta_attr_name = name[5:]
+                            if hasattr(widget, "_react_meta") and meta_attr_name in widget._react_meta:  # type: ignore
+                                value = widget._react_meta[meta_attr_name]  # type: ignore
+                            else:
+                                return False
+                        else:
+                            raise AttributeError(f"Widget {widget} has no attribute {name}")
+                    else:
+                        value = getattr(widget, name)
                     print("test", value, expected, value == expected)
                     if value != expected:
                         return False

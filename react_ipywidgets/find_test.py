@@ -48,3 +48,19 @@ def test_find_by_class_and_attr_nested():
     box, rc = react.render(Test())
     rc._find(widgets.HBox, box_style="success").find(widgets.Button, description="1").matches(description="1", disabled=True)
     rc._find(widgets.HBox, box_style="info").find(widgets.Button, description="2").matches(description="2", disabled=False)
+
+
+def test_find_by_meta():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            with w.HBox().meta(name="a"):
+                w.Button(description="testb").meta(name="b")
+                w.Button(description="testc").meta(name="c")
+                w.Button(description="testd")
+        return main
+
+    box, rc = react.render(Test())
+    rc._find(widgets.Widget, meta_name="a").single
+    assert rc._find(widgets.Button, meta_name="b").single.description == "testb"
+    assert rc._find(widgets.Button, meta_not_exist="b").widgets == []
