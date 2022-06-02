@@ -12,8 +12,14 @@ class Finder(Generic[W]):
     def __init__(self, widgets: List[W]) -> None:
         self.widgets = widgets
 
+    @property
+    def widget(self):
+        if len(self.widgets) != 1:
+            raise ValueError(f"Expected 1 widget, got {self.widgets}")
+        return self.widgets[0]
+
     def matches(self, **matches):
-        widget = self.single
+        widget = self.single.widget
         for name, expected in matches.items():
             if not hasattr(widget, name):
                 raise AttributeError(f"Widget {widget} has no attribute {name}")
@@ -21,10 +27,10 @@ class Finder(Generic[W]):
             assert value == expected, f"Expected {widget}.{name} == {expected}, got {value}"
 
     @property
-    def single(self) -> W:
+    def single(self) -> "Finder[W]":
         if len(self.widgets) != 1:
             raise ValueError(f"Expected 1 match, got {self.widgets}")
-        return self.widgets[0]
+        return Finder([self.widgets[0]])
 
     def find(self, widget_class: Type[X], **matches):
         def test(widget: Widget):

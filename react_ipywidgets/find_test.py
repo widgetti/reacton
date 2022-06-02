@@ -13,7 +13,7 @@ def test_find_by_class():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.Button).single.description == "test"
+    assert rc._find(widgets.Button).single.widget.description == "test"
 
 
 def test_find_by_class_and_attr():
@@ -27,8 +27,22 @@ def test_find_by_class_and_attr():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.Button, description="1").single.description == "1"
-    assert rc._find(widgets.Button, description="2").single.description == "2"
+    assert rc._find(widgets.Button, description="1").single.widget.description == "1"
+    assert rc._find(widgets.Button, description="2").single.widget.description == "2"
+
+
+def test_find_nested():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            with w.VBox():
+                w.Button(description="1")
+            with w.HBox():
+                w.Button(description="2")
+        return main
+
+    box, rc = react.render(Test())
+    assert rc._find(widgets.HBox).single.find(widgets.Button).single.widget.description == "2"
 
 
 def test_find_by_class_and_attr_nested():
@@ -62,5 +76,5 @@ def test_find_by_meta():
 
     box, rc = react.render(Test())
     rc._find(widgets.Widget, meta_name="a").single
-    assert rc._find(widgets.Button, meta_name="b").single.description == "testb"
+    assert rc._find(widgets.Button, meta_name="b").single.widget.description == "testb"
     assert rc._find(widgets.Button, meta_not_exist="b").widgets == []
