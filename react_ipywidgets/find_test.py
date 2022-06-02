@@ -76,7 +76,7 @@ def test_find_by_meta_widget():
 
     box, rc = react.render(Test())
     rc._find(widgets.Widget, meta_name="a").single
-    assert rc._find(widgets.Button, meta_name="b").single.widget.description == "testb"
+    assert rc._find(widgets.Button, meta_name="b").widget.description == "testb"
     assert rc._find(widgets.Button, meta_not_exist="b").widgets == []
 
 

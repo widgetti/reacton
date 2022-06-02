@@ -14,9 +14,7 @@ class Finder(Generic[W]):
 
     @property
     def widget(self):
-        if len(self.widgets) != 1:
-            raise ValueError(f"Expected 1 widget, got {self.widgets}")
-        return self.widgets[0]
+        return self.single.widgets[0]
 
     def matches(self, **matches):
         widget = self.single.widget
