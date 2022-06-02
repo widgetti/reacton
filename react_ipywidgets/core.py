@@ -1108,6 +1108,12 @@ class _RenderContext:
                     elements = dict(child_context.elements)
 
                     widget = self._reconsolidate(child_context.root_element, "/", new_parent_key)
+                    # merge the component root level meta dict with the component meta dict
+                    # for instance if we do
+                    # SomeComonent().meta(name="a") we want that name="a" to appear on the widget
+                    if el._meta or getattr(widget, "_react_meta", {}):
+                        widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
+
                     context.owns.add(el)
 
                     self._widgets[el] = widget

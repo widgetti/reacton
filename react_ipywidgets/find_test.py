@@ -64,7 +64,7 @@ def test_find_by_class_and_attr_nested():
     rc._find(widgets.HBox, box_style="info").find(widgets.Button, description="2").matches(description="2", disabled=False)
 
 
-def test_find_by_meta():
+def test_find_by_meta_widget():
     @react.component
     def Test():
         with w.VBox() as main:
@@ -78,3 +78,29 @@ def test_find_by_meta():
     rc._find(widgets.Widget, meta_name="a").single
     assert rc._find(widgets.Button, meta_name="b").single.widget.description == "testb"
     assert rc._find(widgets.Button, meta_not_exist="b").widgets == []
+
+
+@react.component
+def ButtonLevel2(**kwargs):
+    return w.Button(**kwargs).meta(level2="2")
+
+
+@react.component
+def ButtonLevel1(**kwargs):
+    return ButtonLevel2(**kwargs).meta(level1="1")
+
+
+def test_find_by_meta_component():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            with w.HBox():
+                ButtonLevel1(description="testa").meta(name="a")
+                ButtonLevel1(description="testb").meta(name="b")
+        return main
+
+    box, rc = react.render(Test())
+    assert rc._find(widgets.Button, meta_name="b").widget.description == "testb"
+    # make sure the meta dicts get merged
+    assert len(rc._find(widgets.Button, meta_level1="1").widgets) == 2
+    assert len(rc._find(widgets.Button, meta_level2="2").widgets) == 2
