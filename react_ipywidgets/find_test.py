@@ -104,3 +104,17 @@ def test_find_by_meta_component():
     # make sure the meta dicts get merged
     assert len(rc._find(widgets.Button, meta_level1="1").widgets) == 2
     assert len(rc._find(widgets.Button, meta_level2="2").widgets) == 2
+
+
+def test_find_count():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            w.Button(description="1")
+            w.Button(description="2")
+        return main
+
+    box, rc = react.render(Test())
+    assert len(rc._find(widgets.Button, description="should-not-be-found")) == 0
+    assert len(rc._find(widgets.Button, description="1")) == 1
+    assert len(rc._find(widgets.Button)) == 2

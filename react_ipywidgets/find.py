@@ -30,6 +30,9 @@ class Finder(Generic[W]):
             raise ValueError(f"Expected 1 match, got {self.widgets}")
         return Finder([self.widgets[0]])
 
+    def __len__(self):
+        return len(self.widgets)
+
     def find(self, widget_class: Type[X], **matches):
         def test(widget: Widget):
             if isinstance(widget, widget_class):
