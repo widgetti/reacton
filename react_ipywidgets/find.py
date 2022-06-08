@@ -1,3 +1,4 @@
+import collections.abc
 from typing import Callable, Generic, List, Set, Type, TypeVar, cast
 
 from ipywidgets import Widget
@@ -8,7 +9,7 @@ W = TypeVar("W")  # used for widgets
 X = TypeVar("X")  # used for widgets
 
 
-class Finder(Generic[W]):
+class Finder(collections.abc.Sequence, Generic[W]):
     def __init__(self, widgets: List[W]) -> None:
         self.widgets = widgets
 
@@ -16,7 +17,13 @@ class Finder(Generic[W]):
     def widget(self):
         return self.single.widgets[0]
 
+    def assert_empty(self):
+        assert len(self.widgets) == 0, f"Expected no widgets, but got: {self.widgets}"
+
     def matches(self, **matches):
+        self.assert_matches(**matches)
+
+    def assert_matches(self, **matches):
         widget = self.single.widget
         for name, expected in matches.items():
             if not hasattr(widget, name):
@@ -32,6 +39,9 @@ class Finder(Generic[W]):
 
     def __len__(self):
         return len(self.widgets)
+
+    def __getitem__(self, item):
+        return self.widgets[item]
 
     def find(self, widget_class: Type[X], **matches):
         def test(widget: Widget):
