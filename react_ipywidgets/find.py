@@ -68,9 +68,9 @@ class Finder(collections.abc.Sequence, Generic[W]):
         return Finder[X](cast(List[X], self._walk(test)))
 
     def _walk(self, f: Callable[[Element], bool]):
-        visited: Set[Widget] = set()
+        visited: Set[int] = set()
         queue: List[Widget] = list()
-        visited = set(self.widgets)
+        visited = set([id(k) for k in self.widgets])
         queue.extend(self.widgets)
 
         found: List[Element] = []
@@ -89,14 +89,14 @@ class Finder(collections.abc.Sequence, Generic[W]):
                     elif isinstance(value, (list, tuple)):
                         for el in value:
                             if isinstance(el, Widget):
-                                if el not in visited:
-                                    visited.add(el)
+                                if id(el) not in visited:
+                                    visited.add(id(el))
                                     queue.append(el)
                     elif isinstance(value, dict):
                         for name, el in value.items():
                             if isinstance(el, Widget):
-                                if el not in visited:
-                                    visited.add(el)
+                                if id(el) not in visited:
+                                    visited.add(id(el))
                                     queue.append(el)
         return found
 
