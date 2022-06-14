@@ -41,7 +41,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
         return len(self.widgets)
 
     def __getitem__(self, item):
-        return self.widgets[item]
+        return Finder([self.widgets[item]])
 
     def find(self, widget_class: Type[X], **matches):
         def test(widget: Widget):
