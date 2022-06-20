@@ -841,6 +841,7 @@ def test_context():
     @react.component
     def App():
         clicks, dispatch = react.use_reducer(click_reducer, 0)
+        assert react.use_context(store_context) is None
         store_context.provide((clicks, dispatch))
         with w.HBox() as main:
             Child1()

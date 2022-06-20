@@ -1017,6 +1017,7 @@ class _RenderContext:
                 context.state_index = 0
                 context.effect_index = 0
                 context.memo_index = 0
+                context.user_contexts = {}
                 # when we have nested renders, we can already have this filled
                 context.elements_next.clear()
                 # Now, we actually execute the render function, and get
@@ -1041,7 +1042,9 @@ class _RenderContext:
                 new_parent_key = join_key(parent_key, key)
                 self._render(root_element, "/", parent_key=new_parent_key)  # depth first
                 if context.effect_index != len(context.effects):
-                    raise RuntimeError(f"Previously render had {len(context.effects)} effects, this run {context.effect_index}")
+                    raise RuntimeError(
+                        f"Previously render had {len(context.effects)} effects, this run {context.effect_index} (in element/component: {el}/{el.component})"
+                    )
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
             finally:
