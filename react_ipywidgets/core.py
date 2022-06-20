@@ -477,20 +477,24 @@ def use_state_widget(widget: widgets.Widget, prop_name, key=None):
 
 
 @overload
-def _get_render_context(required: Literal[True] = ...) -> "_RenderContext":
+def get_render_context(required: Literal[True] = ...) -> "_RenderContext":
     ...
 
 
 @overload
-def _get_render_context(required: Literal[False] = ...) -> Optional["_RenderContext"]:
+def get_render_context(required: Literal[False] = ...) -> Optional["_RenderContext"]:
     ...
 
 
-def _get_render_context(required=True):
+def get_render_context(required=True):
     rc = getattr(local, "rc", None)
     if rc is None and required:
         raise RuntimeError("No render context")
     return rc
+
+
+# previous name
+_get_render_context = get_render_context
 
 
 def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Callable[[U], None]]:
