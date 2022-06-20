@@ -100,6 +100,7 @@ def test_internals():
     #     - '/':
     widget, rc = react.render_fixed(app, handle_error=False)
     assert rc.context_root.root_element == app
+    assert rc.context_root.root_element_next is None
     assert list(rc.context_root.children_next) == []
     assert list(rc.context_root.children) == ["App/"]
 
@@ -1282,8 +1283,31 @@ def test_render_many_consolidate_once():
     rc.close()
 
 
-def test_recover_exception(capsys):
+def test_exception_recover_in_render():
     set_fail = None
+
+    # by default react should render the exception
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+        if fail:
+            raise Exception("fail")
+        return w.IntSlider()
+
+    box, rc = react.render(Test(), handle_error=True)
+    assert set_fail is not None
+    assert rc._find(ipywidgets.IntSlider)
+    set_fail(True)
+    assert not rc._find(ipywidgets.IntSlider)
+    assert not rc._is_rendering
+    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    rc.close()
+
+
+def test_exception_handler_in_render():
+    set_fail = None
+    clear = None
 
     @react.component
     def Test():
@@ -1293,14 +1317,115 @@ def test_recover_exception(capsys):
             raise Exception("fail")
         return w.IntSlider()
 
-    # with pytest.raises(Exception):
-    slider, rc = react.render_fixed(Test())
+    @react.component
+    def Handler():
+        nonlocal clear
+        exception, clear = react.use_exception()
+        with w.VBox() as main:
+            if exception:
+                w.Label(value=str(exception))
+            else:
+                Test()
+        return main
+
+    box, rc = react.render(Handler())
     assert set_fail is not None
-    with pytest.raises(Exception, match="fail"):
-        set_fail(True)
+    assert clear is not None
+    assert rc._find(ipywidgets.IntSlider)
+
+    set_fail(True)
+    assert "fail" in rc._find(ipywidgets.Label).widget.value
+    assert not rc._is_rendering
+
+    # we keep the UI the same
     set_fail(False)
+    assert "fail" in rc._find(ipywidgets.Label).widget.value
+
+    # we have to explicitly clear the exception to try a rerender
+    clear()
+    assert rc._find(ipywidgets.IntSlider)
     rc.close()
-    assert isinstance(slider, ipywidgets.IntSlider)
+
+
+def test_exception_handler_exception():
+    # when the exception handling raises an exception, rerender again and bubble up
+    set_fail = None
+    clear = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+        if fail:
+            raise Exception("fail")
+        return w.IntSlider()
+
+    @react.component
+    def Handler():
+        nonlocal clear
+        exception, clear = react.use_exception()
+        if exception:
+            # this handler should not be handled by the current component
+            raise Exception("in error handler")
+        else:
+            return Test()
+
+    box, rc = react.render(Handler())
+    assert set_fail is not None
+    assert clear is not None
+    assert rc._find(ipywidgets.IntSlider)
+    set_fail(True)
+    # because the Handler failed to catch the error, the core library does it
+    # using a HTML widget
+    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert not rc._is_rendering
+
+    rc.close()
+
+
+def test_recover_exception_in_reconcilliate():
+    set_fail = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+
+        def some_effect():
+            if fail:
+                raise Exception("fail")
+
+        react.use_effect(some_effect, [fail])
+        return w.IntSlider()
+
+    box, rc = react.render(Test())
+    assert set_fail is not None
+    set_fail(True)
+    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert not rc._is_rendering
+    rc.close()
+
+
+def test_recover_exception_in_widget_update():
+    set_fail = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+        value = 1
+        if fail:
+            value = "fail"  # type: ignore
+        return w.IntSlider(value=value)
+
+    # with pytest.raises(Exception):
+    box, rc = react.render(Test())
+    assert rc._find(ipywidgets.IntSlider)
+    assert set_fail is not None
+    set_fail(True)
+    assert not rc._is_rendering
+    assert not rc._find(ipywidgets.IntSlider)
+    rc.close()
 
 
 def test_state_get():

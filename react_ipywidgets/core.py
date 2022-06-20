@@ -10,6 +10,7 @@ import copy
 import logging
 import sys
 import threading
+import traceback
 from dataclasses import dataclass, field
 from inspect import isclass
 from types import TracebackType
@@ -525,6 +526,29 @@ def use_callback(f, dependencies):
     use_memo(wrapper, args=dependencies)
 
 
+def use_exception() -> Tuple[Optional[BaseException], Callable[[], None]]:
+    rc = _get_render_context(required=True)
+    assert rc.context is not None
+    # we keep track of the exception in the state because we want to explicitly
+    # clear it.
+    exception, set_exception = use_state(cast(Optional[BaseException], None))
+    rc.context.exception_handler = True
+    if rc.context.exceptions_children:
+        # if we found an exception in one of our children, we want to return this
+        # exception, until clear is called.
+        e = rc.context.exceptions_children[0]
+        # reset the exceptions that we found
+        rc.context.exceptions_children = []
+        set_exception(e)
+        exception = e
+
+    def clear():
+        set_exception(None)
+
+    logger.info("use_exception: %r", exception)
+    return exception, clear
+
+
 class Ref(Generic[T]):
     def __init__(self, initial_value: T):
         self.current = initial_value
@@ -607,6 +631,7 @@ class ComponentContext:
     invoke_element: Optional[Element] = None
 
     # the root element for this component
+    root_element_next: Optional[Element] = None
     root_element: Optional[Element] = None
     # all elements, including the root element
     elements_next: Dict[str, Element] = field(default_factory=dict)
@@ -634,6 +659,16 @@ class ComponentContext:
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
+
+    # the exception that were raised in this component
+    exceptions_self: List[BaseException] = field(default_factory=list)
+    # all exceptions that occurred during render, reconcolliate or use effect
+    # that bubbled up (children with exception_handler = False)
+    exceptions_children: List[BaseException] = field(default_factory=list)
+    # flag if this component will handle an exception of it's children
+    # NOTE: we can never handle an exception in our own render function,
+    # it will always bubble up to the parent component.
+    exception_handler: bool = False
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -676,8 +711,8 @@ class _RenderContext:
         self.render_count = 0
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
-        self._state_changed = False
-        self._state_changed_reason: Optional[str] = None
+        self._rerender_needed = False
+        self._rerender_needed_reason: Optional[str] = None
         self.thread_lock = threading.Lock()
         self.tracebacks: List[TracebackType] = []
         self.handle_error = handle_error
@@ -788,9 +823,9 @@ class _RenderContext:
                 context.state[key] = value
                 # TODO: enable
                 # context.needs_render = True
-                if self._state_changed is False:
-                    self._state_changed = True
-                    self._state_changed_reason = f"{key} changed"
+                if self._rerender_needed is False:
+                    self._rerender_needed = True
+                    self._rerender_needed_reason = f"{key} changed"
                 if not self._is_rendering:
                     self.render(self.element, self.container)
                 else:
@@ -831,15 +866,18 @@ class _RenderContext:
                 self.element = element
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
-                self._state_changed = False
-                self._state_changed_reason = None
+                self._rerender_needed = False
+                self._rerender_needed_reason = None
                 logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
                 self.render_count += 1
                 self._is_rendering = True
                 # if we got called recursively, self.context is not the root context
                 context_prev = self.context
                 self.context = self.context_root
-                self.context.root_element = element
+                self.context.exception_handler = False
+                self.context.exceptions_children = []
+                self.context.exceptions_self = []
+                self.context.root_element_next = element
                 assert self.context is not None
 
                 try:
@@ -853,33 +891,44 @@ class _RenderContext:
                 if main_render_phase:
                     stable = False
                     render_counts = 0
-                    while not stable:
+                    while not stable and not self.context_root.exceptions_children:
                         # we started the rendering loop (main_render_phase is True), so we keep going
-                        while self._state_changed:
-                            logger.info("Entering nested render phase: %r", self._state_changed_reason)
-                            self._state_changed = False
-                            self._state_changed_reason = None
+                        # but if an exception bubbled up, we should stop
+                        while self._rerender_needed and not self.context_root.exceptions_children:
+                            logger.info("Entering nested render phase: %r", self._rerender_needed_reason)
+                            self._rerender_needed = False
+                            self._rerender_needed_reason = None
                             self._elements_next = set()
+                            self.context.exception_handler = False
+                            self.context.exceptions_children = []
+                            self.context.exceptions_self = []
+
                             self._render(element, "/", parent_key=ROOT_KEY)
-                            logger.info("Render done: %r %r", self._state_changed, self._state_changed_reason)
+                            logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reason)
                             assert self.context is self.context_root
                             render_counts += 1
                             if render_counts > 50:
                                 raise RuntimeError("Too many renders triggered, your render loop does not stop")
                         logger.debug("Render phase resulted in (next) elements:")
                         for el in self._elements_next:
-                            logger.debug("\t%r", el)
+                            logger.debug("\t%r %x", el, id(el))
 
                         logger.debug("Current elements:")
                         for el in self._elements:
-                            logger.debug("\t %r", el)
+                            logger.debug("\t %r %x", el, id(el))
+                        if self.context_root.exceptions_children:
+                            # an exception bubbled up render
+                            break
 
                         widget = self._reconsolidate(element, default_key="/", parent_key=ROOT_KEY)
+                        self.context.root_element = self.context.root_element_next
+                        self.context.root_element_next = None
+
                         if self._elements_next:
                             raise RuntimeError(f"Element not reconsolidated: {self._elements_next}")
                         logger.debug("Reconsolidate phase resulted in elements:")
                         for el in self._elements:
-                            logger.debug("\t%r", el)
+                            logger.debug("\t%r %x", el, id(el))
                         # RESET
                         assert self.context is self.context_root
                         assert widget in self._widgets.values()
@@ -895,8 +944,12 @@ class _RenderContext:
                         if container:
                             container.children = [widget]
 
-                        if self._state_changed:
-                            logger.info("During consolidation, a stage changed was triggered")
+                        if self.context_root.exceptions_children or self.context_root.exceptions_self:
+                            # an exception bubbled up during reconsolidate
+                            break
+
+                        if self._rerender_needed:
+                            logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reason)
                             stable = False
                         else:
                             stable = True
@@ -929,7 +982,26 @@ class _RenderContext:
 
             finally:
                 local.rc = None  # type: ignore
-            return widget
+                self._is_rendering = False
+                assert self.context is self.context_root
+
+        if self.context.exceptions_children or self.context_root.exceptions_self:
+            if self.handle_error:
+                logger.info("Exception occurred, rendering error message")
+                exc = [*self.context_root.exceptions_self, *self.context.exceptions_children][0]
+                if exc.__traceback__ is None:
+                    value = "Exception occurred, but no traceback available"
+                else:
+                    error = "".join(traceback.format_exception(None, exc, exc.__traceback__))
+                    import html
+
+                    value = html.escape(error)
+                from . import ipywidgets as w
+
+                return self.render(w.HTML(value=value), self.container)
+            else:
+                raise self.context.exceptions_children[0]
+        return widget
 
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
@@ -1018,13 +1090,19 @@ class _RenderContext:
                 context.effect_index = 0
                 context.memo_index = 0
                 context.user_contexts = {}
+                context.exception_handler = False
+                # this is reset in use_exception
+                # context.exceptions_children = []
+                # TODO: why do the tests pass if we comment the next line out
+                context.exceptions_self = []
                 # when we have nested renders, we can already have this filled
                 context.elements_next.clear()
                 # Now, we actually execute the render function, and get
                 # back the root element
+                root_element: Optional[Element] = None
                 try:
-                    root_element: Element = el.component.f(*el.args, **el.kwargs)
-                except Exception as e:
+                    root_element = el.component.f(*el.args, **el.kwargs)
+                except BaseException as e:
                     if DEBUG:
                         # we might be interested in the traceback inside the call...
                         if len(self.tracebacks) == 0:
@@ -1033,14 +1111,21 @@ class _RenderContext:
                             if traceback.tb_next:  # is there an error inside the call
                                 self.tracebacks.append(traceback.tb_next)
                         self.tracebacks.append(el.traceback)
-
-                    raise
+                    logger.error("Component %r raised exception %r", el.component, e)
+                    context.exceptions_self.append(e)
+                    self._rerender_needed_reason = "Exception ocurred during render"
+                    self._rerender_needed = True
 
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
-                context.root_element = root_element
-                new_parent_key = join_key(parent_key, key)
-                self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                if root_element is not None:
+                    logger.debug("root element: %r %x", root_element, id(root_element))
+                    context.root_element_next = root_element
+                    new_parent_key = join_key(parent_key, key)
+                    self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                else:
+                    # TODO: why do the tests pass if we comment the next line out
+                    self._elements_next.remove(el)
                 if context.effect_index != len(context.effects):
                     raise RuntimeError(
                         f"Previously render had {len(context.effects)} effects, this run {context.effect_index} (in element/component: {el}/{el.component})"
@@ -1052,6 +1137,11 @@ class _RenderContext:
             finally:
                 assert context.parent is parent_context
                 self.context = context.parent
+                if context.exceptions_self or context.exceptions_children and not context.exception_handler:
+                    # child does not handle exceptions, so bubble up
+                    self.context.exceptions_children.extend(context.exceptions_self)
+                    self.context.exceptions_children.extend(context.exceptions_children)
+
             assert context is not None
 
     def _reconsolidate(self, el: Element, default_key: str, parent_key: str):
@@ -1066,6 +1156,9 @@ class _RenderContext:
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
         context = self.context
         assert context is not None
+        assert not context.exceptions_children, f"Exceptions found in reconciliation phase: {context.exceptions_children} for context: {context!r}"
+        assert not context.exceptions_self, f"Exceptions found in reconciliation phase: {context.exceptions_self} for context: {context!r}"
+
         el_prev = context.elements.get(key)
 
         already_reconsolidated = el in self._elements
@@ -1107,11 +1200,13 @@ class _RenderContext:
 
                     logger.debug("Reconsolidate: enter context %r", new_parent_key)
                     self.context = child_context
-                    assert child_context.root_element
+                    assert child_context.root_element_next
                     elements_now = dict(child_context.elements_next)
                     elements = dict(child_context.elements)
 
-                    widget = self._reconsolidate(child_context.root_element, "/", new_parent_key)
+                    widget = self._reconsolidate(child_context.root_element_next, "/", new_parent_key)
+                    child_context.root_element = child_context.root_element_next
+                    child_context.root_element_next = None
                     # merge the component root level meta dict with the component meta dict
                     # for instance if we do
                     # SomeComonent().meta(name="a") we want that name="a" to appear on the widget
@@ -1129,7 +1224,6 @@ class _RenderContext:
                             el_remove = elements[key_remove]
                             self._remove_element(el_remove, key_remove, parent_key)
                     for effect_index, effect in enumerate(child_context.effects):
-                        effect()
                         if effect.next:
                             # if we have a next, it means that effect itself is executed
                             # TODO: custom equals
@@ -1144,12 +1238,17 @@ class _RenderContext:
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
                                     effect()
-                                except Exception:
-                                    # TODO: we might want to have a better stacktrace here
-                                    logger.exception("Issue with effect in element %r", el)
-                                    raise
+                                except BaseException as e:
+                                    context.exceptions_self.append(e)
+                                    self._rerender_needed_reason = "Exception ocurred during effect"
+                                    self._rerender_needed = True
                         else:
-                            effect()
+                            try:
+                                effect()
+                            except BaseException as e:
+                                context.exceptions_self.append(e)
+                                self._rerender_needed_reason = "Exception ocurred during effect"
+                                self._rerender_needed = True
 
                     if child_context.children_next:
                         # if we had two render phases, we can have old context left over
@@ -1166,6 +1265,10 @@ class _RenderContext:
                                 # if key in child_context
                         if unreferenced:
                             raise RuntimeError(f"Unused elements and unreferenced elements {unreferenced}")
+                    if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                        # child does not handle exceptions, so bubble up
+                        context.exceptions_children.extend(child_context.exceptions_self)
+                        context.exceptions_children.extend(child_context.exceptions_children)
                 finally:
                     # restore context
                     self.context = context
@@ -1200,8 +1303,13 @@ class _RenderContext:
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
                     # assign to _widgets[el] first, before errors can occur
+                    try:
+                        el._update_widget(widget_previous, el_prev, kwargs)
+                    except BaseException as e:
+                        context.exceptions_self.append(e)
+                        self._rerender_needed_reason = "Exception ocurred during reconciliation (updating widget)"
+                        self._rerender_needed = True
                     self._widgets[el] = widget_previous
-                    el._update_widget(widget_previous, el_prev, kwargs)
                     context.owns.add(el)
                     context.owns.remove(el_prev)
                     assert el_prev is not el

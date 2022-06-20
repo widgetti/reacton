@@ -102,5 +102,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
 
 
 def finder(rc: _RenderContext):
-    assert rc.container is not None
-    return Finder[Widget](rc.container.children)
+    if rc.container is None:
+        return Finder[Widget]([rc.last_root_widget])
+    else:
+        return Finder[Widget](rc.container.children)
