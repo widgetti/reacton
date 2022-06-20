@@ -403,19 +403,18 @@ def test_children():
 
 
 def test_display():
-    slider = widgets.IntSlider(value=2, description="How many buttons?")
-
     @react.component
-    def buttons(slider):
-        buttons = react.use_state_widget(slider, "value")
-        return w.Button(description=f"Button {buttons}")
+    def Button(value):
+        return w.Button(description=f"Value {value}")
 
-    react.display(buttons(slider))
+    react.display(Button(2))
     assert react.core.local.last_rc is not None
-    react.core.local.last_rc.close()
-    slider.style.close()
-    slider.layout.close()
-    slider.close()
+    vbox: widgets.VBox = react.core.local.last_rc.container
+    assert vbox._view_count == 0
+    vbox._view_count = 1  # act as if it is displayed
+    vbox._view_count = 0  # and removed again
+    # so we don't have to do this manually:
+    # react.core.local.last_rc.close()
 
 
 def test_box():

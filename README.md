@@ -25,6 +25,7 @@ Instead of telling ipywidgets what to do, e.g.:
   * Respond to events
   * Changing properties
   * Attaching and detaching event handlers
+  * Manage widget lifetimes (creating and destroying)
 
 You tell react-ipywidgets what you want (which Widgets you want to have), and you let react-ipywidgets take care of the above.
 

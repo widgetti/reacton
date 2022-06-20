@@ -1490,7 +1490,20 @@ def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _Re
 def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     import IPython.display  # type: ignore
 
-    widget = make(el)
+    box = widgets.VBox(_view_count=0)
+    widget, rc = render(el, container=box)
+    displayed = False
+
+    def check_view_count(change):
+        nonlocal displayed
+        if not displayed and change.new > 0:
+            displayed = True
+        if displayed and change.new == 0:
+            rc.close()
+            box.layout.close()
+            box.close()
+
+    box.observe(check_view_count, "_view_count")
 
     data: Dict[str, Any] = {
         **mime_bundle_default,
