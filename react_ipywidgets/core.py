@@ -628,7 +628,7 @@ class ComponentContext:
     # for provide/use_context
     user_contexts: Dict[Any, Any] = field(default_factory=dict)
 
-    # to track key collisions
+    # to track key collisions, and remove unused elements
     used_keys: Set[str] = field(default_factory=set)
     # needs_render: bool = False
 
@@ -1047,6 +1047,8 @@ class _RenderContext:
                     )
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
+                # drop all children from the previous render run (this render phase)
+                context.children_next = {k: v for k, v in context.children_next.items() if k in context.used_keys}
             finally:
                 assert context.parent is parent_context
                 self.context = context.parent
@@ -1064,7 +1066,6 @@ class _RenderContext:
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
         context = self.context
         assert context is not None
-
         el_prev = context.elements.get(key)
 
         already_reconsolidated = el in self._elements
@@ -1251,6 +1252,16 @@ class _RenderContext:
 
             assert el in self._elements_next
             self._elements_next.remove(el)
+            assert self.context is not None
+
+            # Remove unused element.
+            # It is a bit odd that we do this for each element type, so this get executed
+            # multiple times for each context. But if we only do this for a ComponentFunction element
+            # we have to do this separately for the root element as well.
+            extra = set(self.context.elements.keys()) - self.context.used_keys
+            if extra:
+                for key in extra:
+                    self._remove_element(self.context.elements[key], key, parent_key=parent_key)
 
             # keeping this for debugging
             # logger.debug("Current:")
@@ -1358,7 +1369,6 @@ def render(element: Element[T], container: widgets.Widget = None, children_trait
 
 
 def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _RenderContext]:
-    global _last_rc
     _rc = _RenderContext(element, handle_error=handle_error)
     widget = _rc.render(element)
     local.last_rc = _rc

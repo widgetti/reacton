@@ -161,6 +161,62 @@ def test_component_function():
     rc.close()
 
 
+def test_render_replace():
+    hbox, rc = react.render(w.Button())
+    rc.render(w.VBox(), rc.container)
+    rc.close()
+
+
+def test_render_many_flip_flop_component():
+    set_action = None
+
+    effect_mock = unittest.mock.Mock()
+    cleanup = unittest.mock.Mock()
+
+    @react.component
+    def Component(description):
+        description, set_description = react.use_state(description)
+
+        def effect():
+            effect_mock()
+            return cleanup
+
+        # also test use effect to be sure!
+        react.use_effect(effect)
+        return w.Button(description=description)
+
+    @react.component
+    def Test():
+        nonlocal set_action
+        action, set_action = react.use_state(0)
+        if action == 0:
+            return w.Text(value="initial")
+        elif action == 1:
+            set_action(2)
+            # render component
+            return Component("first")
+        elif action == 2:
+            # render float slider next
+            set_action(3)
+            return w.FloatSlider()
+        elif action == 3:
+            # set_action(4)
+            # and return to the component again
+            return Component("second")
+        else:
+            return w.FloatLogSlider()
+
+    box, rc = react.render(Test())
+    assert isinstance(box.children[0], widgets.Text)
+    assert set_action is not None
+    set_action(1)
+
+    assert isinstance(box.children[0], widgets.Button)
+    assert box.children[0].description == "second"
+    assert react.core.local.last_rc is not None
+    react.core.local.last_rc.close()
+
+
 def test_state_simple():
     clear()
 
