@@ -1373,8 +1373,9 @@ class _RenderContext:
             # we have to do this separately for the root element as well.
             extra = set(self.context.elements.keys()) - self.context.used_keys
             if extra:
-                for key in extra:
-                    self._remove_element(self.context.elements[key], key, parent_key=parent_key)
+                for key in list(extra):
+                    if key in self.context.elements:
+                        self._remove_element(self.context.elements[key], key, parent_key=parent_key)
 
             # keeping this for debugging
             # logger.debug("Current:")

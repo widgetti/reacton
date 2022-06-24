@@ -168,6 +168,32 @@ def test_render_replace():
     rc.close()
 
 
+def test_render_replace_component_with_element():
+
+    set_value = lambda x: None  # noqa
+
+    def Container():
+        button = w.Button(description="Button in container")
+        return w.VBox(children=[button])
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        if value == 1:
+            return Container()
+        else:
+            return w.Button(description="Button in root")
+
+    hbox, rc = react.render(Test(), handle_error=False)
+    rc._find(widgets.Button).widget.description == "Button in root"
+    set_value(1)
+    rc._find(widgets.Button).widget.description == "Button in container"
+    set_value(0)
+    rc._find(widgets.Button).widget.description == "Button in root"
+    rc.close()
+
+
 def test_render_many_flip_flop_component():
     set_action = None
 
