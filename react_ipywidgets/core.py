@@ -865,6 +865,7 @@ class _RenderContext:
         # render + consolidate
         widget = None
         with self.thread_lock:
+            prev_rc = getattr(local, "rc", None)
             try:
                 local.rc = self
                 self.element = element
@@ -985,7 +986,7 @@ class _RenderContext:
                     raise
 
             finally:
-                local.rc = None  # type: ignore
+                local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
                 assert self.context is self.context_root
 

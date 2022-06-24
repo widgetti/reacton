@@ -1901,3 +1901,25 @@ def test_multithreaded_support():
     for _button, rc in results:
         rc = cast(react.core._RenderContext, rc)
         rc.close()
+
+
+def test_nested_render():
+    @react.component
+    def Test():
+        box, rc = react.render(w.Button())
+        button = box.children[0]
+
+        def only_cleanup():
+            def cleanup():
+                rc.close()
+
+            return cleanup
+
+        react.use_effect(only_cleanup, [])
+        # note that here we pass in a widget, not an element
+        # this is supported, but not recommended in general
+        return w.VBox(children=[button])
+
+    box, rc = react.render(Test())
+    assert len(rc._find(widgets.Button)) == 1
+    rc.close()
