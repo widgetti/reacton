@@ -77,8 +77,7 @@ def cleanup_guard():
         # raise RuntimeError(f"{leftover_widgets}")
 
 
-# @pytest.fixture(params=["ButtonComponentWidget", "ButtonComponentFunction"])
-@pytest.fixture(params=["ButtonComponentWidget"])
+@pytest.fixture(params=["ButtonComponentWidget", "ButtonComponentFunction"])
 def ButtonComponent(request):
     return dict(ButtonComponentWidget=w.Button, ButtonComponentFunction=ButtonComponentFunction)[request.param]
 
