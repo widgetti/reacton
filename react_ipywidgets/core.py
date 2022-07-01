@@ -1121,6 +1121,9 @@ class _RenderContext:
                     self._rerender_needed_reason = "Exception ocurred during render"
                     self._rerender_needed = True
 
+                if root_element is None and not context.exceptions_self:
+                    raise ValueError(f"Component {el.component} returned None")
+
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 if root_element is not None:
