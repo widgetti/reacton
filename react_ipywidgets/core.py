@@ -250,8 +250,8 @@ class Element(Generic[W]):
                 widget = self.component.widget(**kwargs)
                 if self._meta:
                     widget._react_meta = dict(self._meta)
-            except Exception:
-                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}")
+            except Exception as e:
+                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
             for name, callback in listeners.items():
                 self._add_widget_event_listener(widget, name, callback)
             after = set(widgets.Widget.widgets)
