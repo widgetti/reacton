@@ -61,7 +61,7 @@ def ButtonNumber2(value):
 
 
 @react.component
-def Container(children=[]):
+def ContainerFunction(children=[]):
     return w.HBox(children=children)
 
 
@@ -80,6 +80,11 @@ def cleanup_guard():
 @pytest.fixture(params=["ButtonComponentWidget", "ButtonComponentFunction"])
 def ButtonComponent(request):
     return dict(ButtonComponentWidget=w.Button, ButtonComponentFunction=ButtonComponentFunction)[request.param]
+
+
+@pytest.fixture(params=["ContainerWidget", "ContainerFunction"])
+def Container(request):
+    return dict(ContainerWidget=w.HBox, ContainerFunction=ContainerFunction)[request.param]
 
 
 def test_internals():
@@ -122,6 +127,27 @@ def test_create_element():
     assert len(hbox.children) == 1
     assert isinstance(hbox.children[0], widgets.Button)
     assert count() == 2 + 3  # button + button layout + button style
+    rc.close()
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_render_count_element(Container, ButtonComponent, shared):
+    button = ButtonComponent()
+
+    @react.component
+    def Test():
+        nonlocal button
+        button = ButtonComponent(description="Button")
+        if shared:
+            button = button.shared()
+        with Container() as main:
+            w.HBox(children=[button])
+            w.VBox(children=[button])
+            Container(children=[button])
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert button._render_count == (1 if shared else 3)
     rc.close()
 
 
@@ -479,17 +505,17 @@ def test_box():
     slider.close()
 
 
-def test_shared_instance(ButtonComponent):
+def test_shared_instance_via_widget_element(ButtonComponent, Container):
     checkbox = widgets.Checkbox(value=True, description="Share button")
 
     @react.component
     def Buttons(checkbox):
         share = react.use_state_widget(checkbox, "value", "share")
         if share:
-            button_shared = ButtonComponent(description="Button shared", tooltip="shared")
-            return w.VBox(children=[button_shared, button_shared])
+            button_shared = ButtonComponent(description="Button shared", tooltip="shared").shared()
+            return Container(children=[button_shared, button_shared])
         else:
-            return w.VBox(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
+            return Container(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
 
     hbox, rc = react.render(Buttons(checkbox))
     vbox = hbox.children[0]
@@ -510,7 +536,8 @@ def test_shared_instance(ButtonComponent):
     checkbox.close()
 
 
-def test_shared_instance_via_component(ButtonComponent):
+@pytest.mark.parametrize("shared", [False, True])
+def test_shared_instance_via_component(ButtonComponent, shared, Container):
     @react.component
     def Child(button):
         return button
@@ -518,12 +545,17 @@ def test_shared_instance_via_component(ButtonComponent):
     @react.component
     def Buttons():
         button = ButtonComponent(description="Button shared")
-        return w.VBox(children=[Child(button), Child(button)])
+        if shared:
+            button = button.shared()
+        return Container(children=[Child(button), Child(button)])
 
     vbox, rc = react.render_fixed(Buttons())
     assert vbox.children[0].description == "Button shared"
     assert vbox.children[1].description == "Button shared"
-    assert vbox.children[0] is vbox.children[1]
+    if shared:
+        assert vbox.children[0] is vbox.children[1]
+    else:
+        assert vbox.children[0] is not vbox.children[1]
     rc.close()
 
 
@@ -537,8 +569,8 @@ def test_bqplot():
     def Plot(exponent, x, y):
         exponent_value = react.use_state_widget(exponent, "value")
         x = x**exponent_value
-        x_scale = bqplot.LinearScale(allow_padding=False)
-        y_scale = bqplot.LinearScale(allow_padding=False)
+        x_scale = bqplot.LinearScale(allow_padding=False).shared()
+        y_scale = bqplot.LinearScale(allow_padding=False).shared()
         lines = bqplot.Lines(x=x, y=y, scales={"x": x_scale, "y": y_scale}, stroke_width=3, colors=["red"], display_legend=True, labels=["Line chart"])
         x_axis = bqplot.Axis(scale=x_scale)
         y_axis = bqplot.Axis(scale=y_scale)
@@ -595,7 +627,7 @@ def test_use_effect():
         button_el = w.Button(description=f"Clicked {clicks} times")
         return button_el
 
-    hbox, rc = react.render(Button2())
+    hbox, rc = react.render(Button2(), handle_error=False)
     assert count() == 2 + 3  # label + button
     button = hbox.children[0]
     assert button.description == "Clicked 0 times"
@@ -946,6 +978,38 @@ def test_context():
     rc.close()
 
 
+# @pytest.mark.parametrize("shared", [False, True])
+@pytest.mark.parametrize("shared", [False])
+def test_context_with_precreated_element(shared):
+    value_context = react.create_context(1)
+
+    @react.component
+    def ValueProvider(value: int, children=[]):
+        value_context.provide(value)
+        return w.VBox(children=children)
+
+    @react.component
+    def Button():
+        value = react.use_context(value_context)
+        return w.Button(description=f"Value: {value}")
+
+    @react.component
+    def Test():
+        button = Button()
+        if shared:
+            button = button.shared()
+        v = ValueProvider(42, children=[button])
+        return v
+
+    box, rc = react.render(Test())
+    button = rc._find(widgets.Button).widget
+    if shared:
+        assert button.description == "Value: 1"
+    else:
+        assert button.description == "Value: 42"
+    rc.close()
+
+
 def test_memo():
     calls_ab = 0
     calls_ac = 0
@@ -1009,8 +1073,8 @@ def test_container_context_bqplot():
         x = np.arange(4)
         y = x**1.2
         with w.HBox() as box:
-            x_scale = bqplot.LinearScale(allow_padding=False)
-            y_scale = bqplot.LinearScale(allow_padding=False)
+            x_scale = bqplot.LinearScale(allow_padding=False).shared()
+            y_scale = bqplot.LinearScale(allow_padding=False).shared()
             lines = bqplot.Lines(x=x, y=y, scales={"x": x_scale, "y": y_scale}, stroke_width=3, colors=["red"], display_legend=True, labels=["Line chart"])
             x_axis = bqplot.Axis(scale=x_scale)
             y_axis = bqplot.Axis(scale=y_scale)
@@ -1683,7 +1747,7 @@ def test_vue_orphan_not_close():
 
 
 @pytest.mark.parametrize("in_container", [False, True])
-def test_switch_component(in_container):
+def test_switch_component(in_container, Container):
     @react.component
     def Child1():
         with Container() as main:
@@ -1748,7 +1812,7 @@ def test_switch_component(in_container):
     rc.close()
 
 
-def test_switch_simple():
+def test_switch_simple(Container):
     set_value = None
 
     @react.component
@@ -1771,7 +1835,7 @@ def test_switch_simple():
     rc.close()
 
 
-def test_switch_widget_and_component():
+def test_switch_widget_and_component(Container):
     set_value = None
 
     effect = unittest.mock.Mock()
@@ -1820,7 +1884,7 @@ def test_switch_widget_and_component():
     rc.close()
 
 
-def test_switch_component_key():
+def test_switch_component_key(Container):
     set_value = None
 
     effect = unittest.mock.Mock()
