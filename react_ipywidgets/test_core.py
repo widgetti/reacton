@@ -130,9 +130,97 @@ def test_create_element():
     rc.close()
 
 
+def test_render_element_twice(ButtonComponent, Container):
+    el = ButtonComponent(description="Hi")
+
+    @react.component
+    def Test(el):
+        return Container(children=[el, el])
+
+    box, rc = react.render(Test(el), handle_error=False)
+    assert len(rc._find(widgets.Button)) == 2
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 2
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 2
+    rc.close()
+
+
+def test_remove_element_twice(ButtonComponent, Container):
+    el1 = ButtonComponent(description="Hi1")
+    el2 = w.FloatLogSlider(description="Hi2")
+
+    def set_first(x: bool):
+        pass
+
+    @react.component
+    def Test(el1, el2):
+        nonlocal set_first
+        first, set_first = react.use_state(True)  # type: ignore
+        if first:
+            el = el1
+        else:
+            el = el2
+        # return Container(children=[Container(children=[el])], Container(children=[el]))
+        with Container(children=[el]) as main:
+            with Container(children=[el]):
+                pass
+            with Container(children=[el]):
+                pass
+        return main
+
+    box, rc = react.render(Test(el1, el2), handle_error=False)
+    assert len(rc._find(widgets.Button)) == 3
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 3
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 3
+    assert rc._find(widgets.Button)[0].widget.description == "Hi1"
+    set_first(False)
+    assert len(rc._find(widgets.FloatLogSlider)) == 3
+    assert rc._find(widgets.FloatLogSlider)[0].widget.description == "Hi2"
+    rc.force_update()
+    rc.close()
+
+
+def test_remove_element_repeated(ButtonComponent, Container):
+    def set_other_case(x: bool):
+        pass
+
+    @react.component
+    def Test():
+        nonlocal set_other_case
+        el = ButtonComponent(description="Hi")
+        other_case, set_other_case = react.use_state(True)  # type: ignore
+        with Container(children=[el]) as main:
+            if other_case:
+                # this will trigger the removal of el twice
+                w.Label(value="bump up the children")
+            with Container(children=[el]):
+                pass
+            with Container(children=[el]):
+                pass
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert len(rc._find(widgets.Button)) == 3
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 3
+    rc.force_update()
+    assert len(rc._find(widgets.Button)) == 3
+    assert rc._find(widgets.Button)[0].widget.description == "Hi"
+    set_other_case(False)
+    rc.force_update()
+    rc.close()
+
+
 @pytest.mark.parametrize("shared", [False, True])
 def test_render_count_element(Container, ButtonComponent, shared):
     button = ButtonComponent()
+
+    @react.component
+    def DoNothing(children=[]):
+        return ButtonComponent(description="ignore the arguments")
 
     @react.component
     def Test():
@@ -144,6 +232,7 @@ def test_render_count_element(Container, ButtonComponent, shared):
             w.HBox(children=[button])
             w.VBox(children=[button])
             Container(children=[button])
+            DoNothing(children=[button])
         return main
 
     box, rc = react.render(Test(), handle_error=False)

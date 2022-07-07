@@ -83,7 +83,7 @@ def pp(o):
 
     prettyprinter.install_extras()
 
-    prettyprinter.pprint(o, width=1)
+    prettyprinter.pprint(o, width=200)
 
 
 def same_component(c1, c2):
@@ -1253,7 +1253,7 @@ class _RenderContext:
                         # this is not always true, it could be that there are two renders phases before this happened
                         # where the first updated the invoke_element, and the second changed the component
                         # assert child_context_prev.invoke_element is el_prev
-                        self._remove_element(el_prev, default_key="/", parent_key=parent_key)
+                        self._remove_element(el_prev, default_key=key, parent_key=parent_key)
 
                     logger.debug("Reconsolidate: enter context %r", new_parent_key)
                     self.context = child_context
@@ -1269,8 +1269,6 @@ class _RenderContext:
                     # SomeComonent().meta(name="a") we want that name="a" to appear on the widget
                     if el._meta or getattr(widget, "_react_meta", {}):
                         widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
-
-                    context.owns.add(el)
 
                     if el.is_shared:
                         self._shared_widgets[el] = widget
@@ -1323,7 +1321,6 @@ class _RenderContext:
                                 unreferenced.append(child_el)
                             else:
                                 child_context.elements[child_key] = child_context.elements_next.pop(child_key)
-                                # if key in child_context
                         if unreferenced:
                             raise RuntimeError(f"Unused elements and unreferenced elements {unreferenced}")
                     if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
@@ -1367,7 +1364,6 @@ class _RenderContext:
                             self._shared_widgets[el] = widget
                         else:
                             context.widgets[key] = widget
-                        context.owns.add(el)
                 elif el_prev is not None and el_prev.component == el.component:
                     logger.info("Updating widget: %r  → %r", el_prev, el)
                     assert el_prev is not None
@@ -1383,22 +1379,15 @@ class _RenderContext:
                         self._shared_widgets[el] = widget_previous
                     else:
                         context.widgets[key] = widget_previous
-
-                    context.owns.add(el)
-                    context.owns.remove(el_prev)
-                    assert el_prev is not el
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     logger.info("Replacing widget: %r → %r", el_prev, el)
-                    assert el_prev in context.owns
                     self._remove_element(el_prev, key, parent_key=parent_key)
-                    context.owns.remove(el_prev)
                     widget, orphan_ids = el._create_widget(kwargs)
                     if el.is_shared:
                         self._shared_widgets[el] = widget
                     else:
                         context.widgets[key] = widget
-                    context.owns.add(el)
                 # widgets are not always hashable, so store the model_id
                 orphan_widgets = set([widgets.Widget.widgets[k] for k in orphan_ids])
                 if orphan_ids:
@@ -1414,7 +1403,6 @@ class _RenderContext:
                         self._orphans[widget.model_id] = set()
                     self._orphans[widget.model_id].update(orphan_ids)
 
-                # if is_root
             if el.is_shared:
                 widget = self._shared_widgets[el]
             else:
@@ -1459,7 +1447,8 @@ class _RenderContext:
             # It is a bit odd that we do this for each element type, so this get executed
             # multiple times for each context. But if we only do this for a ComponentFunction element
             # we have to do this separately for the root element as well.
-            extra = set(self.context.elements.keys()) - self.context.used_keys
+            # NOTE: keep this sorted for reproducation reasons
+            extra = list(sorted(set(self.context.elements.keys()) - self.context.used_keys))
             if extra:
                 for key in list(extra):
                     if key in self.context.elements:
@@ -1474,9 +1463,6 @@ class _RenderContext:
             #     logger.debug("\t%r", el_)
 
     def _remove_element(self, el: Element, default_key: str, parent_key):
-        # import pdb
-
-        # pdb.set_trace()
         key = el._key
         if key is None:
             if default_key == "/":
@@ -1493,21 +1479,15 @@ class _RenderContext:
             assert el in self._shared_elements
             self._shared_elements.remove(el)
 
-        if el not in context.elements.values():
+        if key not in context.elements:
             # for instance if we first remove a root element, which also removes all its children,
             # and we then remove some child element again, it is already removed.
             return
 
-        key_created = [key_ for key_, value in context.elements.items() if el == value][0]
-        # TODO: why is this not key?
-        # assert key_created == key
-        if context is None:
-            raise RuntimeError(f"Element {el} not found in context or parent context")
-
         if isinstance(el.component, ComponentFunction):
             if el.is_shared:
                 self._visit_children(el, key, parent_key, self._remove_element)
-            self.context = child_context = context.children[key_created]
+            self.context = child_context = context.children[key]
 
             for effect_index, effect in enumerate(self.context.effects):
                 if effect.cleanup:
@@ -1520,7 +1500,7 @@ class _RenderContext:
             finally:
                 # restore context
                 self.context = context
-            del context.children[key_created]
+            del context.children[key]
         else:
             self._visit_children(el, key, parent_key, self._remove_element)
             if el.is_shared:
@@ -1538,17 +1518,18 @@ class _RenderContext:
         if el.is_shared:
             del self._shared_widgets[el]
         else:
-            del context.widgets[key_created]
+            del context.widgets[key]
         # elements can be removed multiple times, since they can be added multiple times
-        # e(ven non-shared element can)
+        # (even non-shared element can)
         if el in context.element_to_widget:
             del context.element_to_widget[el]
-        del context.elements[key_created]
+        del context.elements[key]
         if isinstance(el.component, ComponentFunction):
             assert not child_context.elements, f"left over elements {child_context.elements}"
             assert not child_context.element_to_widget, f"left over element_to_widget {child_context.element_to_widget}"
             assert not child_context.widgets, f"left over widgets {child_context.widgets}"
             assert not child_context.children, f"left over children {child_context.children}"
+            assert not child_context.owns, f"left over owns {child_context.owns}"
             # TODO: this is not the case when an exception occurs
             # assert not child_context.children_next, f"left over children {child_context.children_next}"
 
