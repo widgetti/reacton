@@ -193,6 +193,8 @@ def test_remove_element_repeated(ButtonComponent, Container):
         el = ButtonComponent(description="Hi")
         other_case, set_other_case = react.use_state(True)  # type: ignore
         with Container(children=[el]) as main:
+            with Container(children=[el]):
+                pass
             if other_case:
                 # this will trigger the removal of el twice
                 w.Label(value="bump up the children")
@@ -203,12 +205,48 @@ def test_remove_element_repeated(ButtonComponent, Container):
         return main
 
     box, rc = react.render(Test(), handle_error=False)
-    assert len(rc._find(widgets.Button)) == 3
+    assert len(rc._find(widgets.Button)) == 4
+    buttons = rc._find(widgets.Button).widgets
+    assert [b is not buttons[0] for b in buttons]
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 3
+    buttons = rc._find(widgets.Button).widgets
+    assert [b is not buttons[0] for b in buttons]
+    assert len(rc._find(widgets.Button)) == 4
+    buttons = rc._find(widgets.Button).widgets
+    assert [b is not buttons[0] for b in buttons]
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 3
+    buttons = rc._find(widgets.Button).widgets
+    assert [b is not buttons[0] for b in buttons]
+    assert len(rc._find(widgets.Button)) == 4
     assert rc._find(widgets.Button)[0].widget.description == "Hi"
+    set_other_case(False)
+    rc.force_update()
+    rc.close()
+
+
+def test_replace_parent(ButtonComponent):
+    def set_other_case(x: bool):
+        pass
+
+    @react.component
+    def Test():
+        nonlocal set_other_case
+        other_case, set_other_case = react.use_state(True)  # type: ignore
+        el = ButtonComponent(description="Hi")
+        if other_case:
+            Container = w.VBox
+        else:
+            Container = w.HBox
+        # the root stays the same to have the keys the same
+        with w.VBox() as main:
+            # but the intermediate parent changes
+            with Container(children=[el]):
+                pass
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert len(rc._find(widgets.Button)) == 1
+    rc.force_update()
     set_other_case(False)
     rc.force_update()
     rc.close()

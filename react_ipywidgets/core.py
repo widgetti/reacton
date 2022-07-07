@@ -1338,10 +1338,13 @@ class _RenderContext:
                 if el.args:
                     raise TypeError("Widget element only take keyword arguments")
 
-                logger.debug("Reconsolidate: arguments... (children of %s,%s)", parent_key, key)
-                kwargs = self._visit_children_values(kwargs, key, parent_key, self._reconsolidate)
-                assert self.context is context
-                logger.debug("Reconsolidate: arguments done (children of %s,%s)", parent_key, key)
+                def reconsolidate_children():
+                    logger.debug("Reconsolidate: arguments... (children of %s,%s)", parent_key, key)
+                    assert key is not None  # make mypy happy
+                    new_kwargs = self._visit_children_values(kwargs, key, parent_key, self._reconsolidate)
+                    assert self.context is context
+                    logger.debug("Reconsolidate: arguments done (children of %s,%s)", parent_key, key)
+                    return new_kwargs
 
                 orphan_ids = set()
                 widget_previous = None
@@ -1354,10 +1357,11 @@ class _RenderContext:
                         widget_previous = context.widgets[key]
                 if widget_previous is None:
                     # initial create
+                    kwargs = reconsolidate_children()
                     if el.is_shared and el in self._shared_widgets:
                         raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
                     else:
-                        logger.info("Creating new widget: %r", el)
+                        logger.info("Creating new widget: %r %r", el, key)
                         widget, orphan_ids = el._create_widget(kwargs)
 
                         if el.is_shared:
@@ -1365,10 +1369,11 @@ class _RenderContext:
                         else:
                             context.widgets[key] = widget
                 elif el_prev is not None and el_prev.component == el.component:
-                    logger.info("Updating widget: %r  → %r", el_prev, el)
+                    logger.info("Updating widget: %r  → %r %r", el_prev, el, key)
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
                     # assign to _widgets[el] first, before errors can occur
+                    kwargs = reconsolidate_children()
                     try:
                         el._update_widget(widget_previous, el_prev, kwargs)
                     except BaseException as e:
@@ -1381,8 +1386,9 @@ class _RenderContext:
                         context.widgets[key] = widget_previous
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
-                    logger.info("Replacing widget: %r → %r", el_prev, el)
+                    logger.info("Replacing widget: %r → %r %r", el_prev, el, key)
                     self._remove_element(el_prev, key, parent_key=parent_key)
+                    kwargs = reconsolidate_children()
                     widget, orphan_ids = el._create_widget(kwargs)
                     if el.is_shared:
                         self._shared_widgets[el] = widget
@@ -1426,8 +1432,7 @@ class _RenderContext:
             raise
         finally:
             # this marks the work as 'done'
-            if key in context.elements_next:
-                context.elements[key] = context.elements_next.pop(key)
+            context.elements[key] = context.elements_next.pop(key)
 
             if el_prev in self._shared_elements:
                 self._shared_elements.remove(el_prev)
@@ -1487,13 +1492,13 @@ class _RenderContext:
         if isinstance(el.component, ComponentFunction):
             if el.is_shared:
                 self._visit_children(el, key, parent_key, self._remove_element)
-            self.context = child_context = context.children[key]
-
-            for effect_index, effect in enumerate(self.context.effects):
-                if effect.cleanup:
-                    effect.cleanup()
-
             try:
+                self.context = child_context = context.children[key]
+
+                for effect_index, effect in enumerate(self.context.effects):
+                    if effect.cleanup:
+                        effect.cleanup()
+
                 assert self.context.root_element is not None
                 new_parent_key = join_key(parent_key, key)
                 self._remove_element(self.context.root_element, "/", parent_key=new_parent_key)
@@ -1507,6 +1512,8 @@ class _RenderContext:
                 widget = self._shared_widgets[el]
             else:
                 widget = context.widgets[key]
+            assert widget.comm is not None
+            assert widget.model_id in widgets.Widget.widgets
             for orphan in self._orphans.get(widget.model_id, set()):
 
                 orphan_widget = widgets.Widget.widgets.get(orphan)
