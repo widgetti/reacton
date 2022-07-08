@@ -1,6 +1,8 @@
+[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
+
 # React for ipywidgets
 
-Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
+Write ipywidgets like React. Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
 
 ## What is it?
 
@@ -10,25 +12,33 @@ A way to write reusable components in a React-like way, to make Python-based UI'
 
 Non-declarative UI's are complex: You have to attach and detach event handlers at the right point, there are many possibles states your UI can be in, and moving from one state to the other can be very hard to do manually and is very error-prone.
 
+Using React-IPywidgets, you write a component that gives a declarative description of the UI you want based on data. If the data changes, your component render function re-executes, and React-IPywidgets will find out how to go from the previous state to the new state. No more manual "diffing" on the UI, no more manual tracking of which event handlers to attach and detach.
+
 A common issue we also see is that there is one piece of code to set up the UI, and scattered around in many event handlers the changes that are almost repetitions of the initialization code.
 
-## Why use a React solution
+## Why use a React-like solution
 
 Using a declarative way, in a React (JS) style, makes your codebase smaller, less error-prone, and easier to reason about. We don't see a good reason *not* to use it.
 
 Also, React has proven itself, and by adopting a proven technology, we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
 
-## What does react-ipywidgets do for me?
+## What does React-IPywidgets do for me?
 
 Instead of telling ipywidgets what to do, e.g.:
 
-  * Respond to events
-  * Changing properties
-  * Attaching and detaching event handlers
-  * Manage widget lifetimes (creating and destroying)
+  * Responding to events.
+  * Changing properties.
+  * Attaching and detaching event handlers.
+  * Adding and removing children.
+  * Manage widget lifetimes (creating and destroying).
 
 You tell react-ipywidgets what you want (which Widgets you want to have), and you let react-ipywidgets take care of the above.
 
+## Installing
+
+```bash
+$ pip install react-ipywidgets
+```
 ## Simple example
 
 ### Using plain ipywidgets
@@ -119,7 +129,10 @@ display(MarkdownEditor("Mark-*down* **component**"))
 
 The `MarkdownEditor` component also shows another feature we can provide: All container widgets (like HBox, VBox, and all ipyvuetify widgets) can act as a context manager, which will add all widgets elements created within it as its children. Using a context manager leads to better readable code (less parenthesis and parenthsis issues).
 
-# API docs
+# Documentation
+
+
+[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
 
 
 # Installation
