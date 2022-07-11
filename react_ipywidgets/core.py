@@ -6,6 +6,7 @@ ReactJS - ipywidgets relation:
  * Component -- function
 
 """
+import contextlib
 import copy
 import logging
 import sys
@@ -69,6 +70,20 @@ mime_bundle_default = {"text/plain": "Cannot show ipywidgets in text", "text/htm
 
 def element(cls, **kwargs):
     return ComponentWidget(cls)(**kwargs)
+
+
+def are_events_supressed():
+    return getattr(local, "events_supressed", False)
+
+
+@contextlib.contextmanager
+def suppress_events():
+    """Suppress events while updating a widget"""
+    local.events_supressed = True
+    try:
+        yield
+    finally:
+        local.events_supressed = False
 
 
 widgets.Widget.element = classmethod(element)
@@ -276,7 +291,7 @@ class Element(Generic[W]):
         assert same_component(self.component, el_prev.component)
         # used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
         args = self.component.widget.class_trait_names()
-        with widget.hold_sync():
+        with widget.hold_sync(), suppress_events():
             # update values
             for name, value in kwargs.items():
                 if name.startswith("on_") and name not in args:
@@ -310,6 +325,8 @@ class Element(Generic[W]):
         target_name = name[3:]
 
         def on_change(change):
+            if are_events_supressed():
+                return
             callback(change.new)
 
         self._callback_wrappers[callback] = on_change

@@ -130,6 +130,25 @@ def test_create_element():
     rc.close()
 
 
+def test_no_on_value_on_write():
+    on_value = unittest.mock.Mock()
+
+    def set_value(x: int):
+        pass
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)  # type: ignore
+        return w.IntSlider(value=value, on_value=on_value)
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert len(rc._find(widgets.IntSlider)) == 1
+    set_value(1)
+    on_value.assert_not_called()
+    rc.close()
+
+
 def test_render_element_twice(ButtonComponent, Container):
     el = ButtonComponent(description="Hi")
 
