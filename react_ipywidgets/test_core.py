@@ -1157,45 +1157,96 @@ def test_context_with_precreated_element(shared):
 
 
 def test_memo():
-    calls_ab = 0
-    calls_ac = 0
+    __calls_ab = 0
+    __calls_ac = 0
 
     @react.component
     def TestMemo(a, b, c):
         def expensive_ab(i, j):
-            nonlocal calls_ab
-            calls_ab += 1
+            nonlocal __calls_ab
+            __calls_ab += 1
             return i + j
 
-        @react.use_memo
         def expensive_ac(i, j):
-            nonlocal calls_ac
-            calls_ac += 1
+            nonlocal __calls_ac
+            __calls_ac += 1
             return i + j * 2
 
-        x = react.use_memo(expensive_ab, args=[a], kwargs={"j": b})
-        y = expensive_ac(a, c)
+        x = react.use_memo(lambda: expensive_ab(a, b), [a, b])
+        y = react.use_memo(lambda: expensive_ac(a, c), [a, c])
         return w.Label(value=f"{x} - {y}")
 
     label, rc = react.render_fixed(TestMemo(a=1, b=2, c=3))
-    assert calls_ab == 1
-    assert calls_ac == 1
+    assert __calls_ab == 1
+    assert __calls_ac == 1
     assert label.value == "3 - 7"
 
     rc.render(TestMemo(a=1, b=20, c=3))
-    assert calls_ab == 2
-    assert calls_ac == 1
+    assert __calls_ab == 2
+    assert __calls_ac == 1
     assert label.value == "21 - 7"
 
     rc.render(TestMemo(a=1, b=20, c=30))
-    assert calls_ab == 2
-    assert calls_ac == 2
+    assert __calls_ab == 2
+    assert __calls_ac == 2
     assert label.value == "21 - 61"
 
     rc.render(TestMemo(a=10, b=20, c=30))
-    assert calls_ab == 3
-    assert calls_ac == 3
+    assert __calls_ab == 3
+    assert __calls_ac == 3
     assert label.value == "30 - 70"
+    rc.close()
+
+
+def test_memo_auto_closure():
+    __calls = 0
+
+    @react.component
+    def Test(value):
+        def square():
+            nonlocal __calls
+            __calls += 1
+            return value**2
+
+        y = react.use_memo(square)
+        return w.Label(value=f"{value} - {y}")
+
+    box, rc = react.render(Test(value=1))
+    assert __calls == 1
+    rc.render(Test(1))
+    assert __calls == 1
+    rc.render(Test(2))
+    assert __calls == 2
+    rc.render(Test(2))
+    assert __calls == 2
+    rc.render(Test(1))
+    assert __calls == 3
+    rc.close()
+
+
+def test_memo_like_react():
+    __calls = 0
+
+    @react.component
+    def Test(value):
+        def square():
+            nonlocal __calls
+            __calls += 1
+            return value**2
+
+        y = react.use_memo(square, [value])
+        return w.Label(value=f"{value} - {y}")
+
+    box, rc = react.render(Test(value=1))
+    assert __calls == 1
+    rc.render(Test(1))
+    assert __calls == 1
+    rc.render(Test(2))
+    assert __calls == 2
+    rc.render(Test(2))
+    assert __calls == 2
+    rc.render(Test(1))
+    assert __calls == 3
     rc.close()
 
 

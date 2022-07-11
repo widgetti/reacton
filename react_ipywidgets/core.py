@@ -8,6 +8,7 @@ ReactJS - ipywidgets relation:
 """
 import contextlib
 import copy
+import inspect
 import logging
 import sys
 import threading
@@ -553,25 +554,23 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
     return state, dispatch
 
 
-def use_memo(f, debug_name: str = None, args: Optional[List] = None, kwargs: Optional[Dict] = None):
+def use_memo(f, dependencies=None, debug_name: str = None):
     if debug_name is None:
         debug_name = f.__name__
     rc = _get_render_context()
-    if args is None and kwargs is None:
-
-        def wrapper(*args, **kwargs):
-            return rc.use_memo(f, args, kwargs, debug_name)
-
-        return wrapper
+    if dependencies is None:
+        dependencies = inspect.getclosurevars(f).nonlocals
+        dependencies = {k: v for k, v in dependencies.items() if not k.startswith("__")}
+        return rc.use_memo(f, dependencies, debug_name)
     else:
-        return rc.use_memo(f, args, kwargs, debug_name)
+        return rc.use_memo(f, dependencies, debug_name)
 
 
 def use_callback(f, dependencies):
     def wrapper(*ignore):
         return f
 
-    use_memo(wrapper, args=dependencies)
+    use_memo(wrapper, dependencies)
 
 
 def use_exception() -> Tuple[Optional[BaseException], Callable[[], None]]:
@@ -606,7 +605,7 @@ def use_ref(initial_value: T) -> Ref[T]:
     def make_ref():
         return Ref(initial_value)
 
-    ref = use_memo(make_ref, args=[])
+    ref = use_memo(make_ref, [])
     return ref
 
 
@@ -629,13 +628,13 @@ def create_context(default_value: T, name: str = None) -> UserContext[T]:
     return UserContext[T](default_value, name)
 
 
-# this does not work with mypy, UserContext[T] and obj:T
+# this does not work with well mypy, UserContext[T] and obj:T
 # so for type hints it is better to use user_context.provide
 def provide_context(user_context: UserContext[T], obj: T):
     user_context.provide(obj)
 
 
-def use_context(user_context: UserContext[T]):
+def use_context(user_context: UserContext[T]) -> T:
     rc = _get_render_context()
     value = None
     context = rc.context
@@ -827,29 +826,25 @@ class _RenderContext:
             context.children_next[name] = ComponentContext(parent=context)
             self.state_set(context.children_next[name], state)
 
-    def use_memo(self, f, args, kwargs, debug_name: str = None):
+    def use_memo(self, f, dependencies, debug_name: str = None, use_nonlocals=False):
         assert self.context is not None
-        if args is None:
-            args = tuple()
-        if kwargs is None:
-            kwargs = {}
         name = debug_name or "no-name"
         if len(self.context.memo) <= self.context.memo_index:
             self.context.memo_index += 1
-            value = f(*args, **kwargs)
-            memo = (value, (args, kwargs))
+            value = f()
+            memo = (value, dependencies)
             self.context.memo.append(memo)
             logger.info("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
             return value
         else:
             memo = self.context.memo[self.context.memo_index]
-            value, dependencies = memo
-            if dependencies == (args, kwargs):
+            value, dependencies_previous = memo
+            if dependencies_previous == dependencies:
                 logger.info("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
             else:
                 logger.info("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
-                value = f(*args, **kwargs)
-                memo = (value, (args, kwargs))
+                value = f()
+                memo = (value, dependencies)
                 self.context.memo[self.context.memo_index] = memo
             self.context.memo_index += 1
             return value
