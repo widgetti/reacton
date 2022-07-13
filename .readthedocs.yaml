@@ -5,4 +5,5 @@ build:
     python: "3.10"
   jobs:
     post_build:
-      - (cd docs; jupyter lite build --config jupyterlite_config.json)
+      - cd docs
+      - jupyter lite build --config jupyterlite_config.json
