@@ -10,5 +10,4 @@ build:
     python: "mambaforge-4.10"
   jobs:
     post_build:
-      - cd docs
-      - jupyter lite build --config jupyterlite_config.json
+      - cd docs; jupyter lite build --config jupyterlite_config.json
