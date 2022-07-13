@@ -1,4 +1,5 @@
 [![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
+[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html)
 
 # React for ipywidgets
 
@@ -133,6 +134,26 @@ The `MarkdownEditor` component also shows another feature we can provide: All co
 
 
 [![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
+
+
+## Examples
+
+API documentation is great, but like writing, you learn by reading.
+
+Our example notebooks can be found at:
+
+   * [https://github.com/widgetti/react-ipywidgets/tree/master/notebooks](https://github.com/widgetti/react-ipywidgets/tree/master/notebooks)
+
+
+Or try them out directly in a Jupyter environment (JupyterLite)
+
+   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html)
+
+Direct link to examples:
+
+   * [click-button](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=calcultor.ipynb)
+   * [Todo-app](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=todo-app.ipynb)
 
 
 # Installation
