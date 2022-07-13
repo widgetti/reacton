@@ -151,8 +151,8 @@ Or try them out directly in a Jupyter environment (JupyterLite)
 
 Direct link to examples:
 
-   * [click-button](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=click-button.ipynb)
-   * [Calculator](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=calcultor.ipynb)
+   * [ButtonClick](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=calculator.ipynb)
    * [Todo-app](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=todo-app.ipynb)
 
 
