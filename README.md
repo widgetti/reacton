@@ -1,5 +1,5 @@
 [![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
-[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html)
+[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html)
 
 # React for ipywidgets
 
@@ -147,13 +147,13 @@ Our example notebooks can be found at:
 
 Or try them out directly in a Jupyter environment (JupyterLite)
 
-   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html)
+   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html)
 
 Direct link to examples:
 
-   * [ButtonClick](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=click-button.ipynb)
-   * [Calculator](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=calculator.ipynb)
-   * [Todo-app](https://react-ipywidgets--2.org.readthedocs.build/en/2/_output/lab/index.html?path=todo-app.ipynb)
+   * [ButtonClick](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
+   * [Todo-app](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
 
 
 # Installation
