@@ -1,0 +1,14 @@
+{
+    "LiteBuildConfig": {
+        "federated_extensions": [
+            "https://conda.anaconda.org/conda-forge/noarch/bqplot-0.12.33-pyhd8ed1ab_0.tar.bz2"
+        ],
+        "ignore_sys_prefix": true
+    },
+    "jupyter-config-data": {
+        "disabledExtensions": [
+            "@jupyterlite/javascript-kernel-extension",
+            "@jupyterlite/pyolite-kernel-extension"
+        ]
+    }
+}
