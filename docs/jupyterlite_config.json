@@ -3,9 +3,11 @@
         "packages": [
             "numpy",
             "ipycanvas",
-            "ipywidgets",
+            "ipywidgets==7.7.1",
             "react-ipywidgets",
-            "bqplot"
+            "bqplot",
+            "ipyvue",
+            "ipyvuetify"
         ]
     }
 }
