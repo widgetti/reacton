@@ -1085,7 +1085,7 @@ def test_context():
 
     @react.component
     def SubChild2():
-        clicks, _dispatch = react.use_context(store_context)
+        clicks, _dispatch = react.use_context(store_context)  # type: ignore
         return w.Button(description=f"Child2: Clicked {clicks} times")
 
     @react.component
@@ -1094,7 +1094,7 @@ def test_context():
 
     @react.component
     def Child1():
-        clicks, dispatch = react.use_context(store_context)
+        clicks, dispatch = react.use_context(store_context)  # type: ignore
         return w.Button(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     @react.component
