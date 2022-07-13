@@ -1,6 +1,6 @@
 version: 2
 conda:
-  environment: envdocs/environment.yml
+  environment: docs/environment.yml
 mkdocs:
   configuration: mkdocs.yml
   fail_on_warning: false
