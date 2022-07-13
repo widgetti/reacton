@@ -1,0 +1,17 @@
+name: xeus-python-kernel-docs
+
+channels:
+  - conda-forge
+
+dependencies:
+  - Jinja2==3.0.3
+  - mkdocs==1.3.0
+  - mkdocs-material==8.2.11
+  - mamba
+  - emsdk
+
+  - pip:
+      - jupyterlite
+      - jupyterlite-sphinx
+      - jupyterlite-xeus-python==0.3.0
+      - empack

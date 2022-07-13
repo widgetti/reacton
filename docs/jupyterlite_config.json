@@ -1,0 +1,11 @@
+{
+    "XeusPythonEnv": {
+        "packages": [
+            "numpy",
+            "ipycanvas",
+            "ipywidgets",
+            "react-ipywidgets",
+            "bqplot"
+        ]
+    }
+}
