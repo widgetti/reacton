@@ -14,5 +14,5 @@ dependencies:
   - pip:
       - jupyterlite
       - jupyterlite-sphinx
-      - jupyterlite-xeus-python==0.3.0
+      - jupyterlite-xeus-python==0.5.1
       - empack
