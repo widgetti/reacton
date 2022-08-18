@@ -8,6 +8,7 @@ ReactJS - ipywidgets relation:
 """
 import contextlib
 import copy
+import functools
 import inspect
 import logging
 import sys
@@ -408,6 +409,7 @@ class ComponentFunction(Component):
         self.f = f
         self.name = self.f.__name__
         self.mime_bundle = mime_bundle
+        functools.update_wrapper(self, f)
 
     def __eq__(self, rhs):
         if self is rhs:
