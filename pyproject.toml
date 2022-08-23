@@ -25,7 +25,6 @@ include = ["react_ipywidgets/py.typed"]
 
 [project.optional-dependencies]
 dev = [
-    "pyproject-flake8",
     "flake8",
     "black",
     "mypy",
