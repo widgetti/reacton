@@ -1691,6 +1691,44 @@ def test_recover_exception_in_reconcilliate():
     rc.close()
 
 
+def test_recover_exception_in_cleanup():
+    set_fail = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+
+        def some_effect():
+            def cleanup():
+                if fail:
+                    raise Exception("fail")
+
+            return cleanup
+
+        react.use_effect(some_effect, [fail])
+        return w.IntSlider()
+
+    box, rc = react.render(Test())
+    assert set_fail is not None
+    assert rc._find(ipywidgets.IntSlider)
+    set_fail(True)
+    assert rc._find(ipywidgets.IntSlider)
+    # it will not fail in the cleanup, so after we set it to False
+    set_fail(False)
+    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert not rc._is_rendering
+    rc.close()
+
+    # now do the cleanup due to rendering sth else
+    box, rc = react.render(Test())
+    set_fail(True)
+    assert rc._find(ipywidgets.IntSlider)
+    rc.render(w.Button(description="Might fail because of cleanup"))
+    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    rc.close()
+
+
 def test_recover_exception_in_widget_update():
     set_fail = None
 

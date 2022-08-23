@@ -914,6 +914,8 @@ class _RenderContext:
     def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
         widget = None
+        if container is None:
+            container = self.container
         with self.thread_lock:
             prev_rc = getattr(local, "rc", None)
             try:
@@ -1306,7 +1308,12 @@ class _RenderContext:
                             else:
                                 # dependencies changed, cleanup and execute next
                                 if effect.cleanup:
-                                    effect.cleanup()
+                                    try:
+                                        effect.cleanup()
+                                    except BaseException as e:
+                                        context.exceptions_self.append(e)
+                                        self._rerender_needed_reason = "Exception ocurred during effect"
+                                        self._rerender_needed = True
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
                                     effect()
@@ -1511,8 +1518,12 @@ class _RenderContext:
 
                 for effect_index, effect in enumerate(self.context.effects):
                     if effect.cleanup:
-                        effect.cleanup()
-
+                        try:
+                            effect.cleanup()
+                        except BaseException as e:
+                            context.exceptions_self.append(e)
+                            self._rerender_needed_reason = "Exception ocurred during effect"
+                            self._rerender_needed = True
                 assert self.context.root_element is not None
                 new_parent_key = join_key(parent_key, key)
                 self._remove_element(self.context.root_element, "/", parent_key=new_parent_key)
