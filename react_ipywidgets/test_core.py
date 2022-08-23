@@ -17,6 +17,7 @@ from . import logging  # noqa: F401
 from . import bqplot
 from . import ipyvuetify as v
 from . import ipywidgets as w
+from .core import ipywidget_version_major
 
 T = TypeVar("T")
 
@@ -26,7 +27,7 @@ def first(container: List[T]) -> T:
 
 
 def clear():
-    widgets.Widget.widgets = {}
+    widgets.Widget.widgets.clear()
 
 
 def count():
@@ -674,8 +675,12 @@ def test_shared_instance_via_widget_element(ButtonComponent, Container):
     assert vbox.children[0] is not vbox.children[1]
     assert vbox.children[0].description == "Button 0"
     assert vbox.children[1].description == "Button 1"
-    assert vbox.children[0].tooltip == ""
-    assert vbox.children[1].tooltip == ""
+    if ipywidget_version_major >= 8:
+        assert vbox.children[0].tooltip is None
+        assert vbox.children[1].tooltip is None
+    else:
+        assert vbox.children[0].tooltip == ""
+        assert vbox.children[1].tooltip == ""
     rc.close()
     checkbox.style.close()
     checkbox.layout.close()

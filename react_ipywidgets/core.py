@@ -43,6 +43,21 @@ from . import _version
 
 __version__ = _version.__version__
 
+
+ipywidget_version_major = int(widgets.__version__.split(".")[0])
+
+
+class _classproperty_widget_fix(object):
+    def __get__(self, owner_self, owner_cls):
+        assert owner_self is None
+        return owner_cls._active_widgets
+
+
+if ipywidget_version_major >= 8:
+    if not hasattr(widgets.Widget, "widgets"):
+        widgets.Widget.widgets = _classproperty_widget_fix()
+
+
 _last_rc = None  # used for testing
 local = threading.local()
 T = TypeVar("T")
@@ -1642,7 +1657,8 @@ def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
         MIME_WIDGETS: {"version_major": 2, "version_minor": 0, "model_id": widget._model_id},
     }
     IPython.display.display(data, raw=True)
-    widget._handle_displayed()
+    if ipywidget_version_major < 8:
+        widget._handle_displayed()
 
 
 def make(el: Element, handle_error: bool = True):
