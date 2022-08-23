@@ -36,6 +36,7 @@ dev = [
     "numpy",
     "ipyvuetify",
     "bump2version",
+    "jinja2",
 ]
 
 [project.urls]
