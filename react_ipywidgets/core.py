@@ -1213,7 +1213,15 @@ class _RenderContext:
                         self._shared_elements_next.remove(el)
                 if context.effect_index != len(context.effects):
                     raise RuntimeError(
-                        f"Previously render had {len(context.effects)} effects, this run {context.effect_index} (in element/component: {el}/{el.component})"
+                        f"Previously render had {len(context.effects)} effects, this run {context.effect_index} "
+                        f"(in element/component: {el}/{el.component}). "
+                        "Are you using conditional hooks?"
+                    )
+                if context.memo_index != len(context.memo):
+                    raise RuntimeError(
+                        f"Previously render had {len(context.memo)} calls to use_memo, this run {context.memo_index} "
+                        f"(in element/component: {el}/{el.component}). "
+                        "Are you using conditional hooks?"
                     )
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
