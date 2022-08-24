@@ -1605,6 +1605,8 @@ def test_exception_handler_in_render():
         fail, set_fail = react.use_state(False)
         if fail:
             raise Exception("fail")
+        # allow different amount of use_memos
+        react.use_memo(lambda: 1)
         return w.IntSlider()
 
     @react.component

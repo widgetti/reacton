@@ -1211,13 +1211,14 @@ class _RenderContext:
                     if el.is_shared:
                         # TODO: why do the tests pass if we comment the next line out
                         self._shared_elements_next.remove(el)
-                if context.effect_index != len(context.effects):
+                # if we had an exception, we allow for LESS hooks calls, since the render body might not be executed completely
+                if not ((context.effect_index == len(context.effects)) or (context.exceptions_self and context.effect_index <= len(context.effects))):
                     raise RuntimeError(
                         f"Previously render had {len(context.effects)} effects, this run {context.effect_index} "
                         f"(in element/component: {el}/{el.component}). "
                         "Are you using conditional hooks?"
                     )
-                if context.memo_index != len(context.memo):
+                if not ((context.memo_index == len(context.memo)) or (context.exceptions_self and context.memo_index <= len(context.memo))):
                     raise RuntimeError(
                         f"Previously render had {len(context.memo)} calls to use_memo, this run {context.memo_index} "
                         f"(in element/component: {el}/{el.component}). "
