@@ -847,10 +847,10 @@ class _RenderContext:
         assert self.context is not None
         name = debug_name or "no-name"
         if len(self.context.memo) <= self.context.memo_index:
-            self.context.memo_index += 1
             value = f()
             memo = (value, dependencies)
             self.context.memo.append(memo)
+            self.context.memo_index += 1
             logger.info("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
             return value
         else:
