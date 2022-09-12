@@ -1074,7 +1074,7 @@ class _RenderContext:
                     value = html.escape(error)
                 from . import ipywidgets as w
 
-                return self.render(w.HTML(value=value), self.container)
+                return self.render(w.HTML(value="<pre>" + value + "</pre>"), self.container)
             else:
                 raise exceptions[0]
         return widget
