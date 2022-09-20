@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-     - '*'
+      - "*"
 
 jobs:
   build:
@@ -14,25 +14,25 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.7
-      - name: Install flit
-        run: pip install flit "pip<22"
+      - name: Install hatch
+        run: pip install hatch "pip<22"
       - name: Install
-        run: flit install
+        run: hatch install
       - name: Uninstall
         run: pip uninstall react_ipywidgets -y
       - name: Build
-        run: flit build
+        run: hatch build
       - name: Install
         run: pip install dist/*.whl
       - name: Test import
         run: python -c "import react_ipywidgets"
       - name: Publish a Python distribution to PyPI
         env:
-          FLIT_USERNAME: __token__
-          FLIT_PASSWORD: ${{ secrets.pypi_password }}
+          HATCH_INDEX_USER: __token__
+          HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
         run: |
           openssl sha256 dist/*
-          flit publish
+          hatch publish
       - uses: actions/upload-artifact@v1
         with:
           name: distributions

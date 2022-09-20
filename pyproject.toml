@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["hatchling >=0.25"]
+build-backend = "hatchling.build"
 
 
 
@@ -16,11 +16,14 @@ dependencies = [
     "typing_extensions"
 ]
 
-[tool.flit.module]
-name = "react_ipywidgets"
+[tool.hatch.version]
+path = "react_ipywidgets/_version.py"
 
-[tool.flit.sdist]
-include = ["react_ipywidgets/py.typed"]
+[tool.hatch.build.targets.wheel]
+packages = ["react_ipywidgets", "reacton"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["react_ipywidgets", "reacton"]
 
 
 [project.optional-dependencies]
@@ -41,6 +44,8 @@ dev = [
 
 [project.urls]
 Home = "https://www.github.com/widgetti/react-ipywidgets"
+Documentation = "https://reacton.solara.dev"
+"Source code" = "https://www.github.com/widgetti/react-ipywidgets"
 
 [tool.black]
 line-length = 160

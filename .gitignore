@@ -80,3 +80,6 @@ build/
 
 tmp
 examples
+site
+_site
+.mypy_cache

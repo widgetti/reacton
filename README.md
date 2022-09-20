@@ -170,6 +170,6 @@ Conda users (not yet):
 
 ## Development
 
-We use flit (`pip install flit` if you don't already have it)
+To get an editable install, use the `-e` flag.
 
-    $ flit install --symlink --deps develop
+    $ pip install -e .
