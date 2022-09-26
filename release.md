@@ -6,7 +6,7 @@
 # semi automated
 To make a new release
 ```
-# update react-ipywidgets/_version.py
+# update reacton/_version.py
 $ git add -u && git commit -m 'Release v0.11.3' && git tag v0.11.3 && git push upstream master v0.11.3
 ```
 

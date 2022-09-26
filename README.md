@@ -1,9 +1,9 @@
-[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
-[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html)
+[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.readthedocs.io/)
+[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.readthedocs.io/en/latest/_output/lab/index.html)
 
-# React for ipywidgets
+# Reacton: React for ipywidgets
 
-Write ipywidgets like React. Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
+Write ipywidgets like Reacton. Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
 
 ## What is it?
 
@@ -13,7 +13,7 @@ A way to write reusable components in a React-like way, to make Python-based UI'
 
 Non-declarative UI's are complex: You have to attach and detach event handlers at the right point, there are many possibles states your UI can be in, and moving from one state to the other can be very hard to do manually and is very error-prone.
 
-Using React-IPywidgets, you write a component that gives a declarative description of the UI you want based on data. If the data changes, your component render function re-executes, and React-IPywidgets will find out how to go from the previous state to the new state. No more manual "diffing" on the UI, no more manual tracking of which event handlers to attach and detach.
+Using Reacton, you write a component that gives a declarative description of the UI you want based on data. If the data changes, your component render function re-executes, and Reacton will find out how to go from the previous state to the new state. No more manual "diffing" on the UI, no more manual tracking of which event handlers to attach and detach.
 
 A common issue we also see is that there is one piece of code to set up the UI, and scattered around in many event handlers the changes that are almost repetitions of the initialization code.
 
@@ -23,7 +23,7 @@ Using a declarative way, in a React (JS) style, makes your codebase smaller, les
 
 Also, React has proven itself, and by adopting a proven technology, we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
 
-## What does React-IPywidgets do for me?
+## What does Reacton do for me?
 
 Instead of telling ipywidgets what to do, e.g.:
 
@@ -33,12 +33,12 @@ Instead of telling ipywidgets what to do, e.g.:
   * Adding and removing children.
   * Manage widget lifetimes (creating and destroying).
 
-You tell react-ipywidgets what you want (which Widgets you want to have), and you let react-ipywidgets take care of the above.
+You tell reacton what you want (which Widgets you want to have), and you let reacton take care of the above.
 
 ## Installing
 
 ```bash
-$ pip install react-ipywidgets
+$ pip install reacton
 ```
 ## Simple example
 
@@ -67,19 +67,19 @@ We see the following issues:
 
 These issues can be solved, but the burden is on you to come up with solutions.
 
-### Using react-ipywidgets
+### Using reacton
 
-If we solve the same problem using react-ipywidgets, we create (like ReactJS) a reusable component that describes the widgets we want, and it's up to `react_ipywidgets` to show/update/modify the widget in an efficient way.
+If we solve the same problem using reacton, we create (like ReactJS) a reusable component that describes the widgets we want, and it's up to `reacton` to show/update/modify the widget in an efficient way.
 
-Using `react.use_state`, we explicitly say we need a piece of local state, with an initialize value of `0`. Using `on_click`, your event handler will be attached and detached when needed, and your function will be re-executed when the state changes (the click count).
+Using `reacton.use_state`, we explicitly say we need a piece of local state, with an initialize value of `0`. Using `on_click`, your event handler will be attached and detached when needed, and your function will be re-executed when the state changes (the click count).
 
 ```python
-import react_ipywidgets as react
-import react_ipywidgets.ipywidgets as w
+import reacton
+import reacton.ipywidgets as w
 
-@react.component
+@reacton.component
 def ButtonClick(label="Hi"):
-    clicks, set_clicks = react.use_state(0)
+    clicks, set_clicks = reacton.use_state(0)
     return w.Button(description=f"{label}: Clicked {clicks} times",
                     on_click=lambda: set_clicks(clicks+1))
 ButtonClick()
@@ -87,9 +87,9 @@ ButtonClick()
 
 We now have a simple component that we can reuse, e.g., like this:
 ```python
-@react.component
+@reacton.component
 def ManyButtons(count=10):
-    count, set_count = react.use_state(count)
+    count, set_count = reacton.use_state(count)
     slider = w.IntSlider(min=0, max=20, value=count, on_value=set_count)
     buttons = [ButtonClick(f"Hi-{i}") for i in range(count)]
     return w.VBox(children=[slider, *buttons])
@@ -98,7 +98,7 @@ display(ManyButtons())
 
 We take care of not re-creating new Buttons widgets (which is relatively expensive). We reuse existing widgets when we can and create new ones when needed.
 
-*Try creating the `ManyButtons` component without using pure ipywidgets, and you will really appreciate react-ipywidgets*
+*Try creating the `ManyButtons` component without using pure ipywidgets, and you will really appreciate reacton*
 
 
 ## Markdown component example
@@ -107,7 +107,7 @@ Given this [suggestion](https://github.com/jupyter-widgets/ipywidgets/issues/242
 
 With react-ipywidgest there is an obvious way:
 ```python
-@react.component
+@reacton.component
 def Markdown(md: str):
     from myst_parser.main import to_html
     html = to_html(md)
@@ -117,9 +117,9 @@ def Markdown(md: str):
 This `Markdown` component can now be reused to create a markdown editor:
 
 ```python
-@react.component
+@reacton.component
 def MarkdownEditor(md : str):
-    md, set_md = react.use_state(md)
+    md, set_md = reacton.use_state(md)
     with w.VBox() as main:
         w.Textarea(value=md, on_value=set_md)
         Markdown(md)
@@ -133,7 +133,7 @@ The `MarkdownEditor` component also shows another feature we can provide: All co
 # Documentation
 
 
-[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://react-ipywidgets.readthedocs.io/)
+[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.readthedocs.io/)
 
 
 ## Examples
@@ -142,18 +142,18 @@ API documentation is great, but like writing, you learn by reading.
 
 Our example notebooks can be found at:
 
-   * [https://github.com/widgetti/react-ipywidgets/tree/master/notebooks](https://github.com/widgetti/react-ipywidgets/tree/master/notebooks)
+   * [https://github.com/widgetti/reacton/tree/master/notebooks](https://github.com/widgetti/reacton/tree/master/notebooks)
 
 
 Or try them out directly in a Jupyter environment (JupyterLite)
 
-   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html)
+   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.readthedocs.io/en/latest/_output/lab/index.html)
 
 Direct link to examples:
 
-   * [ButtonClick](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
-   * [Calculator](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
-   * [Todo-app](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
+   * [ButtonClick](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
+   * [Todo-app](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
 
 
 # Installation
@@ -161,11 +161,11 @@ Direct link to examples:
 
 Most users:
 
-    $ pip install react-ipywidgets
+    $ pip install reacton
 
 Conda users (not yet):
 
-    $ conda install -c conda-forge install react-ipywidgets
+    $ conda install -c conda-forge install reacton
 
 
 ## Development

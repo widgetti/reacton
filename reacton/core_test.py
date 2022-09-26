@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 import traitlets
 
-import react_ipywidgets as react
-from react_ipywidgets.core import component, use_effect
+import reacton as react
+from reacton.core import component, use_effect
 
 from . import logging  # noqa: F401
 from . import bqplot

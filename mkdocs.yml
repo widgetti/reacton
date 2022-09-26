@@ -1,7 +1,7 @@
-site_name: React-IPywidgets
+site_name: Reacton
 theme:
   name: material
-repo_url: https://github.com/widgetti/react-ipywidgets/
+repo_url: https://github.com/widgetti/reacton/
 
 markdown_extensions:
   - pymdownx.highlight:

@@ -14,20 +14,20 @@ help:
 
 .PHONY: help Makefile components
 
-components: react_ipywidgets/ipywidgets.py react_ipywidgets/bqplot.py react_ipywidgets/ipyvue.py react_ipywidgets/ipyvuetify.py
+components: reacton/ipywidgets.py reacton/bqplot.py reacton/ipyvue.py reacton/ipyvuetify.py
 
-react_ipywidgets/ipywidgets.py: react_ipywidgets/generate.py
-	python -m react_ipywidgets.ipywidgets
+reacton/ipywidgets.py: reacton/generate.py
+	python -m reacton.ipywidgets
 
-react_ipywidgets/bqplot.py: react_ipywidgets/generate.py
-	python -m react_ipywidgets.bqplot
-	python -c "import react_ipywidgets.bqplot"
+reacton/bqplot.py: reacton/generate.py
+	python -m reacton.bqplot
+	python -c "import reacton.bqplot"
 
-react_ipywidgets/ipyvue.py: react_ipywidgets/generate.py
-	python -m react_ipywidgets.ipyvue
+reacton/ipyvue.py: reacton/generate.py
+	python -m reacton.ipyvue
 
-react_ipywidgets/ipyvuetify.py: react_ipywidgets/generate.py
-	python -m react_ipywidgets.ipyvuetify
+reacton/ipyvuetify.py: reacton/generate.py
+	python -m reacton.ipyvuetify
 
 
 # Catch-all target: route all unknown targets to Sphinx using the new

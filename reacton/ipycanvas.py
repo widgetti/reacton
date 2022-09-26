@@ -4,8 +4,8 @@ from typing import Any, Dict, Union
 import ipycanvas
 import ipywidgets
 
-import react_ipywidgets as react
-from react_ipywidgets.core import Element
+import reacton as react
+from reacton.core import Element
 
 from . import ipywidgets as w
 from .utils import without_default

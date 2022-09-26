@@ -21,7 +21,7 @@ jobs:
       - name: Install
         run: pip install dist/*.whl
       - name: Test import
-        run: python -c "import react_ipywidgets"
+        run: python -c "import react_ipywidgets; import reacton;"
       - name: Publish a Python distribution to PyPI
         env:
           HATCH_INDEX_USER: __token__

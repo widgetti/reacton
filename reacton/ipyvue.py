@@ -2,7 +2,7 @@ from typing import Any, Callable, cast
 
 import ipyvue
 
-import react_ipywidgets as react
+import reacton as react
 
 
 def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], Any]):

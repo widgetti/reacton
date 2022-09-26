@@ -1,8 +1,8 @@
 # Documentation
 
-Write ipywidgets like React. Create a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
+Write ipywidgets like Reacton. Create a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
 
-## What is React-IPywidgets
+## What is Reacton
 
 A way to write reusable components in a React-like way, to make Python-based UI's using the ipywidgets ecosystem (ipywidgets, ipyvolume, bqplot, threejs, leaflet, ipyvuetify, ...).
 
@@ -10,7 +10,7 @@ A way to write reusable components in a React-like way, to make Python-based UI'
 
 Non-declarative UI's are complex: You have to attach and detach event handlers at the right point, there are many possibles states your UI can be in, and moving from one state to the other can be very hard to do manually and is very error-prone.
 
-Using React-IPywidgets, you write a component that gives a declarative description of the UI you want based on data. If the data changes, your component render function re-executes, and React-IPywidgets will find out how to go from the previous state to the new state. No more manual "diffing" on the UI, no more manual tracking of which event handlers to attach and detach.
+Using Reacton, you write a component that gives a declarative description of the UI you want based on data. If the data changes, your component render function re-executes, and Reacton will find out how to go from the previous state to the new state. No more manual "diffing" on the UI, no more manual tracking of which event handlers to attach and detach.
 
 A common issue we also see is that there is one piece of code to set up the UI, and scattered around in many event handlers the changes that are almost repetitions of the initialization code.
 
@@ -20,7 +20,7 @@ Using a declarative way, in a React (JS) style, makes your codebase smaller, les
 
 Also, React has proven itself, and by adopting a proven technology, we can stand on the shoulders of giants, make use of a lot of existing resources, and do not have to reinvent the wheel.
 
-## What does React-IPywidgets do for me?
+## What does Reacton do for me?
 
 Instead of telling ipywidgets what to do, e.g.:
 
@@ -30,13 +30,13 @@ Instead of telling ipywidgets what to do, e.g.:
   * Adding and removing children.
   * Manage widget lifetimes (creating and destroying).
 
-You tell react-ipywidgets what you want (which Widgets you want to have), and you let react-ipywidgets take care of the above.
+You tell Reacton what you want (which Widgets you want to have), and you let Reacton take care of the above.
 
 
 ## Installing
 
 ```bash
-$ pip install react-ipywidgets
+$ pip install Reacton
 ```
 
 
@@ -45,12 +45,12 @@ $ pip install react-ipywidgets
 Put this in the Jupyter notebook:
 
 ```py
-import react_ipywidgets as react
-import react_ipywidgets.ipywidgets as w
+import reacton
+import reacton.ipywidgets as w
 
-@react.component
+@reacton.component
 def ButtonClick():
-    clicks, set_clicks = react.use_state(0)
+    clicks, set_clicks = reacton.use_state(0)
     def my_click_handler():
         set_clicks(clicks+1)
     button = w.Button(description=f"Clicked {clicks} times",
@@ -74,8 +74,8 @@ display(el)
 
 ## Understanding
 
-To help you better understand how React-IPywidgets works, we have create the following sequence diagram
-that shows what happens when you create the `ButtonClick` element, let React-IPywidgets
+To help you better understand how Reacton works, we have create the following sequence diagram
+that shows what happens when you create the `ButtonClick` element, let Reacton
 render it, and then click on the button once.
 
 
@@ -84,7 +84,7 @@ sequenceDiagram
     actor You
     participant Frontend as Frontend
     participant ipywidgets as IPyWidgets
-    participant react as React-IPyWidgets
+    participant react as Reacton
     participant component as ButtonClick
     participant app as Yourapp
 
@@ -119,9 +119,9 @@ sequenceDiagram
 In words
 
    1. We create an element `el = ButtonClick()`
-   1. The `display(el)` triggers the call to React-IPywidgets' [render](#render).
+   1. The `display(el)` triggers the call to Reacton' [render](#render).
    1. The render call enters the render phase, which will call the function body (which we call render function) of the `ButtonClick` component.
-   1. Our ButtonClick render function calls [`react.use_state`](#use_state). Because this is our first render phase, this returns the initial value (0).
+   1. Our ButtonClick render function calls [`reacton.use_state`](#use_state). Because this is our first render phase, this returns the initial value (0).
    1. The ButtonClick render function returns a Button element (not a widget!) with `description="Clicked: 0 times"`.
    1. The react render call is done with the render phase, and enter the reconciliation phase, where it looks at the difference between the real widgets and the virtual widgets tree (represented by the react elements). We find there is no previous widget associated with the virtual widget (or element) and decide to create a widget.
    1. Asynchronously via the Jupyer protocol, a widget model and view are being created, and displayed to the user in the browser.
@@ -129,7 +129,7 @@ In words
    1. The `on_click` handler gets triggered on the Python side, inside of the `ButtonClick` component (called `my_click_handler`).
    1. `my_click_handler` handler calls `set_clicks(1)` which triggers a re-render.
    1. The render call enters the render phase, which calls the render fuction of `ButtonClick` for the second time.
-   1. Our ButtonClick render function calls [`react.use_state`](#use_state). Because this is our second render phase, this returns the last set value, which is 1.
+   1. Our ButtonClick render function calls [`reacton.use_state`](#use_state). Because this is our second render phase, this returns the last set value, which is 1.
    1. The ButtonClick render function returns a new Button element (not a widget!) with the description `"Clicked: 1 times"`.
    1. The react render call is done with the render phase, and enter the reconciliation phase, where it looks at the difference between the real widgets and the virtual widgets tree (represented by the react elements). We find there is a widget associated with the virtual widget (or element) and decide to update the changed attributes of the widget and set `description` to `"Clicked: 1 times"`.
    1. Asynchronously via the Jupyter protocol, the widet model and view are being updated in the browser.
@@ -142,18 +142,18 @@ API documentation is great, but like writing, you learn by reading.
 
 Our example notebooks can be found at:
 
-   * [https://github.com/widgetti/react-ipywidgets/tree/master/notebooks](https://github.com/widgetti/react-ipywidgets/tree/master/notebooks)
+   * [https://github.com/widgetti/Reacton/tree/master/notebooks](https://github.com/widgetti/Reacton/tree/master/notebooks)
 
 
 Or try them out directly in a Jupyter environment (JupyterLite)
 
-   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html)
+   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://Reacton.readthedocs.io/en/latest/_output/lab/index.html)
 
 Direct link to examples:
 
-   * [ButtonClick](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
-   * [Calculator](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
-   * [Todo-app](https://react-ipywidgets.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
+   * [ButtonClick](https://Reacton.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://Reacton.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
+   * [Todo-app](https://Reacton.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
 
 
 ## API
@@ -171,14 +171,14 @@ def component(obj: FuncT) -> FuncT:
     ...
 ```
 
-Decorator that turns a function into a React-IPywidgets component. Should return an element. Note that the type signature is formally incorrect (we do not return a FuncT but a react.core.ComponentFunction instance), but this
+Decorator that turns a function into a Reacton component. Should return an element. Note that the type signature is formally incorrect (we do not return a FuncT but a reacton.core.ComponentFunction instance), but this
 gives good type hints in editors and good type checker support.
 
 Example
 ```py
-@react.component
+@reacton.component
 def ButtonClick():
-    clicks, set_clicks = react.use_state(0)
+    clicks, set_clicks = reacton.use_state(0)
     def my_click_handler():
         set_clicks(clicks+1)
     button = w.Button(description=f"Clicked {clicks} times",
@@ -208,9 +208,9 @@ Subsequent renders will be triggered by internal calls to the setter of [use_sta
 If re-renders needs to be triggered due to an external data change, the following pattern is often used:
 
 ```py hl_lines="3 4 6 10"
-@react.component
+@reacton.component
 def SomeComponent():
-    counter, set_counter = react.use_state(0)
+    counter, set_counter = reacton.use_state(0)
     def force_update():
         # note the use of the lambda to avoid stale data
         set_counter(lambda counter: counter+1)
@@ -255,7 +255,7 @@ For instance, instead of creating an element and calling a hook in a loop, creat
 For instance, do not do this:
 
 ```py
-@react.component
+@reacton.component
 def Wrong(count:int = 0):
     with w.VBox():
         for i in range(count):
@@ -266,14 +266,14 @@ def Wrong(count:int = 0):
 Refactor it like this:
 
 ```py
-@react.component
+@reacton.component
 def Right(count:int = 0):
     with w.VBox():
         for i in range(count):
             SomeComponent()
 
 
-@react.component
+@reacton.component
 def SomeComponent(count:int = 0):
     el = SomeThing()
     use_effect(...)  # just 1 hook call per component
@@ -301,9 +301,9 @@ Note that the setter function can be used in two ways.
 Directly setting the value:
 
 ```py hl_lines="5"
-@react.component
+@reacton.component
 def ButtonClick():
-    clicks, set_clicks = react.use_state(0)
+    clicks, set_clicks = reacton.use_state(0)
     def my_click_handler():
         set_clicks(clicks+1)
     button = w.Button(description=f"Clicked {clicks} times",
@@ -314,9 +314,9 @@ def ButtonClick():
 Updating the value based on the previous/current value.
 
 ```py hl_lines="5"
-@react.component
+@reacton.component
 def ButtonClick():
-    clicks, set_clicks = react.use_state(0)
+    clicks, set_clicks = reacton.use_state(0)
     def my_click_handler():
         set_clicks(lambda prev: prev+1)
     button = w.Button(description=f"Clicked {clicks} times",
@@ -351,7 +351,7 @@ If no dependencies are given, the effect and its cleanup will be executed after 
 Example usage:
 
 ```py
-@react.component
+@reacton.component
 def SomeComponent():
     def listen():
         handle = external_service.subscribe(...)
@@ -381,13 +381,13 @@ If dependencies is `None` the dependencies are obtained automatically by inspect
 
 Example relying on the automatic detection of dependencies:
 ```py
-@react.component
+@reacton.component
 def Test(x):
     def square():
         # use_memo will automatically detect x as a dependency
         return x**2
 
-    y = react.use_memo(square)
+    y = reacton.use_memo(square)
     return w.Label(value=f"{x} - {y}")
 ```
 
@@ -396,7 +396,7 @@ Sometimes, automatic detection on variables is not ideal when the dependencies a
 support comparison. In that case, we can manually define dependencies.
 
 ```py
-@react.component
+@reacton.component
 def Test(count):
     x = np.arange(count)
     def cumulative_sum():
@@ -405,7 +405,7 @@ def Test(count):
         return x.cumsum()
 
     # instead, we know that the underlying dependency is `count'
-    y = react.use_memo(cumulative_sum, [count])
+    y = reacton.use_memo(cumulative_sum, [count])
     return w.Label(value=f"{value} - {y}")
 ```
 
@@ -424,11 +424,11 @@ Note that the type passed in [create_context](#create_context) defines the retur
 
 ```python
 # typed with int
-myvalue_context = react.create_context(1)
-some_other_value_context = react.create_context(33)
+myvalue_context = reacton.create_context(1)
+some_other_value_context = reacton.create_context(33)
 
 
-@react.component
+@reacton.component
 def RootComponent():
     myvalue_context.provide(42)
     # this is a different context, just to show you can have multiple
@@ -437,22 +437,22 @@ def RootComponent():
     return ChildComponent()
 
 
-@react.component
+@reacton.component
 def ChildComponent():
     return SubChildComponent()
 
 
-@react.component
+@reacton.component
 def SubChildComponent():
     return SubSubChildComponent()
 
 
-@react.component
+@reacton.component
 def SubSubChildComponent():
     # many layers between the root component and this component
     # but we are able to pass it down without having to do this via
     # argument. value should be 42 due to `RootComponent`
-    value = react.use_context(myvalue_context)
+    value = reacton.use_context(myvalue_context)
     return w.IntSlider(value=value)
 ```
 

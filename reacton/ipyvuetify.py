@@ -5,8 +5,8 @@ import ipyvue
 import ipyvuetify
 import ipywidgets
 
-import react_ipywidgets as react
-from react_ipywidgets.core import Element
+import reacton as react
+from reacton.core import Element
 
 from . import ipywidgets as w
 from .ipyvue import use_event  # noqa: F401

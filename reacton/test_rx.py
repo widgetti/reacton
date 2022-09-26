@@ -4,8 +4,8 @@ import pytest
 pytest.importorskip("reactivex")
 import reactivex.subject
 
-import react_ipywidgets as react
-import react_ipywidgets.rx as iprx
+import reacton as react
+import reacton.rx as iprx
 
 from . import ipywidgets as w
 from . import logging  # noqa: F401

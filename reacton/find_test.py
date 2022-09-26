@@ -1,7 +1,7 @@
 import ipywidgets as widgets
 
-import react_ipywidgets as react
-import react_ipywidgets.ipywidgets as w
+import reacton as react
+import reacton.ipywidgets as w
 
 
 def test_find_by_class():

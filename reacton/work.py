@@ -1,6 +1,6 @@
 import threading
 
-import react_ipywidgets as react
+import reacton as react
 
 
 def use_work_threaded(callback, dependencies=[]):

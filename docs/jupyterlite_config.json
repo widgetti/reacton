@@ -4,7 +4,7 @@
             "numpy",
             "ipycanvas",
             "ipywidgets==7.7.1",
-            "react-ipywidgets",
+            "reacton",
             "bqplot",
             "ipyvue",
             "ipyvuetify"

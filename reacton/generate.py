@@ -14,8 +14,8 @@ import traitlets  # type: ignore
 import traittypes
 from jinja2 import Template
 
-import react_ipywidgets as react
-from react_ipywidgets.core import Element
+import reacton as react
+from reacton.core import Element
 
 from . import logging as _logging  # type: ignore # noqa: F401
 

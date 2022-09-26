@@ -15,11 +15,11 @@ def test_basic():
     code_expected = '''
 def MyTest(
     a: int = 1, b: int = 0, on_a: typing.Callable[[int], Any] = None, on_b: typing.Callable[[int], Any] = None
-) -> Element[react_ipywidgets.generate_test.MyTest]:
+) -> Element[reacton.generate_test.MyTest]:
     """ """
     kwargs: Dict[Any, Any] = without_default(MyTest, locals())
 
-    widget_cls = react_ipywidgets.generate_test.MyTest
+    widget_cls = reacton.generate_test.MyTest
     comp = react.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
     '''
@@ -41,12 +41,12 @@ def test_instance_non_widget():
 
     code_expected = '''
 def MyTest(
-    a: react_ipywidgets.generate_test.NonWidget = None, on_a: typing.Callable[[react_ipywidgets.generate_test.NonWidget], Any] = None
-) -> Element[react_ipywidgets.generate_test.MyTest]:
+    a: reacton.generate_test.NonWidget = None, on_a: typing.Callable[[reacton.generate_test.NonWidget], Any] = None
+) -> Element[reacton.generate_test.MyTest]:
     """ """
     kwargs: Dict[Any, Any] = without_default(MyTest, locals())
 
-    widget_cls = react_ipywidgets.generate_test.MyTest
+    widget_cls = reacton.generate_test.MyTest
     comp = react.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 '''
@@ -66,13 +66,12 @@ def test_instance_widget():
 
     code_expected = '''
 def MyTest(
-    a: Element[react_ipywidgets.generate_test.SomeWidget] = None,
-    on_a: typing.Callable[[Element[react_ipywidgets.generate_test.SomeWidget]], Any] = None,
-) -> Element[react_ipywidgets.generate_test.MyTest]:
+    a: Element[reacton.generate_test.SomeWidget] = None, on_a: typing.Callable[[Element[reacton.generate_test.SomeWidget]], Any] = None
+) -> Element[reacton.generate_test.MyTest]:
     """ """
     kwargs: Dict[Any, Any] = without_default(MyTest, locals())
 
-    widget_cls = react_ipywidgets.generate_test.MyTest
+    widget_cls = reacton.generate_test.MyTest
     comp = react.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)'''
     assert code.strip() == code_expected.strip()

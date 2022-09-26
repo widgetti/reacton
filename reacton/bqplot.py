@@ -7,8 +7,8 @@ import ipywidgets
 import numpy as np
 from numpy import ndarray
 
-import react_ipywidgets as react
-from react_ipywidgets.core import ContainerAdder, Element, _get_render_context
+import reacton as react
+from reacton.core import ContainerAdder, Element, _get_render_context
 
 from . import ipywidgets as w
 from .ipywidgets import Layout

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "react-ipywidgets"
+name = "reacton"
 authors = [{name = "Maarten A. Breddels", email = "maartenbreddels@gmail.com"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [tool.hatch.version]
-path = "react_ipywidgets/_version.py"
+path = "reacton/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["react_ipywidgets", "reacton"]
@@ -43,9 +43,9 @@ dev = [
 ]
 
 [project.urls]
-Home = "https://www.github.com/widgetti/react-ipywidgets"
+Home = "https://www.github.com/widgetti/reacton"
 Documentation = "https://reacton.solara.dev"
-"Source code" = "https://www.github.com/widgetti/react-ipywidgets"
+"Source code" = "https://www.github.com/widgetti/reacton"
 
 [tool.black]
 line-length = 160

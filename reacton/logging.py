@@ -79,7 +79,7 @@ def setup():
     # _set_log_level(react.settings.main.logging.warning, logging.WARNING)
     # _set_log_level(react.settings.main.logging.info, logging.INFO)
     # _set_log_level(react.settings.main.logging.debug, logging.DEBUG)
-    # # react_ipywidgetsIVE_DEBUG behaves similar to react_ipywidgetsIVE_LOGGING_DEBUG, but has more effect
+    # # reactonIVE_DEBUG behaves similar to reactonIVE_LOGGING_DEBUG, but has more effect
     DEBUG_MODE = os.environ.get("REACT_DEBUG", "")
     if DEBUG_MODE:
         _set_log_level(DEBUG_MODE, logging.DEBUG)

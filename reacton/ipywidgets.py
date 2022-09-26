@@ -7,9 +7,9 @@ import ipywidgets as widgets
 import ipywidgets.widgets.widget_description
 import ipywidgets.widgets.widget_int
 
-import react_ipywidgets
-import react_ipywidgets as react
-from react_ipywidgets.core import Element
+import reacton
+import reacton as react
+from reacton.core import Element
 
 from .utils import without_default
 
