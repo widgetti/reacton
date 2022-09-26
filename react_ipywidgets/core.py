@@ -297,7 +297,8 @@ class Element(Generic[W]):
             except Exception as e:
                 raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
             for name, callback in listeners.items():
-                self._add_widget_event_listener(widget, name, callback)
+                if callback is not None:
+                    self._add_widget_event_listener(widget, name, callback)
             after = set(widgets.Widget.widgets)
         orphans = (after - before) - {widget.model_id}
         return widget, orphans
@@ -332,11 +333,12 @@ class Element(Generic[W]):
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
 
-    def _update_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable, callback_prev: Optional[Callable]):
+    def _update_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Optional[Callable], callback_prev: Optional[Callable]):
         # it's an event listener
         if callback != callback_prev and callback_prev is not None:
             self._remove_widget_event_listener(widget, name, callback_prev)
-        self._add_widget_event_listener(widget, name, callback)
+        if callback is not None:
+            self._add_widget_event_listener(widget, name, callback)
 
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]

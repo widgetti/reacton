@@ -2254,3 +2254,13 @@ def test_nested_render():
     box, rc = react.render(Test())
     assert len(rc._find(widgets.Button)) == 1
     rc.close()
+
+
+def test_none_as_callback():
+    @react.component
+    def Test():
+        return widgets.IntProgress.element(value=1, on_value=None)
+
+    box, rc = react.render(Test(), handle_error=False)
+    box.children[0].value = 2
+    rc.close()
