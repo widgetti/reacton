@@ -1,9 +1,13 @@
 import inspect
-from typing import Callable
+from typing import Callable, TypeVar, cast
 
 import ipywidgets as widgets
+import typing_extensions
 
 from .core import component
+
+P = typing_extensions.ParamSpec("P")
+T = TypeVar("T")
 
 
 def without_default(func: Callable, kwargs):
@@ -11,6 +15,13 @@ def without_default(func: Callable, kwargs):
     {name: param.default for name, param in sig.parameters.items()}
     non_default_kwargs = {name: kwargs[name] for name, param in sig.parameters.items() if kwargs[name] is not param.default}
     return non_default_kwargs
+
+
+def implements(f: Callable[P, T]):
+    def caster(fimpl: Callable) -> Callable[P, T]:
+        return cast(Callable[P, T], fimpl)
+
+    return caster
 
 
 def wrap(mod, globals):

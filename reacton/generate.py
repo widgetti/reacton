@@ -246,15 +246,22 @@ class CodeGen(Generic[W]):
         code_method = Template(
             """
 
-def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
+def _{{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
     \"\"\"{{class_docstring}}
     {{docstring_args}}
     \"\"\"
-    kwargs : Dict[Any, Any] = without_default({{ method_name }}, locals())
+    ...
+
+@implements(_{{ method_name }})
+def {{ method_name }}(**kwargs):
     {{InstanceDict_fixes}}
     widget_cls = {{class_name}}
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return {{element_class_name}}(comp, **kwargs)
+
+
+del _{{ method_name }}
+
         """
         )
         code = code_method.render(
@@ -288,7 +295,7 @@ def {{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
                         # element_class = getattr(module_output, "element_classes", {}).get(cls, Element)
                         code = self.generate_component(cls, blacken=blacken)
                         code_snippets.append(code)
-        code = ("\n###\n").join(code_snippets)
+        code = ("\n").join(code_snippets)
         with open(path) as f:
             current_code = f.read()
         marker = "# generated code:"

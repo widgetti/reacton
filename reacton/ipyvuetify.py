@@ -5,15 +5,15 @@ import ipyvue
 import ipyvuetify
 import ipywidgets
 
-import reacton as react
+import reacton
 from reacton.core import Element
 
 from . import ipywidgets as w
 from .ipyvue import use_event  # noqa: F401
-from .utils import without_default
+from .utils import implements
 
 
-@react.component
+@reacton.component
 def BtnWithClick(on_click=None, **kwargs):
     btn = Btn(**kwargs)
     if on_click is not None:
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
 def toggle_buttons(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
     key = key or str(value) + str(description) + str(options)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     with BtnToggle(v_model=value, on_v_model=set_value, group=True):
         for option in options:
             Btn(children=[option], value=option)
@@ -43,8 +43,8 @@ def toggle_buttons(value="foo", options=["foo", "bar"], description="", key=None
 # generated code:
 
 
-def Alert(
-    attributes: dict = {},
+def _Alert(
+    attributes: dict = None,
     border: str = None,
     children: list = [],
     class_: str = None,
@@ -116,17 +116,23 @@ def Alert(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Alert]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Alert, locals())
+    ...
+
+
+@implements(_Alert)
+def Alert(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Alert
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def App(
-    attributes: dict = {},
+del _Alert
+
+
+def _App(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -152,19 +158,25 @@ def App(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.App]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(App, locals())
+    ...
+
+
+@implements(_App)
+def App(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.App
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def AppBar(
+del _App
+
+
+def _AppBar(
     absolute: bool = None,
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -256,17 +268,23 @@ def AppBar(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.AppBar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(AppBar, locals())
+    ...
+
+
+@implements(_AppBar)
+def AppBar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.AppBar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def AppBarNavIcon(
-    attributes: dict = {},
+del _AppBar
+
+
+def _AppBarNavIcon(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -286,21 +304,27 @@ def AppBarNavIcon(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.AppBarNavIcon]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(AppBarNavIcon, locals())
+    ...
+
+
+@implements(_AppBarNavIcon)
+def AppBarNavIcon(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.AppBarNavIcon
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Autocomplete(
+del _AppBarNavIcon
+
+
+def _Autocomplete(
     allow_overflow: bool = None,
     append_icon: str = None,
     append_outer_icon: str = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     auto_select_first: bool = None,
     autofocus: bool = None,
     background_color: str = None,
@@ -454,17 +478,23 @@ def Autocomplete(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Autocomplete]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Autocomplete, locals())
+    ...
+
+
+@implements(_Autocomplete)
+def Autocomplete(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Autocomplete
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Avatar(
-    attributes: dict = {},
+del _Autocomplete
+
+
+def _Avatar(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -506,17 +536,23 @@ def Avatar(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Avatar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Avatar, locals())
+    ...
+
+
+@implements(_Avatar)
+def Avatar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Avatar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Badge(
-    attributes: dict = {},
+del _Avatar
+
+
+def _Badge(
+    attributes: dict = None,
     avatar: bool = None,
     bordered: bool = None,
     bottom: bool = None,
@@ -576,18 +612,24 @@ def Badge(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Badge]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Badge, locals())
+    ...
+
+
+@implements(_Badge)
+def Badge(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Badge
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Banner(
+del _Badge
+
+
+def _Banner(
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -644,20 +686,26 @@ def Banner(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Banner]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Banner, locals())
+    ...
+
+
+@implements(_Banner)
+def Banner(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Banner
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BottomNavigation(
+del _Banner
+
+
+def _BottomNavigation(
     absolute: bool = None,
     active_class: str = None,
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -720,19 +768,25 @@ def BottomNavigation(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.BottomNavigation]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BottomNavigation, locals())
+    ...
+
+
+@implements(_BottomNavigation)
+def BottomNavigation(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BottomNavigation
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BottomSheet(
+del _BottomNavigation
+
+
+def _BottomSheet(
     activator: Any = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     close_delay: typing.Union[float, str] = None,
@@ -802,17 +856,23 @@ def BottomSheet(
     on_width: typing.Callable[[typing.Union[str, float]], Any] = None,
 ) -> Element[ipyvuetify.generated.BottomSheet]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BottomSheet, locals())
+    ...
+
+
+@implements(_BottomSheet)
+def BottomSheet(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BottomSheet
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Breadcrumbs(
-    attributes: dict = {},
+del _BottomSheet
+
+
+def _Breadcrumbs(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -842,17 +902,23 @@ def Breadcrumbs(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Breadcrumbs]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Breadcrumbs, locals())
+    ...
+
+
+@implements(_Breadcrumbs)
+def Breadcrumbs(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Breadcrumbs
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BreadcrumbsDivider(
-    attributes: dict = {},
+del _Breadcrumbs
+
+
+def _BreadcrumbsDivider(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -872,19 +938,25 @@ def BreadcrumbsDivider(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.BreadcrumbsDivider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BreadcrumbsDivider, locals())
+    ...
+
+
+@implements(_BreadcrumbsDivider)
+def BreadcrumbsDivider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BreadcrumbsDivider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BreadcrumbsItem(
+del _BreadcrumbsDivider
+
+
+def _BreadcrumbsItem(
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -928,20 +1000,26 @@ def BreadcrumbsItem(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.BreadcrumbsItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BreadcrumbsItem, locals())
+    ...
+
+
+@implements(_BreadcrumbsItem)
+def BreadcrumbsItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BreadcrumbsItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Btn(
+del _BreadcrumbsItem
+
+
+def _Btn(
     absolute: bool = None,
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     block: bool = None,
     bottom: bool = None,
     children: list = [],
@@ -1050,18 +1128,24 @@ def Btn(
     on_x_small: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Btn]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Btn, locals())
+    ...
+
+
+@implements(_Btn)
+def Btn(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Btn
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BtnToggle(
+del _Btn
+
+
+def _BtnToggle(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     borderless: bool = None,
     children: list = [],
@@ -1110,17 +1194,23 @@ def BtnToggle(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.BtnToggle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BtnToggle, locals())
+    ...
+
+
+@implements(_BtnToggle)
+def BtnToggle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.BtnToggle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Calendar(
-    attributes: dict = {},
+del _BtnToggle
+
+
+def _Calendar(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -1210,17 +1300,23 @@ def Calendar(
     on_weekdays: typing.Callable[[typing.Union[list, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Calendar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Calendar, locals())
+    ...
+
+
+@implements(_Calendar)
+def Calendar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Calendar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CalendarDaily(
-    attributes: dict = {},
+del _Calendar
+
+
+def _CalendarDaily(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -1274,17 +1370,23 @@ def CalendarDaily(
     on_weekdays: typing.Callable[[typing.Union[list, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.CalendarDaily]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CalendarDaily, locals())
+    ...
+
+
+@implements(_CalendarDaily)
+def CalendarDaily(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarDaily
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CalendarMonthly(
-    attributes: dict = {},
+del _CalendarDaily
+
+
+def _CalendarMonthly(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -1330,17 +1432,23 @@ def CalendarMonthly(
     on_weekdays: typing.Callable[[typing.Union[list, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.CalendarMonthly]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CalendarMonthly, locals())
+    ...
+
+
+@implements(_CalendarMonthly)
+def CalendarMonthly(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarMonthly
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CalendarWeekly(
-    attributes: dict = {},
+del _CalendarMonthly
+
+
+def _CalendarWeekly(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -1386,19 +1494,25 @@ def CalendarWeekly(
     on_weekdays: typing.Callable[[typing.Union[list, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.CalendarWeekly]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CalendarWeekly, locals())
+    ...
+
+
+@implements(_CalendarWeekly)
+def CalendarWeekly(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CalendarWeekly
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Card(
+del _CalendarWeekly
+
+
+def _Card(
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -1480,17 +1594,23 @@ def Card(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Card]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Card, locals())
+    ...
+
+
+@implements(_Card)
+def Card(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Card
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CardActions(
-    attributes: dict = {},
+del _Card
+
+
+def _CardActions(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1510,17 +1630,23 @@ def CardActions(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CardActions]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CardActions, locals())
+    ...
+
+
+@implements(_CardActions)
+def CardActions(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardActions
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CardSubtitle(
-    attributes: dict = {},
+del _CardActions
+
+
+def _CardSubtitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1540,17 +1666,23 @@ def CardSubtitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CardSubtitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CardSubtitle, locals())
+    ...
+
+
+@implements(_CardSubtitle)
+def CardSubtitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardSubtitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CardText(
-    attributes: dict = {},
+del _CardSubtitle
+
+
+def _CardText(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1570,17 +1702,23 @@ def CardText(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CardText]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CardText, locals())
+    ...
+
+
+@implements(_CardText)
+def CardText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CardTitle(
-    attributes: dict = {},
+del _CardText
+
+
+def _CardTitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1600,18 +1738,24 @@ def CardTitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CardTitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CardTitle, locals())
+    ...
+
+
+@implements(_CardTitle)
+def CardTitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CardTitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Carousel(
+del _CardTitle
+
+
+def _Carousel(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     continuous: bool = None,
@@ -1680,19 +1824,25 @@ def Carousel(
     on_vertical_delimiters: typing.Callable[[str], Any] = None,
 ) -> Element[ipyvuetify.generated.Carousel]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Carousel, locals())
+    ...
+
+
+@implements(_Carousel)
+def Carousel(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Carousel
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CarouselItem(
+del _Carousel
+
+
+def _CarouselItem(
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -1744,17 +1894,23 @@ def CarouselItem(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.CarouselItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CarouselItem, locals())
+    ...
+
+
+@implements(_CarouselItem)
+def CarouselItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CarouselReverseTransition(
-    attributes: dict = {},
+del _CarouselItem
+
+
+def _CarouselReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -1784,17 +1940,23 @@ def CarouselReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CarouselReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CarouselReverseTransition, locals())
+    ...
+
+
+@implements(_CarouselReverseTransition)
+def CarouselReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CarouselTransition(
-    attributes: dict = {},
+del _CarouselReverseTransition
+
+
+def _CarouselTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -1824,18 +1986,24 @@ def CarouselTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.CarouselTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CarouselTransition, locals())
+    ...
+
+
+@implements(_CarouselTransition)
+def CarouselTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.CarouselTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Checkbox(
+del _CarouselTransition
+
+
+def _Checkbox(
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -1922,20 +2090,26 @@ def Checkbox(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Checkbox]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Checkbox, locals())
+    ...
+
+
+@implements(_Checkbox)
+def Checkbox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Checkbox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Chip(
+del _Checkbox
+
+
+def _Chip(
     active: bool = None,
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     close: bool = None,
@@ -2016,18 +2190,24 @@ def Chip(
     on_x_small: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Chip]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Chip, locals())
+    ...
+
+
+@implements(_Chip)
+def Chip(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Chip
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ChipGroup(
+del _Chip
+
+
+def _ChipGroup(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     center_active: bool = None,
     children: list = [],
     class_: str = None,
@@ -2074,18 +2254,24 @@ def ChipGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ChipGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ChipGroup, locals())
+    ...
+
+
+@implements(_ChipGroup)
+def ChipGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ChipGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Col(
+del _ChipGroup
+
+
+def _Col(
     align_self: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     cols: typing.Union[bool, str, float] = None,
@@ -2138,17 +2324,23 @@ def Col(
     on_xl: typing.Callable[[typing.Union[bool, str, float]], Any] = None,
 ) -> Element[ipyvuetify.generated.Col]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Col, locals())
+    ...
+
+
+@implements(_Col)
+def Col(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Col
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorPicker(
-    attributes: dict = {},
+del _Col
+
+
+def _ColorPicker(
+    attributes: dict = None,
     canvas_height: typing.Union[str, float] = None,
     children: list = [],
     class_: str = None,
@@ -2198,17 +2390,23 @@ def ColorPicker(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.ColorPicker]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ColorPicker, locals())
+    ...
+
+
+@implements(_ColorPicker)
+def ColorPicker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPicker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorPickerCanvas(
-    attributes: dict = {},
+del _ColorPicker
+
+
+def _ColorPickerCanvas(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: dict = None,
@@ -2238,17 +2436,23 @@ def ColorPickerCanvas(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.ColorPickerCanvas]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ColorPickerCanvas, locals())
+    ...
+
+
+@implements(_ColorPickerCanvas)
+def ColorPickerCanvas(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPickerCanvas
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorPickerSwatches(
-    attributes: dict = {},
+del _ColorPickerCanvas
+
+
+def _ColorPickerSwatches(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: dict = None,
@@ -2280,21 +2484,27 @@ def ColorPickerSwatches(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ColorPickerSwatches]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ColorPickerSwatches, locals())
+    ...
+
+
+@implements(_ColorPickerSwatches)
+def ColorPickerSwatches(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ColorPickerSwatches
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Combobox(
+del _ColorPickerSwatches
+
+
+def _Combobox(
     allow_overflow: bool = None,
     append_icon: str = None,
     append_outer_icon: str = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     auto_select_first: bool = None,
     autofocus: bool = None,
     background_color: str = None,
@@ -2450,17 +2660,23 @@ def Combobox(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Combobox]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Combobox, locals())
+    ...
+
+
+@implements(_Combobox)
+def Combobox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Combobox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Container(
-    attributes: dict = {},
+del _Combobox
+
+
+def _Container(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     fluid: bool = None,
@@ -2682,17 +2898,23 @@ def Container(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Container]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Container, locals())
+    ...
+
+
+@implements(_Container)
+def Container(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Container
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Content(
-    attributes: dict = {},
+del _Container
+
+
+def _Content(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -2910,17 +3132,23 @@ def Content(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Content]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Content, locals())
+    ...
+
+
+@implements(_Content)
+def Content(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Content
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Counter(
-    attributes: dict = {},
+del _Content
+
+
+def _Counter(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -2948,17 +3176,23 @@ def Counter(
     on_value: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Counter]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Counter, locals())
+    ...
+
+
+@implements(_Counter)
+def Counter(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Counter
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Data(
-    attributes: dict = {},
+del _Counter
+
+
+def _Data(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disable_filtering: bool = None,
@@ -3010,17 +3244,23 @@ def Data(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Data]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Data, locals())
+    ...
+
+
+@implements(_Data)
+def Data(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Data
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DataFooter(
-    attributes: dict = {},
+del _Data
+
+
+def _DataFooter(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disable_items_per_page: bool = None,
@@ -3068,17 +3308,23 @@ def DataFooter(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DataFooter]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DataFooter, locals())
+    ...
+
+
+@implements(_DataFooter)
+def DataFooter(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataFooter
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DataIterator(
-    attributes: dict = {},
+del _DataFooter
+
+
+def _DataIterator(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -3160,17 +3406,23 @@ def DataIterator(
     on_value: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DataIterator]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DataIterator, locals())
+    ...
+
+
+@implements(_DataIterator)
+def DataIterator(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataIterator
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DataTable(
-    attributes: dict = {},
+del _DataIterator
+
+
+def _DataTable(
+    attributes: dict = None,
     calculate_widths: bool = None,
     caption: str = None,
     children: list = [],
@@ -3278,17 +3530,23 @@ def DataTable(
     on_value: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DataTable]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DataTable, locals())
+    ...
+
+
+@implements(_DataTable)
+def DataTable(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataTable
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DataTableHeader(
-    attributes: dict = {},
+del _DataTable
+
+
+def _DataTableHeader(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3310,17 +3568,23 @@ def DataTableHeader(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DataTableHeader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DataTableHeader, locals())
+    ...
+
+
+@implements(_DataTableHeader)
+def DataTableHeader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DataTableHeader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePicker(
-    attributes: dict = {},
+del _DataTableHeader
+
+
+def _DatePicker(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3400,17 +3664,23 @@ def DatePicker(
     on_year_icon: typing.Callable[[str], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePicker]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePicker, locals())
+    ...
+
+
+@implements(_DatePicker)
+def DatePicker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePicker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePickerDateTable(
-    attributes: dict = {},
+del _DatePicker
+
+
+def _DatePickerDateTable(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3466,17 +3736,23 @@ def DatePickerDateTable(
     on_value: typing.Callable[[typing.Union[str, list]], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePickerDateTable]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePickerDateTable, locals())
+    ...
+
+
+@implements(_DatePickerDateTable)
+def DatePickerDateTable(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerDateTable
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePickerHeader(
-    attributes: dict = {},
+del _DatePickerDateTable
+
+
+def _DatePickerHeader(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3518,17 +3794,23 @@ def DatePickerHeader(
     on_value: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePickerHeader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePickerHeader, locals())
+    ...
+
+
+@implements(_DatePickerHeader)
+def DatePickerHeader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerHeader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePickerMonthTable(
-    attributes: dict = {},
+del _DatePickerHeader
+
+
+def _DatePickerMonthTable(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3578,17 +3860,23 @@ def DatePickerMonthTable(
     on_value: typing.Callable[[typing.Union[str, list]], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePickerMonthTable]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePickerMonthTable, locals())
+    ...
+
+
+@implements(_DatePickerMonthTable)
+def DatePickerMonthTable(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerMonthTable
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePickerTitle(
-    attributes: dict = {},
+del _DatePickerMonthTable
+
+
+def _DatePickerTitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3624,17 +3912,23 @@ def DatePickerTitle(
     on_year_icon: typing.Callable[[str], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePickerTitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePickerTitle, locals())
+    ...
+
+
+@implements(_DatePickerTitle)
+def DatePickerTitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerTitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePickerYears(
-    attributes: dict = {},
+del _DatePickerTitle
+
+
+def _DatePickerYears(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -3666,19 +3960,25 @@ def DatePickerYears(
     on_value: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.DatePickerYears]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DatePickerYears, locals())
+    ...
+
+
+@implements(_DatePickerYears)
+def DatePickerYears(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DatePickerYears
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Dialog(
+del _DatePickerYears
+
+
+def _Dialog(
     activator: Any = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     close_delay: typing.Union[float, str] = None,
@@ -3746,17 +4046,23 @@ def Dialog(
     on_width: typing.Callable[[typing.Union[str, float]], Any] = None,
 ) -> Element[ipyvuetify.generated.Dialog]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Dialog, locals())
+    ...
+
+
+@implements(_Dialog)
+def Dialog(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Dialog
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DialogBottomTransition(
-    attributes: dict = {},
+del _Dialog
+
+
+def _DialogBottomTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -3786,17 +4092,23 @@ def DialogBottomTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DialogBottomTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DialogBottomTransition, locals())
+    ...
+
+
+@implements(_DialogBottomTransition)
+def DialogBottomTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DialogBottomTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DialogTransition(
-    attributes: dict = {},
+del _DialogBottomTransition
+
+
+def _DialogTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -3826,17 +4138,23 @@ def DialogTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.DialogTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(DialogTransition, locals())
+    ...
+
+
+@implements(_DialogTransition)
+def DialogTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.DialogTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Divider(
-    attributes: dict = {},
+del _DialogTransition
+
+
+def _Divider(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -3864,17 +4182,23 @@ def Divider(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Divider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Divider, locals())
+    ...
+
+
+@implements(_Divider)
+def Divider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Divider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def EditDialog(
-    attributes: dict = {},
+del _Divider
+
+
+def _EditDialog(
+    attributes: dict = None,
     cancel_text: Any = None,
     children: list = [],
     class_: str = None,
@@ -3912,17 +4236,23 @@ def EditDialog(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.EditDialog]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(EditDialog, locals())
+    ...
+
+
+@implements(_EditDialog)
+def EditDialog(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.EditDialog
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpandTransition(
-    attributes: dict = {},
+del _EditDialog
+
+
+def _ExpandTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3944,17 +4274,23 @@ def ExpandTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpandTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpandTransition, locals())
+    ...
+
+
+@implements(_ExpandTransition)
+def ExpandTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpandTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpandXTransition(
-    attributes: dict = {},
+del _ExpandTransition
+
+
+def _ExpandXTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3976,18 +4312,24 @@ def ExpandXTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpandXTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpandXTransition, locals())
+    ...
+
+
+@implements(_ExpandXTransition)
+def ExpandXTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpandXTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpansionPanel(
+del _ExpandXTransition
+
+
+def _ExpansionPanel(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -4012,17 +4354,23 @@ def ExpansionPanel(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpansionPanel]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpansionPanel, locals())
+    ...
+
+
+@implements(_ExpansionPanel)
+def ExpansionPanel(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanel
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpansionPanelContent(
-    attributes: dict = {},
+del _ExpansionPanel
+
+
+def _ExpansionPanelContent(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -4046,17 +4394,23 @@ def ExpansionPanelContent(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpansionPanelContent]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpansionPanelContent, locals())
+    ...
+
+
+@implements(_ExpansionPanelContent)
+def ExpansionPanelContent(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanelContent
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpansionPanelHeader(
-    attributes: dict = {},
+del _ExpansionPanelContent
+
+
+def _ExpansionPanelHeader(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -4086,19 +4440,25 @@ def ExpansionPanelHeader(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpansionPanelHeader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpansionPanelHeader, locals())
+    ...
+
+
+@implements(_ExpansionPanelHeader)
+def ExpansionPanelHeader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanelHeader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ExpansionPanels(
+del _ExpansionPanelHeader
+
+
+def _ExpansionPanels(
     accordion: bool = None,
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -4148,17 +4508,23 @@ def ExpansionPanels(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ExpansionPanels]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ExpansionPanels, locals())
+    ...
+
+
+@implements(_ExpansionPanels)
+def ExpansionPanels(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ExpansionPanels
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FabTransition(
-    attributes: dict = {},
+del _ExpansionPanels
+
+
+def _FabTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -4188,17 +4554,23 @@ def FabTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.FabTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(FabTransition, locals())
+    ...
+
+
+@implements(_FabTransition)
+def FabTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FabTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FadeTransition(
-    attributes: dict = {},
+del _FabTransition
+
+
+def _FadeTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -4228,19 +4600,25 @@ def FadeTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.FadeTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(FadeTransition, locals())
+    ...
+
+
+@implements(_FadeTransition)
+def FadeTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FadeTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FileInput(
+del _FadeTransition
+
+
+def _FileInput(
     append_icon: str = None,
     append_outer_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     autofocus: bool = None,
     background_color: str = None,
     children: list = [],
@@ -4364,21 +4742,27 @@ def FileInput(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.FileInput]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(FileInput, locals())
+    ...
+
+
+@implements(_FileInput)
+def FileInput(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.FileInput
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Flex(
+del _FileInput
+
+
+def _Flex(
     align_self_baseline: bool = None,
     align_self_center: bool = None,
     align_self_end: bool = None,
     align_self_start: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     grow: bool = None,
@@ -4976,19 +5360,25 @@ def Flex(
     on_xs9: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Flex]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Flex, locals())
+    ...
+
+
+@implements(_Flex)
+def Flex(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Flex
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Footer(
+del _Flex
+
+
+def _Footer(
     absolute: bool = None,
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -5040,17 +5430,23 @@ def Footer(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Footer]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Footer, locals())
+    ...
+
+
+@implements(_Footer)
+def Footer(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Footer
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Form(
-    attributes: dict = {},
+del _Footer
+
+
+def _Form(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -5074,17 +5470,23 @@ def Form(
     on_value: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Form]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Form, locals())
+    ...
+
+
+@implements(_Form)
+def Form(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Form
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Hover(
-    attributes: dict = {},
+del _Form
+
+
+def _Hover(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     close_delay: typing.Union[float, str] = None,
@@ -5112,17 +5514,23 @@ def Hover(
     on_value: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Hover]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Hover, locals())
+    ...
+
+
+@implements(_Hover)
+def Hover(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Hover
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Html(
-    attributes: dict = {},
+del _Hover
+
+
+def _Html(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -5144,17 +5552,23 @@ def Html(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.Html]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Html, locals())
+    ...
+
+
+@implements(_Html)
+def Html(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.Html
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Icon(
-    attributes: dict = {},
+del _Html
+
+
+def _Icon(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -5200,19 +5614,25 @@ def Icon(
     on_x_small: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Icon]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Icon, locals())
+    ...
+
+
+@implements(_Icon)
+def Icon(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Icon
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Img(
+del _Icon
+
+
+def _Img(
     alt: str = None,
     aspect_ratio: typing.Union[str, float] = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     contain: bool = None,
@@ -5266,18 +5686,24 @@ def Img(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Img]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Img, locals())
+    ...
+
+
+@implements(_Img)
+def Img(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Img
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Input(
+del _Img
+
+
+def _Input(
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -5346,18 +5772,24 @@ def Input(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Input]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Input, locals())
+    ...
+
+
+@implements(_Input)
+def Input(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Input
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Item(
+del _Input
+
+
+def _Item(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -5382,18 +5814,24 @@ def Item(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Item]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Item, locals())
+    ...
+
+
+@implements(_Item)
+def Item(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Item
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ItemGroup(
+del _Item
+
+
+def _ItemGroup(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -5426,18 +5864,24 @@ def ItemGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ItemGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ItemGroup, locals())
+    ...
+
+
+@implements(_ItemGroup)
+def ItemGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ItemGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Label(
+del _ItemGroup
+
+
+def _Label(
     absolute: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -5476,16 +5920,22 @@ def Label(
     on_value: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Label]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Label, locals())
+    ...
+
+
+@implements(_Label)
+def Label(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Label
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Layout(
+del _Label
+
+
+def _Layout(
     align_baseline: bool = None,
     align_center: bool = None,
     align_content_center: bool = None,
@@ -5495,7 +5945,7 @@ def Layout(
     align_content_start: bool = None,
     align_end: bool = None,
     align_start: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     column: bool = None,
@@ -5790,17 +6240,23 @@ def Layout(
     on_wrap: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Layout]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Layout, locals())
+    ...
+
+
+@implements(_Layout)
+def Layout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Layout
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Lazy(
-    attributes: dict = {},
+del _Layout
+
+
+def _Lazy(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -5830,17 +6286,23 @@ def Lazy(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Lazy]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Lazy, locals())
+    ...
+
+
+@implements(_Lazy)
+def Lazy(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Lazy
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def List(
-    attributes: dict = {},
+del _Lazy
+
+
+def _List(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -5904,19 +6366,25 @@ def List(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.List]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(List, locals())
+    ...
+
+
+@implements(_List)
+def List(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.List
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListGroup(
+del _List
+
+
+def _ListGroup(
     active_class: str = None,
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -5956,19 +6424,25 @@ def ListGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ListGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListGroup, locals())
+    ...
+
+
+@implements(_ListGroup)
+def ListGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItem(
+del _ListGroup
+
+
+def _ListItem(
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6032,17 +6506,23 @@ def ListItem(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItem, locals())
+    ...
+
+
+@implements(_ListItem)
+def ListItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemAction(
-    attributes: dict = {},
+del _ListItem
+
+
+def _ListItemAction(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6062,17 +6542,23 @@ def ListItemAction(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemAction]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemAction, locals())
+    ...
+
+
+@implements(_ListItemAction)
+def ListItemAction(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemAction
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemActionText(
-    attributes: dict = {},
+del _ListItemAction
+
+
+def _ListItemActionText(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6092,17 +6578,23 @@ def ListItemActionText(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemActionText]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemActionText, locals())
+    ...
+
+
+@implements(_ListItemActionText)
+def ListItemActionText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemActionText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemAvatar(
-    attributes: dict = {},
+del _ListItemActionText
+
+
+def _ListItemAvatar(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6146,17 +6638,23 @@ def ListItemAvatar(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemAvatar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemAvatar, locals())
+    ...
+
+
+@implements(_ListItemAvatar)
+def ListItemAvatar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemAvatar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemContent(
-    attributes: dict = {},
+del _ListItemAvatar
+
+
+def _ListItemContent(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6176,18 +6674,24 @@ def ListItemContent(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemContent]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemContent, locals())
+    ...
+
+
+@implements(_ListItemContent)
+def ListItemContent(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemContent
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemGroup(
+del _ListItemContent
+
+
+def _ListItemGroup(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6222,17 +6726,23 @@ def ListItemGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemGroup, locals())
+    ...
+
+
+@implements(_ListItemGroup)
+def ListItemGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemIcon(
-    attributes: dict = {},
+del _ListItemGroup
+
+
+def _ListItemIcon(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6252,17 +6762,23 @@ def ListItemIcon(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemIcon]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemIcon, locals())
+    ...
+
+
+@implements(_ListItemIcon)
+def ListItemIcon(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemIcon
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemSubtitle(
-    attributes: dict = {},
+del _ListItemIcon
+
+
+def _ListItemSubtitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6282,17 +6798,23 @@ def ListItemSubtitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemSubtitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemSubtitle, locals())
+    ...
+
+
+@implements(_ListItemSubtitle)
+def ListItemSubtitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemSubtitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ListItemTitle(
-    attributes: dict = {},
+del _ListItemSubtitle
+
+
+def _ListItemTitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -6312,21 +6834,27 @@ def ListItemTitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ListItemTitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ListItemTitle, locals())
+    ...
+
+
+@implements(_ListItemTitle)
+def ListItemTitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ListItemTitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Menu(
+del _ListItemTitle
+
+
+def _Menu(
     absolute: bool = None,
     activator: Any = None,
     allow_overflow: bool = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     auto: bool = None,
     bottom: bool = None,
     children: list = [],
@@ -6424,17 +6952,23 @@ def Menu(
     on_z_index: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Menu]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Menu, locals())
+    ...
+
+
+@implements(_Menu)
+def Menu(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Menu
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def MenuTransition(
-    attributes: dict = {},
+del _Menu
+
+
+def _MenuTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -6464,17 +6998,23 @@ def MenuTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.MenuTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(MenuTransition, locals())
+    ...
+
+
+@implements(_MenuTransition)
+def MenuTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.MenuTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Messages(
-    attributes: dict = {},
+del _MenuTransition
+
+
+def _Messages(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6502,19 +7042,25 @@ def Messages(
     on_value: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Messages]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Messages, locals())
+    ...
+
+
+@implements(_Messages)
+def Messages(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Messages
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def NavigationDrawer(
+del _Messages
+
+
+def _NavigationDrawer(
     absolute: bool = None,
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -6588,21 +7134,27 @@ def NavigationDrawer(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.NavigationDrawer]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(NavigationDrawer, locals())
+    ...
+
+
+@implements(_NavigationDrawer)
+def NavigationDrawer(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.NavigationDrawer
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def OverflowBtn(
+del _NavigationDrawer
+
+
+def _OverflowBtn(
     allow_overflow: bool = None,
     append_icon: str = None,
     append_outer_icon: str = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     auto_select_first: bool = None,
     autofocus: bool = None,
     background_color: str = None,
@@ -6760,18 +7312,24 @@ def OverflowBtn(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.OverflowBtn]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(OverflowBtn, locals())
+    ...
+
+
+@implements(_OverflowBtn)
+def OverflowBtn(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.OverflowBtn
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Overlay(
+del _OverflowBtn
+
+
+def _Overlay(
     absolute: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6804,17 +7362,23 @@ def Overlay(
     on_z_index: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Overlay]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Overlay, locals())
+    ...
+
+
+@implements(_Overlay)
+def Overlay(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Overlay
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Pagination(
-    attributes: dict = {},
+del _Overlay
+
+
+def _Pagination(
+    attributes: dict = None,
     children: list = [],
     circle: bool = None,
     class_: str = None,
@@ -6854,18 +7418,24 @@ def Pagination(
     on_value: typing.Callable[[float], Any] = None,
 ) -> Element[ipyvuetify.generated.Pagination]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Pagination, locals())
+    ...
+
+
+@implements(_Pagination)
+def Pagination(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Pagination
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Parallax(
+del _Pagination
+
+
+def _Parallax(
     alt: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     height: typing.Union[str, float] = None,
@@ -6890,17 +7460,23 @@ def Parallax(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Parallax]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Parallax, locals())
+    ...
+
+
+@implements(_Parallax)
+def Parallax(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Parallax
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Picker(
-    attributes: dict = {},
+del _Parallax
+
+
+def _Picker(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -6936,17 +7512,23 @@ def Picker(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Picker]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Picker, locals())
+    ...
+
+
+@implements(_Picker)
+def Picker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Picker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ProgressCircular(
-    attributes: dict = {},
+del _Picker
+
+
+def _ProgressCircular(
+    attributes: dict = None,
     button: bool = None,
     children: list = [],
     class_: str = None,
@@ -6980,19 +7562,25 @@ def ProgressCircular(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.ProgressCircular]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ProgressCircular, locals())
+    ...
+
+
+@implements(_ProgressCircular)
+def ProgressCircular(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ProgressCircular
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ProgressLinear(
+del _ProgressCircular
+
+
+def _ProgressLinear(
     absolute: bool = None,
     active: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     background_opacity: typing.Union[float, str] = None,
     bottom: bool = None,
@@ -7046,18 +7634,24 @@ def ProgressLinear(
     on_value: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.ProgressLinear]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ProgressLinear, locals())
+    ...
+
+
+@implements(_ProgressLinear)
+def ProgressLinear(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ProgressLinear
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Radio(
+del _ProgressLinear
+
+
+def _Radio(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -7102,19 +7696,25 @@ def Radio(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Radio]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Radio, locals())
+    ...
+
+
+@implements(_Radio)
+def Radio(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Radio
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def RadioGroup(
+del _Radio
+
+
+def _RadioGroup(
     active_class: str = None,
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -7196,18 +7796,24 @@ def RadioGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.RadioGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(RadioGroup, locals())
+    ...
+
+
+@implements(_RadioGroup)
+def RadioGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.RadioGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def RangeSlider(
+del _RadioGroup
+
+
+def _RangeSlider(
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -7304,17 +7910,23 @@ def RangeSlider(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.RangeSlider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(RangeSlider, locals())
+    ...
+
+
+@implements(_RangeSlider)
+def RangeSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.RangeSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Rating(
-    attributes: dict = {},
+del _RangeSlider
+
+
+def _Rating(
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -7378,18 +7990,24 @@ def Rating(
     on_x_small: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Rating]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Rating, locals())
+    ...
+
+
+@implements(_Rating)
+def Rating(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Rating
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Responsive(
+del _Rating
+
+
+def _Responsive(
     aspect_ratio: typing.Union[str, float] = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     height: typing.Union[float, str] = None,
@@ -7422,16 +8040,22 @@ def Responsive(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Responsive]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Responsive, locals())
+    ...
+
+
+@implements(_Responsive)
+def Responsive(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Responsive
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Row(
+del _Responsive
+
+
+def _Row(
     align: str = None,
     align_content: str = None,
     align_content_lg: str = None,
@@ -7442,7 +8066,7 @@ def Row(
     align_md: str = None,
     align_sm: str = None,
     align_xl: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dense: bool = None,
@@ -7488,17 +8112,23 @@ def Row(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Row]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Row, locals())
+    ...
+
+
+@implements(_Row)
+def Row(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Row
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScaleTransition(
-    attributes: dict = {},
+del _Row
+
+
+def _ScaleTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -7528,17 +8158,23 @@ def ScaleTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ScaleTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScaleTransition, locals())
+    ...
+
+
+@implements(_ScaleTransition)
+def ScaleTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScaleTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScrollXReverseTransition(
-    attributes: dict = {},
+del _ScaleTransition
+
+
+def _ScrollXReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -7568,17 +8204,23 @@ def ScrollXReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ScrollXReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScrollXReverseTransition, locals())
+    ...
+
+
+@implements(_ScrollXReverseTransition)
+def ScrollXReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollXReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScrollXTransition(
-    attributes: dict = {},
+del _ScrollXReverseTransition
+
+
+def _ScrollXTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -7608,17 +8250,23 @@ def ScrollXTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ScrollXTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScrollXTransition, locals())
+    ...
+
+
+@implements(_ScrollXTransition)
+def ScrollXTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollXTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScrollYReverseTransition(
-    attributes: dict = {},
+del _ScrollXTransition
+
+
+def _ScrollYReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -7648,17 +8296,23 @@ def ScrollYReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ScrollYReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScrollYReverseTransition, locals())
+    ...
+
+
+@implements(_ScrollYReverseTransition)
+def ScrollYReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollYReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScrollYTransition(
-    attributes: dict = {},
+del _ScrollYReverseTransition
+
+
+def _ScrollYTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -7688,20 +8342,26 @@ def ScrollYTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ScrollYTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScrollYTransition, locals())
+    ...
+
+
+@implements(_ScrollYTransition)
+def ScrollYTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ScrollYTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Select(
+del _ScrollYTransition
+
+
+def _Select(
     append_icon: str = None,
     append_outer_icon: str = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     autofocus: bool = None,
     background_color: str = None,
     cache_items: bool = None,
@@ -7846,17 +8506,23 @@ def Select(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Select]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Select, locals())
+    ...
+
+
+@implements(_Select)
+def Select(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Select
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Sheet(
-    attributes: dict = {},
+del _Select
+
+
+def _Sheet(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -7900,17 +8566,23 @@ def Sheet(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Sheet]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Sheet, locals())
+    ...
+
+
+@implements(_Sheet)
+def Sheet(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Sheet
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SimpleCheckbox(
-    attributes: dict = {},
+del _Sheet
+
+
+def _SimpleCheckbox(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -7950,17 +8622,23 @@ def SimpleCheckbox(
     on_value: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.SimpleCheckbox]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SimpleCheckbox, locals())
+    ...
+
+
+@implements(_SimpleCheckbox)
+def SimpleCheckbox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SimpleCheckbox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SimpleTable(
-    attributes: dict = {},
+del _SimpleCheckbox
+
+
+def _SimpleTable(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -7990,17 +8668,23 @@ def SimpleTable(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.SimpleTable]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SimpleTable, locals())
+    ...
+
+
+@implements(_SimpleTable)
+def SimpleTable(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SimpleTable
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SkeletonLoader(
-    attributes: dict = {},
+del _SimpleTable
+
+
+def _SkeletonLoader(
+    attributes: dict = None,
     boilerplate: bool = None,
     children: list = [],
     class_: str = None,
@@ -8050,18 +8734,24 @@ def SkeletonLoader(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.SkeletonLoader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SkeletonLoader, locals())
+    ...
+
+
+@implements(_SkeletonLoader)
+def SkeletonLoader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SkeletonLoader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideGroup(
+del _SkeletonLoader
+
+
+def _SlideGroup(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     center_active: bool = None,
     children: list = [],
     class_: str = None,
@@ -8104,18 +8794,24 @@ def SlideGroup(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideGroup]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideGroup, locals())
+    ...
+
+
+@implements(_SlideGroup)
+def SlideGroup(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideGroup
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideItem(
+del _SlideGroup
+
+
+def _SlideItem(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -8140,17 +8836,23 @@ def SlideItem(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideItem, locals())
+    ...
+
+
+@implements(_SlideItem)
+def SlideItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideXReverseTransition(
-    attributes: dict = {},
+del _SlideItem
+
+
+def _SlideXReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -8180,17 +8882,23 @@ def SlideXReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideXReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideXReverseTransition, locals())
+    ...
+
+
+@implements(_SlideXReverseTransition)
+def SlideXReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideXReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideXTransition(
-    attributes: dict = {},
+del _SlideXReverseTransition
+
+
+def _SlideXTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -8220,17 +8928,23 @@ def SlideXTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideXTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideXTransition, locals())
+    ...
+
+
+@implements(_SlideXTransition)
+def SlideXTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideXTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideYReverseTransition(
-    attributes: dict = {},
+del _SlideXTransition
+
+
+def _SlideYReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -8260,17 +8974,23 @@ def SlideYReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideYReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideYReverseTransition, locals())
+    ...
+
+
+@implements(_SlideYReverseTransition)
+def SlideYReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideYReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SlideYTransition(
-    attributes: dict = {},
+del _SlideYReverseTransition
+
+
+def _SlideYTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -8300,18 +9020,24 @@ def SlideYTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.SlideYTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SlideYTransition, locals())
+    ...
+
+
+@implements(_SlideYTransition)
+def SlideYTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SlideYTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Slider(
+del _SlideYTransition
+
+
+def _Slider(
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -8408,18 +9134,24 @@ def Slider(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Slider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Slider, locals())
+    ...
+
+
+@implements(_Slider)
+def Slider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Slider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Snackbar(
+del _Slider
+
+
+def _Snackbar(
     absolute: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -8458,17 +9190,23 @@ def Snackbar(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Snackbar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Snackbar, locals())
+    ...
+
+
+@implements(_Snackbar)
+def Snackbar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Snackbar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Spacer(
-    attributes: dict = {},
+del _Snackbar
+
+
+def _Spacer(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -8488,17 +9226,23 @@ def Spacer(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Spacer]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Spacer, locals())
+    ...
+
+
+@implements(_Spacer)
+def Spacer(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Spacer
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Sparkline(
-    attributes: dict = {},
+del _Spacer
+
+
+def _Sparkline(
+    attributes: dict = None,
     auto_draw: bool = None,
     auto_draw_duration: float = None,
     auto_draw_easing: str = None,
@@ -8554,18 +9298,24 @@ def Sparkline(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Sparkline]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Sparkline, locals())
+    ...
+
+
+@implements(_Sparkline)
+def Sparkline(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Sparkline
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SpeedDial(
+del _Sparkline
+
+
+def _SpeedDial(
     absolute: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -8608,18 +9358,24 @@ def SpeedDial(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.SpeedDial]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SpeedDial, locals())
+    ...
+
+
+@implements(_SpeedDial)
+def SpeedDial(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SpeedDial
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Stepper(
+del _SpeedDial
+
+
+def _Stepper(
     alt_labels: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -8650,17 +9406,23 @@ def Stepper(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Stepper]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Stepper, locals())
+    ...
+
+
+@implements(_Stepper)
+def Stepper(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Stepper
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def StepperContent(
-    attributes: dict = {},
+del _Stepper
+
+
+def _StepperContent(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -8682,17 +9444,23 @@ def StepperContent(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.StepperContent]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(StepperContent, locals())
+    ...
+
+
+@implements(_StepperContent)
+def StepperContent(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperContent
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def StepperHeader(
-    attributes: dict = {},
+del _StepperContent
+
+
+def _StepperHeader(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -8712,17 +9480,23 @@ def StepperHeader(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.StepperHeader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(StepperHeader, locals())
+    ...
+
+
+@implements(_StepperHeader)
+def StepperHeader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperHeader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def StepperItems(
-    attributes: dict = {},
+del _StepperHeader
+
+
+def _StepperItems(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -8742,17 +9516,23 @@ def StepperItems(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.StepperItems]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(StepperItems, locals())
+    ...
+
+
+@implements(_StepperItems)
+def StepperItems(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperItems
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def StepperStep(
-    attributes: dict = {},
+del _StepperItems
+
+
+def _StepperStep(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -8788,17 +9568,23 @@ def StepperStep(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.StepperStep]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(StepperStep, locals())
+    ...
+
+
+@implements(_StepperStep)
+def StepperStep(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.StepperStep
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Subheader(
-    attributes: dict = {},
+del _StepperStep
+
+
+def _Subheader(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -8824,18 +9610,24 @@ def Subheader(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Subheader]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Subheader, locals())
+    ...
+
+
+@implements(_Subheader)
+def Subheader(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Subheader
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Switch(
+del _Subheader
+
+
+def _Switch(
     append_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     children: list = [],
     class_: str = None,
@@ -8918,19 +9710,25 @@ def Switch(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Switch]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Switch, locals())
+    ...
+
+
+@implements(_Switch)
+def Switch(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Switch
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SystemBar(
+del _Switch
+
+
+def _SystemBar(
     absolute: bool = None,
     app: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -8966,19 +9764,25 @@ def SystemBar(
     on_window: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.SystemBar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(SystemBar, locals())
+    ...
+
+
+@implements(_SystemBar)
+def SystemBar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.SystemBar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Tab(
+del _SystemBar
+
+
+def _Tab(
     active_class: str = None,
     append: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -9026,18 +9830,24 @@ def Tab(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Tab]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Tab, locals())
+    ...
+
+
+@implements(_Tab)
+def Tab(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tab
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TabItem(
+del _Tab
+
+
+def _TabItem(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -9070,17 +9880,23 @@ def TabItem(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.TabItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TabItem, locals())
+    ...
+
+
+@implements(_TabItem)
+def TabItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TabReverseTransition(
-    attributes: dict = {},
+del _TabItem
+
+
+def _TabReverseTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -9110,17 +9926,23 @@ def TabReverseTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TabReverseTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TabReverseTransition, locals())
+    ...
+
+
+@implements(_TabReverseTransition)
+def TabReverseTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabReverseTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TabTransition(
-    attributes: dict = {},
+del _TabReverseTransition
+
+
+def _TabTransition(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     group: bool = None,
@@ -9150,17 +9972,23 @@ def TabTransition(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TabTransition]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TabTransition, locals())
+    ...
+
+
+@implements(_TabTransition)
+def TabTransition(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabTransition
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TableOverflow(
-    attributes: dict = {},
+del _TabTransition
+
+
+def _TableOverflow(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -9180,19 +10008,25 @@ def TableOverflow(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TableOverflow]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TableOverflow, locals())
+    ...
+
+
+@implements(_TableOverflow)
+def TableOverflow(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TableOverflow
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Tabs(
+del _TableOverflow
+
+
+def _Tabs(
     active_class: str = None,
     align_with_title: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     background_color: str = None,
     center_active: bool = None,
     centered: bool = None,
@@ -9256,18 +10090,24 @@ def Tabs(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Tabs]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Tabs, locals())
+    ...
+
+
+@implements(_Tabs)
+def Tabs(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tabs
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TabsItems(
+del _Tabs
+
+
+def _TabsItems(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     continuous: bool = None,
@@ -9318,17 +10158,23 @@ def TabsItems(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.TabsItems]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TabsItems, locals())
+    ...
+
+
+@implements(_TabsItems)
+def TabsItems(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabsItems
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TabsSlider(
-    attributes: dict = {},
+del _TabsItems
+
+
+def _TabsSlider(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -9350,17 +10196,23 @@ def TabsSlider(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TabsSlider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TabsSlider, locals())
+    ...
+
+
+@implements(_TabsSlider)
+def TabsSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TabsSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Text(
-    attributes: dict = {},
+del _TabsSlider
+
+
+def _Text(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -9382,19 +10234,25 @@ def Text(
     on_value: typing.Callable[[str], Any] = None,
 ) -> Element[ipyvuetify.generated.Text]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Text, locals())
+    ...
+
+
+@implements(_Text)
+def Text(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Text
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TextField(
+del _Text
+
+
+def _TextField(
     append_icon: str = None,
     append_outer_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     autofocus: bool = None,
     background_color: str = None,
     children: list = [],
@@ -9504,19 +10362,25 @@ def TextField(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.TextField]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TextField, locals())
+    ...
+
+
+@implements(_TextField)
+def TextField(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TextField
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Textarea(
+del _TextField
+
+
+def _Textarea(
     append_icon: str = None,
     append_outer_icon: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     auto_grow: bool = None,
     autofocus: bool = None,
     background_color: str = None,
@@ -9634,17 +10498,23 @@ def Textarea(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Textarea]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Textarea, locals())
+    ...
+
+
+@implements(_Textarea)
+def Textarea(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Textarea
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ThemeProvider(
-    attributes: dict = {},
+del _Textarea
+
+
+def _ThemeProvider(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -9670,21 +10540,27 @@ def ThemeProvider(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ThemeProvider]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ThemeProvider, locals())
+    ...
+
+
+@implements(_ThemeProvider)
+def ThemeProvider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ThemeProvider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TimePicker(
+del _ThemeProvider
+
+
+def _TimePicker(
     allowed_hours: list = None,
     allowed_minutes: list = None,
     allowed_seconds: list = None,
     ampm_in_title: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -9740,18 +10616,24 @@ def TimePicker(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.TimePicker]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TimePicker, locals())
+    ...
+
+
+@implements(_TimePicker)
+def TimePicker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePicker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TimePickerClock(
+del _TimePicker
+
+
+def _TimePickerClock(
     ampm: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -9796,19 +10678,25 @@ def TimePickerClock(
     on_value: typing.Callable[[float], Any] = None,
 ) -> Element[ipyvuetify.generated.TimePickerClock]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TimePickerClock, locals())
+    ...
+
+
+@implements(_TimePickerClock)
+def TimePickerClock(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePickerClock
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TimePickerTitle(
+del _TimePickerClock
+
+
+def _TimePickerTitle(
     ampm: bool = None,
     ampm_readonly: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -9848,18 +10736,24 @@ def TimePickerTitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TimePickerTitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TimePickerTitle, locals())
+    ...
+
+
+@implements(_TimePickerTitle)
+def TimePickerTitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimePickerTitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Timeline(
+del _TimePickerTitle
+
+
+def _Timeline(
     align_top: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     dark: bool = None,
@@ -9888,17 +10782,23 @@ def Timeline(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Timeline]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Timeline, locals())
+    ...
+
+
+@implements(_Timeline)
+def Timeline(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Timeline
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TimelineItem(
-    attributes: dict = {},
+del _Timeline
+
+
+def _TimelineItem(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -9940,18 +10840,24 @@ def TimelineItem(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TimelineItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TimelineItem, locals())
+    ...
+
+
+@implements(_TimelineItem)
+def TimelineItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TimelineItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Toolbar(
+del _TimelineItem
+
+
+def _Toolbar(
     absolute: bool = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -10016,17 +10922,23 @@ def Toolbar(
     on_width: typing.Callable[[typing.Union[float, str]], Any] = None,
 ) -> Element[ipyvuetify.generated.Toolbar]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Toolbar, locals())
+    ...
+
+
+@implements(_Toolbar)
+def Toolbar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Toolbar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ToolbarItems(
-    attributes: dict = {},
+del _Toolbar
+
+
+def _ToolbarItems(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -10046,17 +10958,23 @@ def ToolbarItems(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ToolbarItems]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ToolbarItems, locals())
+    ...
+
+
+@implements(_ToolbarItems)
+def ToolbarItems(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ToolbarItems
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ToolbarTitle(
-    attributes: dict = {},
+del _ToolbarItems
+
+
+def _ToolbarTitle(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -10076,21 +10994,27 @@ def ToolbarTitle(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.ToolbarTitle]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ToolbarTitle, locals())
+    ...
+
+
+@implements(_ToolbarTitle)
+def ToolbarTitle(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.ToolbarTitle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Tooltip(
+del _ToolbarTitle
+
+
+def _Tooltip(
     absolute: bool = None,
     activator: Any = None,
     allow_overflow: bool = None,
     attach: Any = None,
-    attributes: dict = {},
+    attributes: dict = None,
     bottom: bool = None,
     children: list = [],
     class_: str = None,
@@ -10174,20 +11098,26 @@ def Tooltip(
     on_z_index: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.Tooltip]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Tooltip, locals())
+    ...
+
+
+@implements(_Tooltip)
+def Tooltip(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Tooltip
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Treeview(
+del _Tooltip
+
+
+def _Treeview(
     activatable: bool = None,
     active: list = [],
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -10266,19 +11196,25 @@ def Treeview(
     on_value: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.Treeview]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Treeview, locals())
+    ...
+
+
+@implements(_Treeview)
+def Treeview(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Treeview
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TreeviewNode(
+del _Treeview
+
+
+def _TreeviewNode(
     activatable: bool = None,
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     color: str = None,
@@ -10336,17 +11272,23 @@ def TreeviewNode(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.TreeviewNode]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(TreeviewNode, locals())
+    ...
+
+
+@implements(_TreeviewNode)
+def TreeviewNode(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.TreeviewNode
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def VirtualTable(
-    attributes: dict = {},
+del _TreeviewNode
+
+
+def _VirtualTable(
+    attributes: dict = None,
     children: list = [],
     chunk_size: float = None,
     class_: str = None,
@@ -10384,16 +11326,22 @@ def VirtualTable(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.VirtualTable]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(VirtualTable, locals())
+    ...
+
+
+@implements(_VirtualTable)
+def VirtualTable(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.VirtualTable
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def VuetifyTemplate(
+del _VirtualTable
+
+
+def _VuetifyTemplate(
     components: dict = None,
     css: str = None,
     data: str = None,
@@ -10410,17 +11358,23 @@ def VuetifyTemplate(
     on_template: typing.Callable[[typing.Union[Element[ipyvue.Template], str]], Any] = None,
 ) -> Element[ipyvuetify.VuetifyTemplate]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(VuetifyTemplate, locals())
+    ...
+
+
+@implements(_VuetifyTemplate)
+def VuetifyTemplate(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.VuetifyTemplate
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def VuetifyWidget(
-    attributes: dict = {},
+del _VuetifyTemplate
+
+
+def _VuetifyWidget(
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -10440,18 +11394,24 @@ def VuetifyWidget(
     on_v_slots: typing.Callable[[list], Any] = None,
 ) -> Element[ipyvuetify.generated.VuetifyWidget]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(VuetifyWidget, locals())
+    ...
+
+
+@implements(_VuetifyWidget)
+def VuetifyWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.VuetifyWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Window(
+del _VuetifyWidget
+
+
+def _Window(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     continuous: bool = None,
@@ -10502,18 +11462,24 @@ def Window(
     on_vertical: typing.Callable[[bool], Any] = None,
 ) -> Element[ipyvuetify.generated.Window]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(Window, locals())
+    ...
+
+
+@implements(_Window)
+def Window(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.Window
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def WindowItem(
+del _Window
+
+
+def _WindowItem(
     active_class: str = None,
-    attributes: dict = {},
+    attributes: dict = None,
     children: list = [],
     class_: str = None,
     disabled: bool = None,
@@ -10544,9 +11510,16 @@ def WindowItem(
     on_value: typing.Callable[[Any], Any] = None,
 ) -> Element[ipyvuetify.generated.WindowItem]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(WindowItem, locals())
+    ...
+
+
+@implements(_WindowItem)
+def WindowItem(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipyvuetify.generated.WindowItem
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
+
+
+del _WindowItem

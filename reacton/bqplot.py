@@ -7,12 +7,12 @@ import ipywidgets
 import numpy as np
 from numpy import ndarray
 
-import reacton as react
+import reacton
 from reacton.core import ContainerAdder, Element, _get_render_context
 
 from . import ipywidgets as w
 from .ipywidgets import Layout
-from .utils import without_default
+from .utils import implements
 
 
 class FigureElement(Element[bqplot.Figure]):
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 # generated code:
 
 
-def Albers(
+def _Albers(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     parallels: tuple = (29.5, 45.5),
@@ -86,15 +86,21 @@ def Albers(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Albers, locals())
+    ...
+
+
+@implements(_Albers)
+def Albers(**kwargs):
 
     widget_cls = bqplot.scales.Albers
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def AlbersUSA(
+del _Albers
+
+
+def _AlbersUSA(
     allow_padding: bool = True,
     reverse: bool = False,
     scale_factor: float = 1200,
@@ -120,15 +126,21 @@ def AlbersUSA(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(AlbersUSA, locals())
+    ...
+
+
+@implements(_AlbersUSA)
+def AlbersUSA(**kwargs):
 
     widget_cls = bqplot.scales.AlbersUSA
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Axis(
+del _AlbersUSA
+
+
+def _Axis(
     color: str = None,
     grid_color: str = None,
     grid_lines: str = "solid",
@@ -219,15 +231,21 @@ def Axis(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Axis, locals())
+    ...
+
+
+@implements(_Axis)
+def Axis(**kwargs):
 
     widget_cls = bqplot.axes.Axis
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Bars(
+del _Axis
+
+
+def _Bars(
     align: str = "center",
     apply_clip: bool = True,
     base: float = 0.0,
@@ -380,25 +398,37 @@ def Bars(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Bars, locals())
+    ...
+
+
+@implements(_Bars)
+def Bars(**kwargs):
 
     widget_cls = bqplot.marks.Bars
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BaseAxis() -> Element[bqplot.axes.BaseAxis]:
+del _Bars
+
+
+def _BaseAxis() -> Element[bqplot.axes.BaseAxis]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(BaseAxis, locals())
+    ...
+
+
+@implements(_BaseAxis)
+def BaseAxis(**kwargs):
 
     widget_cls = bqplot.axes.BaseAxis
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Bins(
+del _BaseAxis
+
+
+def _Bins(
     align: str = "center",
     apply_clip: bool = True,
     base: float = 0.0,
@@ -535,15 +565,21 @@ def Bins(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Bins, locals())
+    ...
+
+
+@implements(_Bins)
+def Bins(**kwargs):
 
     widget_cls = bqplot.marks.Bins
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Boxplot(
+del _Bins
+
+
+def _Boxplot(
     apply_clip: bool = True,
     auto_detect_outliers: bool = True,
     box_fill_color: str = "steelblue",
@@ -619,15 +655,21 @@ def Boxplot(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Boxplot, locals())
+    ...
+
+
+@implements(_Boxplot)
+def Boxplot(**kwargs):
 
     widget_cls = bqplot.marks.Boxplot
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorAxis(
+del _Boxplot
+
+
+def _ColorAxis(
     color: str = None,
     grid_color: str = None,
     grid_lines: str = "solid",
@@ -674,15 +716,21 @@ def ColorAxis(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(ColorAxis, locals())
+    ...
+
+
+@implements(_ColorAxis)
+def ColorAxis(**kwargs):
 
     widget_cls = bqplot.axes.ColorAxis
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorScale(
+del _ColorAxis
+
+
+def _ColorScale(
     allow_padding: bool = True,
     colors: list = [],
     extrapolation: str = "constant",
@@ -729,29 +777,41 @@ def ColorScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(ColorScale, locals())
+    ...
+
+
+@implements(_ColorScale)
+def ColorScale(**kwargs):
 
     widget_cls = bqplot.scales.ColorScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DOMWidget(
+del _ColorScale
+
+
+def _DOMWidget(
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
 ) -> Element[ipywidgets.widgets.domwidget.DOMWidget]:
     """Widget that can be inserted into the DOM"""
-    kwargs: Dict[Any, Any] = without_default(DOMWidget, locals())
+    ...
+
+
+@implements(_DOMWidget)
+def DOMWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.domwidget.DOMWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DateColorScale(
+del _DOMWidget
+
+
+def _DateColorScale(
     allow_padding: bool = True,
     colors: list = [],
     extrapolation: str = "constant",
@@ -791,15 +851,21 @@ def DateColorScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(DateColorScale, locals())
+    ...
+
+
+@implements(_DateColorScale)
+def DateColorScale(**kwargs):
 
     widget_cls = bqplot.scales.DateColorScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DateScale(
+del _DateColorScale
+
+
+def _DateScale(
     allow_padding: bool = True,
     max: datetime.datetime = None,
     min: datetime.datetime = None,
@@ -829,15 +895,21 @@ def DateScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(DateScale, locals())
+    ...
+
+
+@implements(_DateScale)
+def DateScale(**kwargs):
 
     widget_cls = bqplot.scales.DateScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def EquiRectangular(
+del _DateScale
+
+
+def _EquiRectangular(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     reverse: bool = False,
@@ -860,15 +932,21 @@ def EquiRectangular(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(EquiRectangular, locals())
+    ...
+
+
+@implements(_EquiRectangular)
+def EquiRectangular(**kwargs):
 
     widget_cls = bqplot.scales.EquiRectangular
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Figure(
+del _EquiRectangular
+
+
+def _Figure(
     animation_duration: int = 0,
     axes: list = [],
     background_style: dict = {},
@@ -994,16 +1072,22 @@ def Figure(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Figure, locals())
+    ...
+
+
+@implements(_Figure)
+def Figure(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = bqplot.figure.Figure
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return FigureElement(comp, **kwargs)
 
 
-###
-def FlexLine(
+del _Figure
+
+
+def _FlexLine(
     apply_clip: bool = True,
     color: ndarray = None,
     colors: list = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"],
@@ -1080,15 +1164,21 @@ def FlexLine(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(FlexLine, locals())
+    ...
+
+
+@implements(_FlexLine)
+def FlexLine(**kwargs):
 
     widget_cls = bqplot.marks.FlexLine
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def GeoScale(
+del _FlexLine
+
+
+def _GeoScale(
     allow_padding: bool = True,
     reverse: bool = False,
     on_allow_padding: typing.Callable[[bool], Any] = None,
@@ -1101,15 +1191,21 @@ def GeoScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(GeoScale, locals())
+    ...
+
+
+@implements(_GeoScale)
+def GeoScale(**kwargs):
 
     widget_cls = bqplot.scales.GeoScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Gnomonic(
+del _GeoScale
+
+
+def _Gnomonic(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     clip_angle: float = 89.999,
@@ -1141,15 +1237,21 @@ def Gnomonic(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Gnomonic, locals())
+    ...
+
+
+@implements(_Gnomonic)
+def Gnomonic(**kwargs):
 
     widget_cls = bqplot.scales.Gnomonic
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Graph(
+del _Gnomonic
+
+
+def _Graph(
     apply_clip: bool = True,
     charge: int = -600,
     color: ndarray = None,
@@ -1260,15 +1362,21 @@ def Graph(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Graph, locals())
+    ...
+
+
+@implements(_Graph)
+def Graph(**kwargs):
 
     widget_cls = bqplot.marks.Graph
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def GridHeatMap(
+del _Graph
+
+
+def _GridHeatMap(
     anchor_style: dict = {},
     apply_clip: bool = True,
     color: ndarray = None,
@@ -1388,15 +1496,21 @@ def GridHeatMap(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(GridHeatMap, locals())
+    ...
+
+
+@implements(_GridHeatMap)
+def GridHeatMap(**kwargs):
 
     widget_cls = bqplot.marks.GridHeatMap
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def HeatMap(
+del _GridHeatMap
+
+
+def _HeatMap(
     apply_clip: bool = True,
     color: ndarray = None,
     display_legend: bool = False,
@@ -1461,15 +1575,21 @@ def HeatMap(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(HeatMap, locals())
+    ...
+
+
+@implements(_HeatMap)
+def HeatMap(**kwargs):
 
     widget_cls = bqplot.marks.HeatMap
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Hist(
+del _HeatMap
+
+
+def _Hist(
     apply_clip: bool = True,
     bins: int = 10,
     colors: list = ["steelblue"],
@@ -1563,15 +1683,21 @@ def Hist(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Hist, locals())
+    ...
+
+
+@implements(_Hist)
+def Hist(**kwargs):
 
     widget_cls = bqplot.marks.Hist
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Image(
+del _Hist
+
+
+def _Image(
     apply_clip: bool = True,
     display_legend: bool = False,
     enable_hover: bool = True,
@@ -1631,15 +1757,21 @@ def Image(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Image, locals())
+    ...
+
+
+@implements(_Image)
+def Image(**kwargs):
 
     widget_cls = bqplot.marks.Image
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Interaction() -> Element[bqplot.interacts.Interaction]:
+del _Image
+
+
+def _Interaction() -> Element[bqplot.interacts.Interaction]:
     """The base interaction class.
 
     An interaction is a mouse interaction layer for a figure that requires the
@@ -1658,15 +1790,21 @@ def Interaction() -> Element[bqplot.interacts.Interaction]:
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Interaction, locals())
+    ...
+
+
+@implements(_Interaction)
+def Interaction(**kwargs):
 
     widget_cls = bqplot.interacts.Interaction
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Label(
+del _Interaction
+
+
+def _Label(
     align: str = "start",
     apply_clip: bool = True,
     color: ndarray = None,
@@ -1806,15 +1944,21 @@ def Label(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Label, locals())
+    ...
+
+
+@implements(_Label)
+def Label(**kwargs):
 
     widget_cls = bqplot.marks.Label
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def LinearScale(
+del _Label
+
+
+def _LinearScale(
     allow_padding: bool = True,
     max: float = None,
     mid_range: float = 0.8,
@@ -1866,15 +2010,21 @@ def LinearScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(LinearScale, locals())
+    ...
+
+
+@implements(_LinearScale)
+def LinearScale(**kwargs):
 
     widget_cls = bqplot.scales.LinearScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Lines(
+del _LinearScale
+
+
+def _Lines(
     apply_clip: bool = True,
     close_path: bool = False,
     color: ndarray = None,
@@ -2012,15 +2162,21 @@ def Lines(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Lines, locals())
+    ...
+
+
+@implements(_Lines)
+def Lines(**kwargs):
 
     widget_cls = bqplot.marks.Lines
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def LogScale(
+del _Lines
+
+
+def _LogScale(
     allow_padding: bool = True,
     max: float = None,
     min: float = None,
@@ -2048,15 +2204,21 @@ def LogScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(LogScale, locals())
+    ...
+
+
+@implements(_LogScale)
+def LogScale(**kwargs):
 
     widget_cls = bqplot.scales.LogScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Map(
+del _LogScale
+
+
+def _Map(
     apply_clip: bool = True,
     color: dict = {},
     colors: dict = {},
@@ -2132,15 +2294,21 @@ def Map(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Map, locals())
+    ...
+
+
+@implements(_Map)
+def Map(**kwargs):
 
     widget_cls = bqplot.marks.Map
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Mark(
+del _Map
+
+
+def _Mark(
     apply_clip: bool = True,
     display_legend: bool = False,
     enable_hover: bool = True,
@@ -2251,15 +2419,21 @@ def Mark(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Mark, locals())
+    ...
+
+
+@implements(_Mark)
+def Mark(**kwargs):
 
     widget_cls = bqplot.marks.Mark
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Mercator(
+del _Mark
+
+
+def _Mercator(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     reverse: bool = False,
@@ -2292,15 +2466,21 @@ def Mercator(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Mercator, locals())
+    ...
+
+
+@implements(_Mercator)
+def Mercator(**kwargs):
 
     widget_cls = bqplot.scales.Mercator
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def OHLC(
+del _Mercator
+
+
+def _OHLC(
     apply_clip: bool = True,
     colors: list = ["green", "red"],
     display_legend: bool = False,
@@ -2390,15 +2570,21 @@ def OHLC(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(OHLC, locals())
+    ...
+
+
+@implements(_OHLC)
+def OHLC(**kwargs):
 
     widget_cls = bqplot.marks.OHLC
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def OrdinalColorScale(
+del _OHLC
+
+
+def _OrdinalColorScale(
     allow_padding: bool = True,
     colors: list = [],
     domain: list = [],
@@ -2436,15 +2622,21 @@ def OrdinalColorScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(OrdinalColorScale, locals())
+    ...
+
+
+@implements(_OrdinalColorScale)
+def OrdinalColorScale(**kwargs):
 
     widget_cls = bqplot.scales.OrdinalColorScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def OrdinalScale(
+del _OrdinalColorScale
+
+
+def _OrdinalScale(
     allow_padding: bool = True,
     domain: list = [],
     reverse: bool = False,
@@ -2468,15 +2660,21 @@ def OrdinalScale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(OrdinalScale, locals())
+    ...
+
+
+@implements(_OrdinalScale)
+def OrdinalScale(**kwargs):
 
     widget_cls = bqplot.scales.OrdinalScale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Orthographic(
+del _OrdinalScale
+
+
+def _Orthographic(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     clip_angle: float = 90.0,
@@ -2513,15 +2711,21 @@ def Orthographic(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Orthographic, locals())
+    ...
+
+
+@implements(_Orthographic)
+def Orthographic(**kwargs):
 
     widget_cls = bqplot.scales.Orthographic
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def PanZoom(
+del _Orthographic
+
+
+def _PanZoom(
     allow_pan: bool = True,
     allow_zoom: bool = True,
     scales: dict = {},
@@ -2544,15 +2748,21 @@ def PanZoom(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(PanZoom, locals())
+    ...
+
+
+@implements(_PanZoom)
+def PanZoom(**kwargs):
 
     widget_cls = bqplot.interacts.PanZoom
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Pie(
+del _PanZoom
+
+
+def _Pie(
     apply_clip: bool = True,
     color: ndarray = None,
     colors: list = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"],
@@ -2679,15 +2889,21 @@ def Pie(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Pie, locals())
+    ...
+
+
+@implements(_Pie)
+def Pie(**kwargs):
 
     widget_cls = bqplot.marks.Pie
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Scale(
+del _Pie
+
+
+def _Scale(
     allow_padding: bool = True,
     reverse: bool = False,
     on_allow_padding: typing.Callable[[bool], Any] = None,
@@ -2715,15 +2931,21 @@ def Scale(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Scale, locals())
+    ...
+
+
+@implements(_Scale)
+def Scale(**kwargs):
 
     widget_cls = bqplot.scales.Scale
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Scatter(
+del _Scale
+
+
+def _Scatter(
     apply_clip: bool = True,
     color: ndarray = None,
     colors: list = ["steelblue"],
@@ -2923,15 +3145,21 @@ def Scatter(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Scatter, locals())
+    ...
+
+
+@implements(_Scatter)
+def Scatter(**kwargs):
 
     widget_cls = bqplot.marks.Scatter
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ScatterGL(
+del _Scatter
+
+
+def _ScatterGL(
     apply_clip: bool = True,
     color: ndarray = None,
     colors: list = ["steelblue"],
@@ -3032,15 +3260,21 @@ def ScatterGL(
     on_y: typing.Callable[[ndarray], Any] = None,
 ) -> Element[bqplot.marks.ScatterGL]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(ScatterGL, locals())
+    ...
+
+
+@implements(_ScatterGL)
+def ScatterGL(**kwargs):
 
     widget_cls = bqplot.marks.ScatterGL
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Stereographic(
+del _ScatterGL
+
+
+def _Stereographic(
     allow_padding: bool = True,
     center: tuple = (0, 60),
     clip_angle: float = 179.9999,
@@ -3077,15 +3311,21 @@ def Stereographic(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Stereographic, locals())
+    ...
+
+
+@implements(_Stereographic)
+def Stereographic(**kwargs):
 
     widget_cls = bqplot.scales.Stereographic
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Toolbar(
+del _Stereographic
+
+
+def _Toolbar(
     figure: Element[bqplot.figure.Figure] = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
     on_figure: typing.Callable[[Element[bqplot.figure.Figure]], Any] = None,
@@ -3121,16 +3361,22 @@ def Toolbar(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Toolbar, locals())
+    ...
+
+
+@implements(_Toolbar)
+def Toolbar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = bqplot.toolbar.Toolbar
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Tooltip(
+del _Toolbar
+
+
+def _Tooltip(
     fields: list = [],
     formats: list = [],
     labels: list = [],
@@ -3163,9 +3409,16 @@ def Tooltip(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Tooltip, locals())
+    ...
+
+
+@implements(_Tooltip)
+def Tooltip(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = bqplot.default_tooltip.Tooltip
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
+
+
+del _Tooltip

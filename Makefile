@@ -14,7 +14,7 @@ help:
 
 .PHONY: help Makefile components
 
-components: reacton/ipywidgets.py reacton/bqplot.py reacton/ipyvue.py reacton/ipyvuetify.py
+components: reacton/ipywidgets.py reacton/bqplot.py reacton/ipyvue.py reacton/ipyvuetify.py reacton/ipycanvas.py
 
 reacton/ipywidgets.py: reacton/generate.py
 	python -m reacton.ipywidgets
@@ -29,6 +29,8 @@ reacton/ipyvue.py: reacton/generate.py
 reacton/ipyvuetify.py: reacton/generate.py
 	python -m reacton.ipyvuetify
 
+reacton/ipycanvas.py: reacton/generate.py
+	python -m reacton.ipycanvas
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

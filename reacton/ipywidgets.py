@@ -8,10 +8,9 @@ import ipywidgets.widgets.widget_description
 import ipywidgets.widgets.widget_int
 
 import reacton
-import reacton as react
 from reacton.core import Element
 
-from .utils import without_default
+from .utils import implements
 
 # def use_on_click(on_click):
 #     def add_event_handler(button: widgets.Button):
@@ -24,54 +23,54 @@ from .utils import without_default
 #         button.on_click(handler)
 #         return cleanup
 
-#     react.use_effect(add_event_handler)
+#     reacton.use_effect(add_event_handler)
 
 
 def slider_int(value=1, description="", min=0, max=100, key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     IntSlider(value=value, description=description, min=min, max=max, on_value=set_value, **kwargs)
     return value
 
 
 def text_int(value=1, description="", key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     IntText(value=value, description=description, on_value=set_value, **kwargs)
     return value
 
 
 def slider_float(value=1, description="", min=0, max=100, key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     FloatSlider(value=value, description=description, min=min, max=max, on_value=set_value, **kwargs)
     return value
 
 
 def checkbox(value=True, description="", key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     Checkbox(value=value, description=description, on_value=set_value)
     return value
 
 
 def color(value="red", description="", key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     ColorPicker(value=value, description=description, on_value=set_value)
     return value
 
 
 def text(value="Hi there", description="", key=None, **kwargs):
     key = key or str(value) + str(description)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
     Text(value=value, description=description, on_value=set_value)
     return value
 
 
 def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kwargs):
     key = key or str(value) + str(description) + str(options)
-    value, set_value = react.use_state(value, key)
+    value, set_value = reacton.use_state(value, key)
 
     def set_index(index):
         set_value(options[index])
@@ -80,7 +79,7 @@ def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kw
     return value
 
 
-# @react.component
+# @reacton.component
 # def ButtonWithClick(on_click=None, **kwargs):
 #     if on_click is not None:
 #         # TODO: in react, we cannot do this conditionally, we can appearently
@@ -88,7 +87,7 @@ def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kw
 #     return Button(**kwargs)
 
 
-class ButtonElement(react.core.Element):
+class ButtonElement(reacton.core.Element):
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         if name == "on_click":
 
@@ -127,14 +126,14 @@ if __name__ == "__main__":
 def ViewcountVBox(on_view_count) -> Element[ipywidgets.widgets.widget_box.VBox]:
     """Exposes the Widget._view_count throught a VBox, which is not exposed in any widget"""
     widget_cls = ipywidgets.widgets.widget_box.VBox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, _view_count=0, on__view_count=on_view_count)
 
 
 # generated code:
 
 
-def Accordion(
+def _Accordion(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -149,16 +148,22 @@ def Accordion(
     :param children: List of widget children
     :param selected_index: The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected.
     """
-    kwargs: Dict[Any, Any] = without_default(Accordion, locals())
+    ...
+
+
+@implements(_Accordion)
+def Accordion(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Accordion
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def AppLayout(
+del _Accordion
+
+
+def _AppLayout(
     align_items: str = None,
     box_style: str = "",
     center: Element[ipywidgets.Widget] = None,
@@ -241,16 +246,22 @@ def AppLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    kwargs: Dict[Any, Any] = without_default(AppLayout, locals())
+    ...
+
+
+@implements(_AppLayout)
+def AppLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.AppLayout
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Audio(
+del _AppLayout
+
+
+def _Audio(
     autoplay: bool = True,
     controls: bool = True,
     format: str = "mp3",
@@ -280,16 +291,22 @@ def Audio(
     :param loop: When true, the audio will start from the beginning after finishing
     :param value: The media data as a byte string.
     """
-    kwargs: Dict[Any, Any] = without_default(Audio, locals())
+    ...
+
+
+@implements(_Audio)
+def Audio(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Audio
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BoundedFloatText(
+del _Audio
+
+
+def _BoundedFloatText(
     continuous_update: bool = False,
     description: str = "",
     description_tooltip: str = None,
@@ -338,18 +355,24 @@ def BoundedFloatText(
     :param style: Styling customizations
     :param value: Float value
     """
-    kwargs: Dict[Any, Any] = without_default(BoundedFloatText, locals())
+    ...
+
+
+@implements(_BoundedFloatText)
+def BoundedFloatText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.BoundedFloatText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def BoundedIntText(
+del _BoundedFloatText
+
+
+def _BoundedIntText(
     continuous_update: bool = False,
     description: str = "",
     description_tooltip: str = None,
@@ -383,18 +406,24 @@ def BoundedIntText(
     :param style: Styling customizations
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(BoundedIntText, locals())
+    ...
+
+
+@implements(_BoundedIntText)
+def BoundedIntText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.BoundedIntText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Box(
+del _BoundedIntText
+
+
+def _Box(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -426,16 +455,22 @@ def Box(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    kwargs: Dict[Any, Any] = without_default(Box, locals())
+    ...
+
+
+@implements(_Box)
+def Box(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.Box
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Button(
+del _Box
+
+
+def _Button(
     button_style: str = "",
     description: str = "",
     disabled: bool = False,
@@ -474,18 +509,24 @@ def Button(
     :param icon: Font-awesome icon name, without the 'fa-' prefix.
     :param tooltip: Tooltip caption of the button.
     """
-    kwargs: Dict[Any, Any] = without_default(Button, locals())
+    ...
+
+
+@implements(_Button)
+def Button(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_button.Button
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return ButtonElement(comp, **kwargs)
 
 
-###
-def ButtonStyle(
+del _Button
+
+
+def _ButtonStyle(
     button_color: str = None,
     font_weight: str = "",
     on_button_color: typing.Callable[[str], Any] = None,
@@ -495,15 +536,21 @@ def ButtonStyle(
     :param button_color: Color of the button
     :param font_weight: Button text font weight.
     """
-    kwargs: Dict[Any, Any] = without_default(ButtonStyle, locals())
+    ...
+
+
+@implements(_ButtonStyle)
+def ButtonStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_button.ButtonStyle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Checkbox(
+del _ButtonStyle
+
+
+def _Checkbox(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -537,18 +584,24 @@ def Checkbox(
     :param style: Styling customizations
     :param value: Bool value
     """
-    kwargs: Dict[Any, Any] = without_default(Checkbox, locals())
+    ...
+
+
+@implements(_Checkbox)
+def Checkbox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Checkbox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ColorPicker(
+del _Checkbox
+
+
+def _ColorPicker(
     concise: bool = False,
     description: str = "",
     description_tooltip: str = None,
@@ -572,18 +625,24 @@ def ColorPicker(
     :param style: Styling customizations
     :param value: The color value.
     """
-    kwargs: Dict[Any, Any] = without_default(ColorPicker, locals())
+    ...
+
+
+@implements(_ColorPicker)
+def ColorPicker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_color.ColorPicker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Combobox(
+del _ColorPicker
+
+
+def _Combobox(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -617,18 +676,24 @@ def Combobox(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(Combobox, locals())
+    ...
+
+
+@implements(_Combobox)
+def Combobox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Combobox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Controller(
+del _Combobox
+
+
+def _Controller(
     axes: Sequence[Element[ipywidgets.widgets.widget_controller.Axis]] = (),
     buttons: Sequence[Element[ipywidgets.widgets.widget_controller.Button]] = (),
     connected: bool = False,
@@ -655,40 +720,58 @@ def Controller(
     :param name: The name of the controller.
     :param timestamp: The last time the data from this gamepad was updated.
     """
-    kwargs: Dict[Any, Any] = without_default(Controller, locals())
+    ...
+
+
+@implements(_Controller)
+def Controller(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_controller.Controller
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
+del _Controller
+
+
+def _CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(CoreWidget, locals())
+    ...
+
+
+@implements(_CoreWidget)
+def CoreWidget(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_core.CoreWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DOMWidget(
+del _CoreWidget
+
+
+def _DOMWidget(
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
 ) -> Element[ipywidgets.widgets.domwidget.DOMWidget]:
     """Widget that can be inserted into the DOM"""
-    kwargs: Dict[Any, Any] = without_default(DOMWidget, locals())
+    ...
+
+
+@implements(_DOMWidget)
+def DOMWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.domwidget.DOMWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DatePicker(
+del _DOMWidget
+
+
+def _DatePicker(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -727,18 +810,24 @@ def DatePicker(
     :param disabled: Enable or disable user changes.
     :param style: Styling customizations
     """
-    kwargs: Dict[Any, Any] = without_default(DatePicker, locals())
+    ...
+
+
+@implements(_DatePicker)
+def DatePicker(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_date.DatePicker
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Dropdown(
+del _DatePicker
+
+
+def _Dropdown(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -802,18 +891,24 @@ def Dropdown(
     :param style: Styling customizations
     :param value: Selected value
     """
-    kwargs: Dict[Any, Any] = without_default(Dropdown, locals())
+    ...
+
+
+@implements(_Dropdown)
+def Dropdown(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Dropdown
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FileUpload(
+del _Dropdown
+
+
+def _FileUpload(
     accept: str = "",
     button_style: str = "",
     data: list = [],
@@ -855,18 +950,24 @@ def FileUpload(
     :param metadata: List of file metadata
     :param multiple: If True, allow for multiple files upload
     """
-    kwargs: Dict[Any, Any] = without_default(FileUpload, locals())
+    ...
+
+
+@implements(_FileUpload)
+def FileUpload(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_upload.FileUpload
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FloatLogSlider(
+del _FileUpload
+
+
+def _FloatLogSlider(
     base: float = 10.0,
     continuous_update: bool = True,
     description: str = "",
@@ -934,18 +1035,24 @@ def FloatLogSlider(
     :param step: Minimum step in the exponent to increment the value
     :param value: Float value
     """
-    kwargs: Dict[Any, Any] = without_default(FloatLogSlider, locals())
+    ...
+
+
+@implements(_FloatLogSlider)
+def FloatLogSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatLogSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FloatProgress(
+del _FloatLogSlider
+
+
+def _FloatProgress(
     bar_style: str = "",
     description: str = "",
     description_tooltip: str = None,
@@ -991,18 +1098,24 @@ def FloatProgress(
     :param orientation: Vertical or horizontal.
     :param value: Float value
     """
-    kwargs: Dict[Any, Any] = without_default(FloatProgress, locals())
+    ...
+
+
+@implements(_FloatProgress)
+def FloatProgress(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatProgress
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FloatRangeSlider(
+del _FloatProgress
+
+
+def _FloatRangeSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -1065,18 +1178,24 @@ def FloatRangeSlider(
     :param step: Minimum step to increment the value
     :param value: Tuple of (lower, upper) bounds
     """
-    kwargs: Dict[Any, Any] = without_default(FloatRangeSlider, locals())
+    ...
+
+
+@implements(_FloatRangeSlider)
+def FloatRangeSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatRangeSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FloatSlider(
+del _FloatRangeSlider
+
+
+def _FloatSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -1139,18 +1258,24 @@ def FloatSlider(
     :param step: Minimum step to increment the value
     :param value: Float value
     """
-    kwargs: Dict[Any, Any] = without_default(FloatSlider, locals())
+    ...
+
+
+@implements(_FloatSlider)
+def FloatSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def FloatText(
+del _FloatSlider
+
+
+def _FloatText(
     continuous_update: bool = False,
     description: str = "",
     description_tooltip: str = None,
@@ -1188,18 +1313,24 @@ def FloatText(
     :param style: Styling customizations
     :param value: Float value
     """
-    kwargs: Dict[Any, Any] = without_default(FloatText, locals())
+    ...
+
+
+@implements(_FloatText)
+def FloatText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def GridBox(
+del _FloatText
+
+
+def _GridBox(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1227,16 +1358,22 @@ def GridBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    kwargs: Dict[Any, Any] = without_default(GridBox, locals())
+    ...
+
+
+@implements(_GridBox)
+def GridBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.GridBox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def GridspecLayout(
+del _GridBox
+
+
+def _GridspecLayout(
     align_items: str = None,
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
@@ -1301,16 +1438,22 @@ def GridspecLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    kwargs: Dict[Any, Any] = without_default(GridspecLayout, locals())
+    ...
+
+
+@implements(_GridspecLayout)
+def GridspecLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.GridspecLayout
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def HBox(
+del _GridspecLayout
+
+
+def _HBox(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1340,16 +1483,22 @@ def HBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    kwargs: Dict[Any, Any] = without_default(HBox, locals())
+    ...
+
+
+@implements(_HBox)
+def HBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.HBox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def HTML(
+del _HBox
+
+
+def _HTML(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1370,18 +1519,24 @@ def HTML(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(HTML, locals())
+    ...
+
+
+@implements(_HTML)
+def HTML(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTML
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def HTMLMath(
+del _HTML
+
+
+def _HTMLMath(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1402,18 +1557,24 @@ def HTMLMath(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(HTMLMath, locals())
+    ...
+
+
+@implements(_HTMLMath)
+def HTMLMath(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTMLMath
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Image(
+del _HTMLMath
+
+
+def _Image(
     format: str = "png",
     height: str = "",
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1440,16 +1601,22 @@ def Image(
     :param value: The media data as a byte string.
     :param width: Width of the image in pixels. Use layout.width for styling the widget.
     """
-    kwargs: Dict[Any, Any] = without_default(Image, locals())
+    ...
+
+
+@implements(_Image)
+def Image(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Image
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def IntProgress(
+del _Image
+
+
+def _IntProgress(
     bar_style: str = "",
     description: str = "",
     description_tooltip: str = None,
@@ -1479,18 +1646,24 @@ def IntProgress(
     :param orientation: Vertical or horizontal.
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(IntProgress, locals())
+    ...
+
+
+@implements(_IntProgress)
+def IntProgress(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntProgress
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def IntRangeSlider(
+del _IntProgress
+
+
+def _IntRangeSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -1542,18 +1715,24 @@ def IntRangeSlider(
     :param style: Slider style customizations.
     :param value: Tuple of (lower, upper) bounds
     """
-    kwargs: Dict[Any, Any] = without_default(IntRangeSlider, locals())
+    ...
+
+
+@implements(_IntRangeSlider)
+def IntRangeSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntRangeSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def IntSlider(
+del _IntRangeSlider
+
+
+def _IntSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -1595,18 +1774,24 @@ def IntSlider(
     :param step: Minimum step to increment the value
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(IntSlider, locals())
+    ...
+
+
+@implements(_IntSlider)
+def IntSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def IntText(
+del _IntSlider
+
+
+def _IntText(
     continuous_update: bool = False,
     description: str = "",
     description_tooltip: str = None,
@@ -1633,18 +1818,24 @@ def IntText(
     :param style: Styling customizations
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(IntText, locals())
+    ...
+
+
+@implements(_IntText)
+def IntText(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntText
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Label(
+del _IntText
+
+
+def _Label(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -1669,18 +1860,24 @@ def Label(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(Label, locals())
+    ...
+
+
+@implements(_Label)
+def Label(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Label
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Layout(
+del _Label
+
+
+def _Layout(
     align_content: str = None,
     align_items: str = None,
     align_self: str = None,
@@ -1810,15 +2007,21 @@ def Layout(
     :param visibility: The visibility CSS attribute.
     :param width: The width CSS attribute.
     """
-    kwargs: Dict[Any, Any] = without_default(Layout, locals())
+    ...
+
+
+@implements(_Layout)
+def Layout(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_layout.Layout
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Output(
+del _Layout
+
+
+def _Output(
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
     msg_id: str = "",
     outputs: Sequence[dict] = (),
@@ -1857,16 +2060,22 @@ def Output(
     :param msg_id: Parent message id of messages to capture
     :param outputs: The output messages synced from the frontend.
     """
-    kwargs: Dict[Any, Any] = without_default(Output, locals())
+    ...
+
+
+@implements(_Output)
+def Output(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_output.Output
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Password(
+del _Output
+
+
+def _Password(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -1893,18 +2102,24 @@ def Password(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(Password, locals())
+    ...
+
+
+@implements(_Password)
+def Password(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Password
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Play(
+del _Password
+
+
+def _Play(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -1941,18 +2156,24 @@ def Play(
     :param style: Styling customizations
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(Play, locals())
+    ...
+
+
+@implements(_Play)
+def Play(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.Play
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def RadioButtons(
+del _Play
+
+
+def _RadioButtons(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -2018,18 +2239,24 @@ def RadioButtons(
     :param style: Styling customizations
     :param value: Selected value
     """
-    kwargs: Dict[Any, Any] = without_default(RadioButtons, locals())
+    ...
+
+
+@implements(_RadioButtons)
+def RadioButtons(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.RadioButtons
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Select(
+del _RadioButtons
+
+
+def _Select(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -2100,18 +2327,24 @@ def Select(
     :param style: Styling customizations
     :param value: Selected value
     """
-    kwargs: Dict[Any, Any] = without_default(Select, locals())
+    ...
+
+
+@implements(_Select)
+def Select(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Select
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SelectMultiple(
+del _Select
+
+
+def _SelectMultiple(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -2189,18 +2422,24 @@ def SelectMultiple(
     :param style: Styling customizations
     :param value: Selected values
     """
-    kwargs: Dict[Any, Any] = without_default(SelectMultiple, locals())
+    ...
+
+
+@implements(_SelectMultiple)
+def SelectMultiple(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectMultiple
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SelectionRangeSlider(
+del _SelectMultiple
+
+
+def _SelectionRangeSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -2293,18 +2532,24 @@ def SelectionRangeSlider(
     :param style: Styling customizations
     :param value: Min and max selected values
     """
-    kwargs: Dict[Any, Any] = without_default(SelectionRangeSlider, locals())
+    ...
+
+
+@implements(_SelectionRangeSlider)
+def SelectionRangeSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionRangeSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SelectionSlider(
+del _SelectionRangeSlider
+
+
+def _SelectionSlider(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -2389,18 +2634,24 @@ def SelectionSlider(
     :param style: Styling customizations
     :param value: Selected value
     """
-    kwargs: Dict[Any, Any] = without_default(SelectionSlider, locals())
+    ...
+
+
+@implements(_SelectionSlider)
+def SelectionSlider(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionSlider
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def SliderStyle(
+del _SelectionSlider
+
+
+def _SliderStyle(
     description_width: str = "",
     handle_color: str = None,
     on_description_width: typing.Callable[[str], Any] = None,
@@ -2410,25 +2661,37 @@ def SliderStyle(
     :param description_width: Width of the description to the side of the control.
     :param handle_color: Color of the slider handle.
     """
-    kwargs: Dict[Any, Any] = without_default(SliderStyle, locals())
+    ...
+
+
+@implements(_SliderStyle)
+def SliderStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_int.SliderStyle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Style() -> Element[ipywidgets.widgets.widget_style.Style]:
+del _SliderStyle
+
+
+def _Style() -> Element[ipywidgets.widgets.widget_style.Style]:
     """Style specification"""
-    kwargs: Dict[Any, Any] = without_default(Style, locals())
+    ...
+
+
+@implements(_Style)
+def Style(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_style.Style
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Tab(
+del _Style
+
+
+def _Tab(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -2443,16 +2706,22 @@ def Tab(
     :param children: List of widget children
     :param selected_index: The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected.
     """
-    kwargs: Dict[Any, Any] = without_default(Tab, locals())
+    ...
+
+
+@implements(_Tab)
+def Tab(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Tab
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Text(
+del _Tab
+
+
+def _Text(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -2479,18 +2748,24 @@ def Text(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(Text, locals())
+    ...
+
+
+@implements(_Text)
+def Text(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Text
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Textarea(
+del _Text
+
+
+def _Textarea(
     continuous_update: bool = True,
     description: str = "",
     description_tooltip: str = None,
@@ -2520,18 +2795,24 @@ def Textarea(
     :param style: Styling customizations
     :param value: String value
     """
-    kwargs: Dict[Any, Any] = without_default(Textarea, locals())
+    ...
+
+
+@implements(_Textarea)
+def Textarea(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Textarea
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ToggleButton(
+del _Textarea
+
+
+def _ToggleButton(
     button_style: str = "",
     description: str = "",
     description_tooltip: str = None,
@@ -2573,18 +2854,24 @@ def ToggleButton(
     :param tooltip: Tooltip caption of the toggle button.
     :param value: Bool value
     """
-    kwargs: Dict[Any, Any] = without_default(ToggleButton, locals())
+    ...
+
+
+@implements(_ToggleButton)
+def ToggleButton(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.ToggleButton
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ToggleButtons(
+del _ToggleButton
+
+
+def _ToggleButtons(
     button_style: str = "",
     description: str = "",
     description_tooltip: str = None,
@@ -2674,18 +2961,24 @@ def ToggleButtons(
     :param tooltips: Tooltips for each button.
     :param value: Selected value
     """
-    kwargs: Dict[Any, Any] = without_default(ToggleButtons, locals())
+    ...
+
+
+@implements(_ToggleButtons)
+def ToggleButtons(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ToggleButtonsStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtons
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ToggleButtonsStyle(
+del _ToggleButtons
+
+
+def _ToggleButtonsStyle(
     button_width: str = "",
     description_width: str = "",
     font_weight: str = "",
@@ -2709,15 +3002,21 @@ def ToggleButtonsStyle(
     :param description_width: Width of the description to the side of the control.
     :param font_weight: Text font weight of each button.
     """
-    kwargs: Dict[Any, Any] = without_default(ToggleButtonsStyle, locals())
+    ...
+
+
+@implements(_ToggleButtonsStyle)
+def ToggleButtonsStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtonsStyle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def TwoByTwoLayout(
+del _ToggleButtonsStyle
+
+
+def _TwoByTwoLayout(
     align_items: str = None,
     bottom_left: Element[ipywidgets.Widget] = None,
     bottom_right: Element[ipywidgets.Widget] = None,
@@ -2790,16 +3089,22 @@ def TwoByTwoLayout(
     :param justify_content: The justify-content CSS attribute.
     :param width: The width CSS attribute.
     """
-    kwargs: Dict[Any, Any] = without_default(TwoByTwoLayout, locals())
+    ...
+
+
+@implements(_TwoByTwoLayout)
+def TwoByTwoLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.TwoByTwoLayout
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def VBox(
+del _TwoByTwoLayout
+
+
+def _VBox(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -2829,16 +3134,22 @@ def VBox(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    kwargs: Dict[Any, Any] = without_default(VBox, locals())
+    ...
+
+
+@implements(_VBox)
+def VBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.VBox
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Valid(
+del _VBox
+
+
+def _Valid(
     description: str = "",
     description_tooltip: str = None,
     disabled: bool = False,
@@ -2869,30 +3180,42 @@ def Valid(
     :param style: Styling customizations
     :param value: Bool value
     """
-    kwargs: Dict[Any, Any] = without_default(Valid, locals())
+    ...
+
+
+@implements(_Valid)
+def Valid(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Valid
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None) -> Element[ipywidgets.widgets.valuewidget.ValueWidget]:
+del _Valid
+
+
+def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None) -> Element[ipywidgets.widgets.valuewidget.ValueWidget]:
     """Widget that can be used for the input of an interactive function
     :param value: The value of the widget.
     """
-    kwargs: Dict[Any, Any] = without_default(ValueWidget, locals())
+    ...
+
+
+@implements(_ValueWidget)
+def ValueWidget(**kwargs):
 
     widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Video(
+del _ValueWidget
+
+
+def _Video(
     autoplay: bool = True,
     controls: bool = True,
     format: str = "mp4",
@@ -2928,16 +3251,22 @@ def Video(
     :param value: The media data as a byte string.
     :param width: Width of the video in pixels.
     """
-    kwargs: Dict[Any, Any] = without_default(Video, locals())
+    ...
+
+
+@implements(_Video)
+def Video(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Video
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def interactive(
+del _Video
+
+
+def _interactive(
     box_style: str = "",
     children: Sequence[Element[ipywidgets.Widget]] = (),
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -2968,30 +3297,42 @@ def interactive(
     :param box_style: Use a predefined styling for the box.
     :param children: List of widget children
     """
-    kwargs: Dict[Any, Any] = without_default(interactive, locals())
+    ...
+
+
+@implements(_interactive)
+def interactive(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.interaction.interactive
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DescriptionStyle(
+del _interactive
+
+
+def _DescriptionStyle(
     description_width: str = "", on_description_width: typing.Callable[[str], Any] = None
 ) -> Element[ipywidgets.widgets.widget_description.DescriptionStyle]:
     """Description style widget.
     :param description_width: Width of the description to the side of the control.
     """
-    kwargs: Dict[Any, Any] = without_default(DescriptionStyle, locals())
+    ...
+
+
+@implements(_DescriptionStyle)
+def DescriptionStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_description.DescriptionStyle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def DescriptionWidget(
+del _DescriptionStyle
+
+
+def _DescriptionWidget(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3006,18 +3347,24 @@ def DescriptionWidget(
     :param description_tooltip: Tooltip for the description (defaults to description).
     :param style: Styling customizations
     """
-    kwargs: Dict[Any, Any] = without_default(DescriptionWidget, locals())
+    ...
+
+
+@implements(_DescriptionWidget)
+def DescriptionWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_description.DescriptionWidget
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def ProgressStyle(
+del _DescriptionWidget
+
+
+def _ProgressStyle(
     bar_color: str = None,
     description_width: str = "",
     on_bar_color: typing.Callable[[str], Any] = None,
@@ -3027,15 +3374,21 @@ def ProgressStyle(
     :param bar_color: Color of the progress bar.
     :param description_width: Width of the description to the side of the control.
     """
-    kwargs: Dict[Any, Any] = without_default(ProgressStyle, locals())
+    ...
+
+
+@implements(_ProgressStyle)
+def ProgressStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_int.ProgressStyle
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def _BoundedInt(
+del _ProgressStyle
+
+
+def __BoundedInt(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3060,18 +3413,24 @@ def _BoundedInt(
     :param style: Styling customizations
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(_BoundedInt, locals())
+    ...
+
+
+@implements(__BoundedInt)
+def _BoundedInt(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedInt
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def _BoundedIntRange(
+del __BoundedInt
+
+
+def __BoundedIntRange(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3095,18 +3454,24 @@ def _BoundedIntRange(
     :param style: Styling customizations
     :param value: Tuple of (lower, upper) bounds
     """
-    kwargs: Dict[Any, Any] = without_default(_BoundedIntRange, locals())
+    ...
+
+
+@implements(__BoundedIntRange)
+def _BoundedIntRange(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedIntRange
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def _Int(
+del __BoundedIntRange
+
+
+def __Int(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3124,18 +3489,24 @@ def _Int(
     :param style: Styling customizations
     :param value: Int value
     """
-    kwargs: Dict[Any, Any] = without_default(_Int, locals())
+    ...
+
+
+@implements(__Int)
+def _Int(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._Int
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def _IntRange(
+del __Int
+
+
+def __IntRange(
     description: str = "",
     description_tooltip: str = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -3153,11 +3524,18 @@ def _IntRange(
     :param style: Styling customizations
     :param value: Tuple of (lower, upper) bounds
     """
-    kwargs: Dict[Any, Any] = without_default(_IntRange, locals())
+    ...
+
+
+@implements(__IntRange)
+def _IntRange(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._IntRange
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
+
+
+del __IntRange

@@ -4,11 +4,11 @@ from typing import Any, Dict, Union
 import ipycanvas
 import ipywidgets
 
-import reacton as react
+import reacton
 from reacton.core import Element
 
 from . import ipywidgets as w
-from .utils import without_default
+from .utils import implements
 
 if __name__ == "__main__":
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 # generated code:
 
 
-def Canvas(
+def _Canvas(
     direction: str = "inherit",
     fill_style: typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]] = "black",
     filter: str = "none",
@@ -76,16 +76,22 @@ def Canvas(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Canvas, locals())
+    ...
+
+
+@implements(_Canvas)
+def Canvas(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.Canvas
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def MultiCanvas(
+del _Canvas
+
+
+def _MultiCanvas(
     height: int = 500,
     image_data: bytes = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -106,16 +112,22 @@ def MultiCanvas(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(MultiCanvas, locals())
+    ...
+
+
+@implements(_MultiCanvas)
+def MultiCanvas(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.MultiCanvas
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def MultiRoughCanvas(
+del _MultiCanvas
+
+
+def _MultiRoughCanvas(
     height: int = 500,
     image_data: bytes = None,
     layout: Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]] = {},
@@ -136,16 +148,22 @@ def MultiRoughCanvas(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(MultiRoughCanvas, locals())
+    ...
+
+
+@implements(_MultiRoughCanvas)
+def MultiRoughCanvas(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.MultiRoughCanvas
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def Path2D(value: str = "", on_value: typing.Callable[[str], Any] = None) -> Element[ipycanvas.canvas.Path2D]:
+del _MultiRoughCanvas
+
+
+def _Path2D(value: str = "", on_value: typing.Callable[[str], Any] = None) -> Element[ipycanvas.canvas.Path2D]:
     """Create a Path2D.
 
     Args:
@@ -153,15 +171,21 @@ def Path2D(value: str = "", on_value: typing.Callable[[str], Any] = None) -> Ele
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(Path2D, locals())
+    ...
+
+
+@implements(_Path2D)
+def Path2D(**kwargs):
 
     widget_cls = ipycanvas.canvas.Path2D
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
 
 
-###
-def RoughCanvas(
+del _Path2D
+
+
+def _RoughCanvas(
     bowing: float = 1,
     direction: str = "inherit",
     fill_style: typing.Union[str, Element[ipycanvas.canvas._CanvasGradient], Element[ipycanvas.canvas.Pattern]] = "black",
@@ -223,9 +247,16 @@ def RoughCanvas(
 
 
     """
-    kwargs: Dict[Any, Any] = without_default(RoughCanvas, locals())
+    ...
+
+
+@implements(_RoughCanvas)
+def RoughCanvas(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.RoughCanvas
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
+
+
+del _RoughCanvas
