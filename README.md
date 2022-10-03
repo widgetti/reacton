@@ -1,5 +1,5 @@
-[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.readthedocs.io/)
-[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.readthedocs.io/en/latest/_output/lab/index.html)
+[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.solara.dev/)
+[![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.solara.dev/en/latest/_output/lab/index.html)
 
 # Reacton: React for ipywidgets
 
@@ -133,7 +133,7 @@ The `MarkdownEditor` component also shows another feature we can provide: All co
 # Documentation
 
 
-[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.readthedocs.io/)
+[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.solara.dev/)
 
 
 ## Examples
@@ -147,13 +147,13 @@ Our example notebooks can be found at:
 
 Or try them out directly in a Jupyter environment (JupyterLite)
 
-   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.readthedocs.io/en/latest/_output/lab/index.html)
+   * [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.solara.dev/en/latest/_output/lab/index.html)
 
 Direct link to examples:
 
-   * [ButtonClick](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=click-button.ipynb)
-   * [Calculator](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=calculator.ipynb)
-   * [Todo-app](https://reacton.readthedocs.io/en/latest/_output/lab/index.html?path=todo-app.ipynb)
+   * [ButtonClick](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=click-button.ipynb)
+   * [Calculator](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=calculator.ipynb)
+   * [Todo-app](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=todo-app.ipynb)
 
 
 # Installation
