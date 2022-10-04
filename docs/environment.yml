@@ -14,3 +14,4 @@ dependencies:
       - jupyterlite-sphinx
       - jupyterlite-xeus-python
       - jupyterlab-night
+      - jupyterlab_google_analytics
