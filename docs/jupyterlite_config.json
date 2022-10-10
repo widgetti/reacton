@@ -1,7 +1,7 @@
 {
     "XeusPythonEnv": {
         "packages": [
-            "react-ipywidgets",
+            "reacton",
             "bqplot",
             "ipyvue",
             "ipyvuetify"
