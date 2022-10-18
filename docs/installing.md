@@ -1,5 +1,5 @@
 ## Installing
 
 ```bash
-$ pip install Reacton
+$ pip install reacton
 ```
