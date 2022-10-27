@@ -1,3 +1,4 @@
+import functools
 import inspect
 from typing import Callable, TypeVar, cast
 
@@ -19,7 +20,8 @@ def without_default(func: Callable, kwargs):
 
 def implements(f: Callable[P, T]):
     def caster(fimpl: Callable) -> Callable[P, T]:
-        return cast(Callable[P, T], fimpl)
+        # wraps gives us the right signature at runtime (such as Jupyter)
+        return cast(Callable[P, T], functools.wraps(f)(fimpl))
 
     return caster
 
