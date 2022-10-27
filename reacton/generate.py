@@ -261,13 +261,14 @@ def {{ method_name }}(**kwargs):
     {{InstanceDict_fixes}}
     widget_cls = {{class_name}}
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return {{element_class_name}}(comp, **kwargs)
+    return {{element_class_name}}(comp, kwargs=kwargs)
 
 
 del _{{ method_name }}
 
         """
         )
+
         code = code_method.render(
             element_class_name=element_class_name,
             method_name=method_name,

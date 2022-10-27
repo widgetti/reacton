@@ -145,12 +145,12 @@ class Element(Generic[W]):
     create_lock: ContextManager = threading.Lock()
     _shared = False
 
-    def __init__(self, component, *args, **kwargs):
+    def __init__(self, component, args=None, kwargs=None):
         self.component = component
         self.mime_bundle = mime_bundle_default
         self._key: Optional[str] = None
-        self.args = args
-        self.kwargs = kwargs
+        self.args = args or []
+        self.kwargs = kwargs or {}
         self.handlers = []
         self._meta = {}
         # for debugging/testing only
@@ -415,7 +415,7 @@ class ComponentWidget(Component):
         return f"Component[{self.widget!r}]"
 
     def __call__(self, *args, **kwargs):
-        el: Element = Element(self, *args, **kwargs)
+        el: Element = Element(self, args=args, kwargs=kwargs)
         # TODO: temporary, we cannot change the constructor
         # otherwise we need to generate the wrapper code again for all libraries
         el.mime_bundle = self.mime_bundle
@@ -440,7 +440,7 @@ class ComponentFunction(Component):
         return f"react.component({self.f.__module__}.{self.f.__name__})"
 
     def __call__(self, *args, **kwargs):
-        el: Element = Element(self, *args, **kwargs)
+        el: Element = Element(self, args=args, kwargs=kwargs)
         el.mime_bundle = self.mime_bundle
         return el
 

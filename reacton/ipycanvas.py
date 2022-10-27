@@ -85,7 +85,7 @@ def Canvas(**kwargs):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.Canvas
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Canvas
@@ -121,7 +121,7 @@ def MultiCanvas(**kwargs):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.MultiCanvas
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _MultiCanvas
@@ -157,7 +157,7 @@ def MultiRoughCanvas(**kwargs):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.MultiRoughCanvas
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _MultiRoughCanvas
@@ -179,7 +179,7 @@ def Path2D(**kwargs):
 
     widget_cls = ipycanvas.canvas.Path2D
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Path2D
@@ -256,7 +256,7 @@ def RoughCanvas(**kwargs):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
     widget_cls = ipycanvas.canvas.RoughCanvas
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _RoughCanvas

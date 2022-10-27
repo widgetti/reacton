@@ -25,7 +25,7 @@ def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _MyTest
@@ -59,7 +59,7 @@ def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _MyTest'''
@@ -90,7 +90,7 @@ def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _MyTest

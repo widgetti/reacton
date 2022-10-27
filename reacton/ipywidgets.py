@@ -127,7 +127,7 @@ def ViewcountVBox(on_view_count) -> Element[ipywidgets.widgets.widget_box.VBox]:
     """Exposes the Widget._view_count throught a VBox, which is not exposed in any widget"""
     widget_cls = ipywidgets.widgets.widget_box.VBox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, _view_count=0, on__view_count=on_view_count)
+    return Element(comp, kwargs={"_view_count": 0, "on__view_count": on_view_count})
 
 
 # generated code:
@@ -157,7 +157,7 @@ def Accordion(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Accordion
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Accordion
@@ -255,7 +255,7 @@ def AppLayout(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.AppLayout
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _AppLayout
@@ -300,7 +300,7 @@ def Audio(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Audio
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Audio
@@ -366,7 +366,7 @@ def BoundedFloatText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.BoundedFloatText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _BoundedFloatText
@@ -417,7 +417,7 @@ def BoundedIntText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.BoundedIntText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _BoundedIntText
@@ -464,7 +464,7 @@ def Box(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.Box
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Box
@@ -520,7 +520,7 @@ def Button(**kwargs):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_button.Button
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ButtonElement(comp, **kwargs)
+    return ButtonElement(comp, kwargs=kwargs)
 
 
 del _Button
@@ -544,7 +544,7 @@ def ButtonStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_button.ButtonStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ButtonStyle
@@ -595,7 +595,7 @@ def Checkbox(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Checkbox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Checkbox
@@ -636,7 +636,7 @@ def ColorPicker(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_color.ColorPicker
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ColorPicker
@@ -687,7 +687,7 @@ def Combobox(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Combobox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Combobox
@@ -729,7 +729,7 @@ def Controller(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_controller.Controller
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Controller
@@ -745,7 +745,7 @@ def CoreWidget(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_core.CoreWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _CoreWidget
@@ -765,7 +765,7 @@ def DOMWidget(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.domwidget.DOMWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _DOMWidget
@@ -821,7 +821,7 @@ def DatePicker(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_date.DatePicker
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _DatePicker
@@ -902,7 +902,7 @@ def Dropdown(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Dropdown
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Dropdown
@@ -961,7 +961,7 @@ def FileUpload(**kwargs):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_upload.FileUpload
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FileUpload
@@ -1046,7 +1046,7 @@ def FloatLogSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatLogSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FloatLogSlider
@@ -1109,7 +1109,7 @@ def FloatProgress(**kwargs):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatProgress
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FloatProgress
@@ -1189,7 +1189,7 @@ def FloatRangeSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FloatRangeSlider
@@ -1269,7 +1269,7 @@ def FloatSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FloatSlider
@@ -1324,7 +1324,7 @@ def FloatText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _FloatText
@@ -1367,7 +1367,7 @@ def GridBox(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.GridBox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _GridBox
@@ -1447,7 +1447,7 @@ def GridspecLayout(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.GridspecLayout
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _GridspecLayout
@@ -1492,7 +1492,7 @@ def HBox(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.HBox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _HBox
@@ -1530,7 +1530,7 @@ def HTML(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTML
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _HTML
@@ -1568,7 +1568,7 @@ def HTMLMath(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTMLMath
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _HTMLMath
@@ -1610,7 +1610,7 @@ def Image(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Image
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Image
@@ -1657,7 +1657,7 @@ def IntProgress(**kwargs):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntProgress
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _IntProgress
@@ -1726,7 +1726,7 @@ def IntRangeSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _IntRangeSlider
@@ -1785,7 +1785,7 @@ def IntSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _IntSlider
@@ -1829,7 +1829,7 @@ def IntText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _IntText
@@ -1871,7 +1871,7 @@ def Label(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Label
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Label
@@ -2015,7 +2015,7 @@ def Layout(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_layout.Layout
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Layout
@@ -2069,7 +2069,7 @@ def Output(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_output.Output
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Output
@@ -2113,7 +2113,7 @@ def Password(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Password
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Password
@@ -2167,7 +2167,7 @@ def Play(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.Play
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Play
@@ -2250,7 +2250,7 @@ def RadioButtons(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.RadioButtons
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _RadioButtons
@@ -2338,7 +2338,7 @@ def Select(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Select
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Select
@@ -2433,7 +2433,7 @@ def SelectMultiple(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectMultiple
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _SelectMultiple
@@ -2543,7 +2543,7 @@ def SelectionRangeSlider(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _SelectionRangeSlider
@@ -2645,7 +2645,7 @@ def SelectionSlider(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _SelectionSlider
@@ -2669,7 +2669,7 @@ def SliderStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_int.SliderStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _SliderStyle
@@ -2685,7 +2685,7 @@ def Style(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_style.Style
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Style
@@ -2715,7 +2715,7 @@ def Tab(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_selectioncontainer.Tab
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Tab
@@ -2759,7 +2759,7 @@ def Text(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Text
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Text
@@ -2806,7 +2806,7 @@ def Textarea(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Textarea
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Textarea
@@ -2865,7 +2865,7 @@ def ToggleButton(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.ToggleButton
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ToggleButton
@@ -2972,7 +2972,7 @@ def ToggleButtons(**kwargs):
         kwargs["style"] = ToggleButtonsStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtons
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ToggleButtons
@@ -3010,7 +3010,7 @@ def ToggleButtonsStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtonsStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ToggleButtonsStyle
@@ -3098,7 +3098,7 @@ def TwoByTwoLayout(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_templates.TwoByTwoLayout
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _TwoByTwoLayout
@@ -3143,7 +3143,7 @@ def VBox(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_box.VBox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _VBox
@@ -3191,7 +3191,7 @@ def Valid(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Valid
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Valid
@@ -3209,7 +3209,7 @@ def ValueWidget(**kwargs):
 
     widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ValueWidget
@@ -3260,7 +3260,7 @@ def Video(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Video
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _Video
@@ -3306,7 +3306,7 @@ def interactive(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.interaction.interactive
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _interactive
@@ -3326,7 +3326,7 @@ def DescriptionStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_description.DescriptionStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _DescriptionStyle
@@ -3358,7 +3358,7 @@ def DescriptionWidget(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_description.DescriptionWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _DescriptionWidget
@@ -3382,7 +3382,7 @@ def ProgressStyle(**kwargs):
 
     widget_cls = ipywidgets.widgets.widget_int.ProgressStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del _ProgressStyle
@@ -3424,7 +3424,7 @@ def _BoundedInt(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedInt
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del __BoundedInt
@@ -3465,7 +3465,7 @@ def _BoundedIntRange(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedIntRange
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del __BoundedIntRange
@@ -3500,7 +3500,7 @@ def _Int(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._Int
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del __Int
@@ -3535,7 +3535,7 @@ def _IntRange(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._IntRange
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)
+    return Element(comp, kwargs=kwargs)
 
 
 del __IntRange
