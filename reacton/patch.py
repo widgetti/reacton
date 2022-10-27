@@ -14,6 +14,7 @@ class Callable(traitlets.traitlets.TraitType):
 # for py36 we are stuck with a version that does not have this
 if not hasattr(traitlets.traitlets, "Callable"):
     traitlets.traitlets.Callable = Callable
+    traitlets.Callable = Callable
 
 if not hasattr(traitlets.traitlets.TraitType, "default"):
 
