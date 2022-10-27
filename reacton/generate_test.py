@@ -13,16 +13,23 @@ def test_basic():
     code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
-def MyTest(
+def _MyTest(
     a: int = 1, b: int = 0, on_a: typing.Callable[[int], Any] = None, on_b: typing.Callable[[int], Any] = None
 ) -> Element[reacton.generate_test.MyTest]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(MyTest, locals())
+    ...
+
+
+@implements(_MyTest)
+def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
-    '''
+
+
+del _MyTest
+'''
     assert code.strip() == code_expected.strip()
 
 
@@ -40,16 +47,22 @@ def test_instance_non_widget():
     code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
-def MyTest(
+def _MyTest(
     a: reacton.generate_test.NonWidget = None, on_a: typing.Callable[[reacton.generate_test.NonWidget], Any] = None
 ) -> Element[reacton.generate_test.MyTest]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(MyTest, locals())
+    ...
+
+
+@implements(_MyTest)
+def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
-    comp = react.core.ComponentWidget(widget=widget_cls)
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, **kwargs)
-'''
+
+
+del _MyTest'''
     assert code.strip() == code_expected.strip()
 
 
@@ -65,15 +78,23 @@ def test_instance_widget():
     code = gen.generate_component(MyTest).strip()
 
     code_expected = '''
-def MyTest(
+def _MyTest(
     a: Element[reacton.generate_test.SomeWidget] = None, on_a: typing.Callable[[Element[reacton.generate_test.SomeWidget]], Any] = None
 ) -> Element[reacton.generate_test.MyTest]:
     """ """
-    kwargs: Dict[Any, Any] = without_default(MyTest, locals())
+    ...
+
+
+@implements(_MyTest)
+def MyTest(**kwargs):
 
     widget_cls = reacton.generate_test.MyTest
-    comp = react.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, **kwargs)'''
+    comp = reacton.core.ComponentWidget(widget=widget_cls)
+    return Element(comp, **kwargs)
+
+
+del _MyTest
+'''
     assert code.strip() == code_expected.strip()
 
 

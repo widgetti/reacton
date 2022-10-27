@@ -39,6 +39,7 @@ import ipywidgets
 import ipywidgets as widgets
 from typing_extensions import Literal
 
+from . import patch  # noqa: F401
 from . import _version
 
 __version__ = _version.__version__

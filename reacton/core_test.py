@@ -664,7 +664,7 @@ def test_shared_instance_via_widget_element(ButtonComponent, Container):
         else:
             return Container(children=[ButtonComponent(description=f"Button {i}") for i in range(2)])
 
-    hbox, rc = react.render(Buttons(checkbox))
+    hbox, rc = react.render(Buttons(checkbox), handle_error=False)
     vbox = hbox.children[0]
     assert vbox.children[0] is vbox.children[1]
     assert vbox.children[0].description == "Button shared"

@@ -91,6 +91,9 @@ class CodeGen(Generic[W]):
     def get_extra_argument(self, cls):
         return []
 
+    def has_callback(self, cls, name):
+        return True
+
     def find_widget_classes(self, module):
         for cls_name in dir(module):
             cls = getattr(module, cls_name)
@@ -213,18 +216,19 @@ class CodeGen(Generic[W]):
         traits_default = {key: value for key, value in traits.items() if key not in traits_nodefault}
         signature_list = ["{name}".format(name=name) for name, value in traits_nodefault.items()]
         signature_list.extend([f"{name}: {types[name]} ={get_default(value)!r}" for name, value in traits_default.items()])
-        args_list = ["{name}={name}".format(name=name) for name, value in traits.items()]
         for name, trait in traits.items():
             typing_type = get_type(trait)
             callback_type = f"typing.Callable[[{typing_type}], Any]"
-            signature_list.append(f"on_{name}: {callback_type}=None")
-            args_list.append(f"on_{name}=on_{name}")
+            if self.has_callback(cls, name):
+                signature_list.append(f"on_{name}: {callback_type}=None")
         for name, default, arg_type in self.get_extra_argument(cls):
             signature_list.append(f"{name}: {arg_type}={default!r}")
+        too_long = len(signature_list) > 255
+        if too_long:
+            print("Too many arguments for %s to support Python 3.6, using **kwargs" % cls)
+            signature_list = signature_list[:254]
+            signature_list.append("**kwargs")
         signature = ", ".join(signature_list)
-
-        signature_list = ["{name}={value!r}".format(name=name, value=value.default_value) for name, value in traits.items()]
-
         method_name = cls.__name__
         module = cls.__module__
         class_name = module + "." + cls.__name__
