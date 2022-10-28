@@ -12,8 +12,7 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 dependencies = [
     "ipywidgets",
-    "rich",
-    "typing_extensions"
+    "typing_extensions >= 4.1.1",
 ]
 
 [tool.hatch.version]

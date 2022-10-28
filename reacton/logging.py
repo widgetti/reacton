@@ -66,12 +66,21 @@ def setup():
     """
     global log_handler
     logger.setLevel(logging.DEBUG)
-    from rich.logging import RichHandler
 
-    log_handler = RichHandler()
-    assert log_handler is not None
-    log_handler.setLevel(logging.DEBUG)
-    # add console handler to logger
+    log_handler = logging.StreamHandler()
+
+    # create formatter
+    formatter = logging.Formatter("%(levelname)s:%(threadName)s:%(name)s:%(message)s")
+
+    # add formatter to console handler
+    log_handler.setFormatter(formatter)
+
+    # from rich.logging import RichHandler
+
+    # log_handler = RichHandler()
+    # assert log_handler is not None
+    # log_handler.setLevel(logging.DEBUG)
+    # # add console handler to logger
     logger.addHandler(log_handler)
 
     logging.getLogger("react").setLevel(logging.ERROR)
