@@ -718,6 +718,7 @@ class ComponentContext:
 
     # hooks data
     state: Dict = field(default_factory=dict)
+    state_metadata: Dict = field(default_factory=dict)
     state_index = 0
     effects: List["Effect"] = field(default_factory=list)
     effect_index = 0
@@ -876,6 +877,8 @@ class _RenderContext:
             self.context.state_index += 1
         if key not in self.context.state:
             self.context.state[key] = initial
+            if isinstance(initial, (list, dict, set)):
+                self.context.state_metadata[key] = len(initial)
             logger.info("Initial state = %r for key %r (%r)", initial, key, id(self.context))
             return initial, self.make_setter(key, self.context, eq)
         else:
@@ -884,15 +887,27 @@ class _RenderContext:
             return state, self.make_setter(key, self.context, eq)
 
     def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
-        def set(value):
+        def set_(value):
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
+
+            if context.state[key] is value and isinstance(value, (list, dict, set)):
+                if context.state_metadata[key] != len(value):
+                    warn(
+                        "You are setting the state with the same object, this will not trigger a rerender. "
+                        f"We noticed the length of {value} changed compared to the previous time it was set. Are you mutating an existing state object? "
+                        "A common mistake is appending to a list, mutating a dict or set, etc.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
             should_update = not eq(context.state[key], value) if eq is not None else context.state[key] != value
 
             if should_update:
                 context.state[key] = value
+                if isinstance(value, (list, dict, set)):
+                    context.state_metadata[key] = len(value)
                 # TODO: enable
                 # context.needs_render = True
                 if self._rerender_needed is False:
@@ -903,7 +918,7 @@ class _RenderContext:
                 else:
                     logger.info("No render phase triggered, already rendering")
 
-        return set
+        return set_
 
     def force_update(self):
         if not self._is_rendering:

@@ -2264,3 +2264,20 @@ def test_none_as_callback():
     box, rc = react.render(Test(), handle_error=False)
     box.children[0].value = 2
     rc.close()
+
+
+def test_mutate_warning():
+    @react.component
+    def Test():
+        items, set_items = react.use_state([1, 2, 3])
+
+        def add_item():
+            items.append(len(items))
+            set_items(items)
+
+        return w.Button(on_click=add_item)
+
+    box, rc = react.render(Test())
+    with pytest.warns(UserWarning, match="mutating"):
+        rc._find(widgets.Button).widget.click()
+    rc.close()
