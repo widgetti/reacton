@@ -347,7 +347,7 @@ class Element(Generic[W]):
         def on_change(change):
             if are_events_supressed():
                 return
-            callback(change.new)
+            callback(change["new"])
 
         self._callback_wrappers[callback] = on_change
         widget.observe(on_change, target_name)
