@@ -2281,3 +2281,39 @@ def test_mutate_warning():
     with pytest.warns(UserWarning, match="mutating"):
         rc._find(widgets.Button).widget.click()
     rc.close()
+
+
+def test_rerender_component_switch(Container):
+    @react.component
+    def Component1():
+        value, set_value = react.use_state(1)
+        set_value(2)  # causes a direct rerender
+        return w.Button(description="1")
+
+    @react.component
+    def Component2():
+        value, set_value = react.use_state(2)
+        set_value(3)  # causes a direct rerender
+        return w.Button(description="2")
+
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(1)
+        with Container() as main:
+            if value == 1:
+                Component1()
+            else:
+                Component2()
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_value is not None
+    rc._find(widgets.Button).assert_matches(description="1")
+    set_value(2)
+    rc._find(widgets.Button).assert_matches(description="2")
+    set_value(1)
+    rc._find(widgets.Button).assert_matches(description="1")
+    rc.close()

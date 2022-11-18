@@ -1150,7 +1150,9 @@ class _RenderContext:
         if isinstance(el.component, ComponentFunction):
             # call the function, and recurse into, until we hit leafs
             # find a context from previous reconsolidation phase, or otherwise the previous render run
-            context_previous = context.children.get(key, context.children_next.get(key))
+            context_previous = context.children_next.get(key)
+            if context_previous is None:
+                context_previous = context.children.get(key)
             parent_context = context
             del context
             if context_previous is not None:
