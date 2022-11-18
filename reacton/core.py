@@ -783,11 +783,13 @@ class _RenderContext:
         self.context = ComponentContext()
         self.context_root = self.context
         self.render_count = 0
+        self._lock_thread = cast(Optional[threading.Thread], None)
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
         self._rerender_needed_reason: Optional[str] = None
         self.thread_lock = threading.Lock()
+        self._closing = False
         self.tracebacks: List[TracebackType] = []
         self.handle_error = handle_error
         if initial_state:
@@ -818,7 +820,10 @@ class _RenderContext:
 
     def close(self):
         with self.thread_lock:
+            self._closing = True
+            logger.info("Removing elements...")
             self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
+            logger.info("Removing elements done.")
             assert self.context is self.context_root
         if self.container:
             self.container.close()
@@ -904,6 +909,12 @@ class _RenderContext:
 
             should_update = not eq(context.state[key], value) if eq is not None else context.state[key] != value
 
+            # if a cleanup during close trigger a state update in a different component, we want to ignore that
+            # otherwise we get a deadlock
+            if self._closing:
+
+                should_update = False
+
             if should_update:
                 context.state[key] = value
                 if isinstance(value, (list, dict, set)):
@@ -949,7 +960,18 @@ class _RenderContext:
         widget = None
         if container is None:
             container = self.container
+        was_locked = False
+        if self.thread_lock.locked():
+            logger.info(
+                "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
+                self._lock_thread,
+                threading.current_thread(),
+            )
+            was_locked = True
         with self.thread_lock:
+            self._lock_thread = threading.current_thread()
+            if was_locked:
+                logger.info("Mutex released, continuing render phase")
             prev_rc = getattr(local, "rc", None)
             try:
                 local.rc = self
@@ -1010,7 +1032,9 @@ class _RenderContext:
                             # an exception bubbled up render
                             break
 
+                        logger.info("Render reconsolidate...")
                         widget = self._reconsolidate(element, default_key="/", parent_key=ROOT_KEY)
+                        logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
 

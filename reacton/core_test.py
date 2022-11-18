@@ -2317,3 +2317,21 @@ def test_rerender_component_switch(Container):
     set_value(1)
     rc._find(widgets.Button).assert_matches(description="1")
     rc.close()
+
+
+def test_set_state_during_close():
+    @react.component
+    def Test():
+        value, set_value = react.use_state(1)
+
+        def effect():
+            def cleanup():
+                set_value(2)
+
+            return cleanup
+
+        react.use_effect(effect)
+        return w.Button(description=str(value))
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc.close()
