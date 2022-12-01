@@ -1455,13 +1455,12 @@ class _RenderContext:
                                 effect.next = None
                             else:
                                 # dependencies changed, cleanup and execute next
-                                if effect.cleanup:
-                                    try:
-                                        effect.cleanup()
-                                    except BaseException as e:
-                                        context.exceptions_self.append(e)
-                                        self._rerender_needed_reason = "Exception ocurred during effect"
-                                        self._rerender_needed = True
+                                try:
+                                    effect.cleanup()
+                                except BaseException as e:
+                                    context.exceptions_self.append(e)
+                                    self._rerender_needed_reason = "Exception ocurred during effect"
+                                    self._rerender_needed = True
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
                                     effect()
@@ -1665,13 +1664,12 @@ class _RenderContext:
                 self.context = child_context = context.children[key]
 
                 for effect_index, effect in enumerate(self.context.effects):
-                    if effect.cleanup:
-                        try:
-                            effect.cleanup()
-                        except BaseException as e:
-                            context.exceptions_self.append(e)
-                            self._rerender_needed_reason = "Exception ocurred during effect"
-                            self._rerender_needed = True
+                    try:
+                        effect.cleanup()
+                    except BaseException as e:
+                        context.exceptions_self.append(e)
+                        self._rerender_needed_reason = "Exception ocurred during effect"
+                        self._rerender_needed = True
                 assert self.context.root_element is not None
                 new_parent_key = join_key(parent_key, key)
                 self._remove_element(self.context.root_element, "/", parent_key=new_parent_key)
