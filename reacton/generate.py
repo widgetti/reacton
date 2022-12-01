@@ -184,7 +184,6 @@ class CodeGen(Generic[W]):
                     type_name = type_name_alias.get(type_name, type_name)
                     if issubclass(trait.klass, widgets.Widget):
                         element_class_name_type = "Element"  # self.get_element_class
-                        # if element_class_name == "Element":
                         type_name = f"{element_class_name_type}[{type_name}]"
                     return type_name
 
@@ -238,6 +237,18 @@ class CodeGen(Generic[W]):
         doctraits = {name: trait for name, trait in traits.items() if "help" in trait.metadata}
         docargs = [{"name": name, "help": trait.metadata["help"]} for name, trait in doctraits.items()]
 
+        if "v_model" in traits:
+            element_type = f'ValueElement[{class_name}, {types["v_model"]}]'
+            element_class_name = "ValueElement"
+            create_element = f'{element_class_name}("v_model", comp, kwargs=kwargs)'
+        elif "value" in traits:
+            element_type = f'ValueElement[{class_name}, {types["value"]}]'
+            element_class_name = "ValueElement"
+            create_element = f'{element_class_name}("value", comp, kwargs=kwargs)'
+        else:
+            element_type = f"Element[{class_name}]"
+            create_element = f"{element_class_name}(comp, kwargs=kwargs)"
+
         docstring_args_template = Template(
             """
 {% for arg in docargs %}
@@ -250,7 +261,7 @@ class CodeGen(Generic[W]):
         code_method = Template(
             """
 
-def _{{ method_name }}({{ signature }}) -> Element[{{class_name}}]:
+def _{{ method_name }}({{ signature }}) -> {{element_type}}:
     \"\"\"{{class_docstring}}
     {{docstring_args}}
     \"\"\"
@@ -261,7 +272,7 @@ def {{ method_name }}(**kwargs):
     {{InstanceDict_fixes}}
     widget_cls = {{class_name}}
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return {{element_class_name}}(comp, kwargs=kwargs)
+    return {{create_element}}
 
 
 del _{{ method_name }}
@@ -277,6 +288,8 @@ del _{{ method_name }}
             docstring_args=docstring_args,
             class_docstring=class_docstring,
             InstanceDict_fixes=InstanceDict_fixes,
+            element_type=element_type,
+            create_element=create_element,
         )
 
         if blacken:

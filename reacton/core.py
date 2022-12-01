@@ -37,7 +37,8 @@ from warnings import warn
 
 import ipywidgets
 import ipywidgets as widgets
-from typing_extensions import Literal
+import typing_extensions
+from typing_extensions import Literal, Protocol
 
 from . import patch  # noqa: F401
 from . import _version
@@ -64,7 +65,10 @@ local = threading.local()
 T = TypeVar("T")
 U = TypeVar("U")
 W = TypeVar("W")  # used for widgets
+V = TypeVar("V")  # used for value type of widget
+V2 = TypeVar("V2")  # used for value type of widget
 E = TypeVar("E")  # used for elements
+P = typing_extensions.ParamSpec("P")
 
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
@@ -358,6 +362,48 @@ class Element(Generic[W]):
         widget.unobserve(on_change, target_name)
 
 
+class Value(Generic[V], Protocol):
+    def get(self) -> V:
+        ...
+
+    def set(self, value: V):
+        ...
+
+
+class ValueElement(Generic[W, V], Element[W]):
+    def __init__(self, value_property, component, args=None, kwargs=None):
+        self.value_property = value_property
+        super().__init__(component, args, kwargs)
+
+    # TODO: we want to enable something like this, but requires a good hash function
+    # for the key
+    # def use_value(self, *default) -> V:
+    #     assert self.value_property in self.kwargs
+    #     default_value = self.kwargs[self.value_property]
+    #     # if not default:
+    #     # else:
+    #     #     default_value = default[0]
+    #     #     if "kwargs" in self.kwargs:
+    #     #         default_value = self.kwargs["value"]
+    #     value, set_value = use_state(default_value)
+    #     self.kwargs[self.value_property] = value
+    #     self.kwargs[f"on_{self.value_property}"] = lambda x: set_value(x)
+    #     return value
+
+    def connect(self, value: Value[V]):
+        """Will automatically set up a connection between the value and the widget.
+
+        The object passed should have a get and set method. The get method
+        set the current value, while the set method will be called when the
+        `on_value` event is triggered.
+
+        The get method could also be used to automically set up listeners.
+        """
+        self.kwargs[self.value_property] = value.get()
+        self.kwargs[f"on_{self.value_property}"] = lambda x: value.set(x)
+        return self
+
+
 FuncT = TypeVar("FuncT", bound=Callable[..., Element])
 
 
@@ -423,10 +469,11 @@ class ComponentWidget(Component):
 
 
 class ComponentFunction(Component):
-    def __init__(self, f: Callable[[], Element], mime_bundle=mime_bundle_default):
+    def __init__(self, f: Callable[[], Element], mime_bundle=mime_bundle_default, value_name=None):
         self.f = f
         self.name = self.f.__name__
         self.mime_bundle = mime_bundle
+        self.value_name = value_name
         functools.update_wrapper(self, f)
 
     def __eq__(self, rhs):
@@ -440,7 +487,10 @@ class ComponentFunction(Component):
         return f"react.component({self.f.__module__}.{self.f.__name__})"
 
     def __call__(self, *args, **kwargs):
-        el: Element = Element(self, args=args, kwargs=kwargs)
+        if self.value_name is not None:
+            el: Element = ValueElement(self.value_name, self, args=args, kwargs=kwargs)
+        else:
+            el = Element(self, args=args, kwargs=kwargs)
         el.mime_bundle = self.mime_bundle
         return el
 
@@ -471,6 +521,36 @@ def component(obj: FuncT = None, mime_bundle: Dict[str, Any] = mime_bundle_defau
         return wrapper(obj)
     else:
         return wrapper
+
+
+@overload
+def value_component(
+    value_type: None, value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default
+) -> Callable[[Callable[P, ValueElement[W, V]]], Callable[P, ValueElement[W, V]]]:
+    ...
+
+
+@overload
+def value_component(
+    value_type: Type[V], value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default
+) -> Callable[[Callable[P, Element[W]]], Callable[P, ValueElement[W, V]]]:
+    ...
+
+
+def value_component(value_type: Union[Type[V], None], value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default):
+    """Creates a custom component that returns a ValueElement.
+
+    A ValueElement is a special element that can be used to connect to a Value, and be used to automatically
+    wire up the value and on_value events.
+    """
+
+    def wrapper(obj: Callable[P, Union[Element[W], ValueElement[W, V2]]]) -> Callable[P, ValueElement[W, V]]:
+        if isclass(obj) and issubclass(obj, widgets.Widget):
+            return cast(Callable[P, ValueElement[T, V]], ComponentWidget(widget=obj, mime_bundle=mime_bundle))
+        else:
+            return cast(Callable[P, ValueElement[T, V]], ComponentFunction(f=obj, mime_bundle=mime_bundle, value_name=value_name))
+
+    return wrapper
 
 
 def force_update():

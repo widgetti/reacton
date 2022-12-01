@@ -29,11 +29,13 @@ from .core import (
     use_side_effect,
     use_state,
     use_state_widget,
+    value_component,
 )
 
 __all__ = [
     "__version__",
     "component",
+    "value_component",
     "render",
     "render_fixed",
     "make",

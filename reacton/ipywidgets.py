@@ -8,7 +8,7 @@ import ipywidgets.widgets.widget_description
 import ipywidgets.widgets.widget_int
 
 import reacton
-from reacton.core import Element
+from reacton.core import Element, ValueElement
 
 from .utils import implements
 
@@ -274,7 +274,7 @@ def _Audio(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_loop: typing.Callable[[bool], Any] = None,
     on_value: typing.Callable[[bytes], Any] = None,
-) -> Element[ipywidgets.widgets.widget_media.Audio]:
+) -> ValueElement[ipywidgets.widgets.widget_media.Audio, bytes]:
     """Displays a audio as a widget.
 
     The `value` of this widget accepts a byte string.  The byte string is the
@@ -300,7 +300,7 @@ def Audio(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Audio
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Audio
@@ -327,7 +327,7 @@ def _BoundedFloatText(
     on_step: typing.Callable[[float], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[float], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.BoundedFloatText]:
+) -> ValueElement[ipywidgets.widgets.widget_float.BoundedFloatText, float]:
     """Displays a float value within a textbox. Value must be within the range specified.
 
     For a textbox in which the value doesn't need to be within a specific range, use FloatText.
@@ -366,7 +366,7 @@ def BoundedFloatText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.BoundedFloatText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _BoundedFloatText
@@ -393,7 +393,7 @@ def _BoundedIntText(
     on_step: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.BoundedIntText]:
+) -> ValueElement[ipywidgets.widgets.widget_int.BoundedIntText, int]:
     """Textbox widget that represents an integer bounded from above and below.
 
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
@@ -417,7 +417,7 @@ def BoundedIntText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.BoundedIntText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _BoundedIntText
@@ -565,7 +565,7 @@ def _Checkbox(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[bool], Any] = None,
-) -> Element[ipywidgets.widgets.widget_bool.Checkbox]:
+) -> ValueElement[ipywidgets.widgets.widget_bool.Checkbox, bool]:
     """Displays a boolean `value` in the form of a checkbox.
 
     Parameters
@@ -595,7 +595,7 @@ def Checkbox(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Checkbox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Checkbox
@@ -616,7 +616,7 @@ def _ColorPicker(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_color.ColorPicker]:
+) -> ValueElement[ipywidgets.widgets.widget_color.ColorPicker, str]:
     """
     :param concise: Display short version with just a color selector.
     :param description: Description of the control.
@@ -636,7 +636,7 @@ def ColorPicker(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_color.ColorPicker
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _ColorPicker
@@ -663,7 +663,7 @@ def _Combobox(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.Combobox]:
+) -> ValueElement[ipywidgets.widgets.widget_string.Combobox, str]:
     """Single line textbox widget with a dropdown and autocompletion.
 
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
@@ -687,7 +687,7 @@ def Combobox(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Combobox
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Combobox
@@ -784,7 +784,7 @@ def _DatePicker(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[datetime.date], Any] = None,
-) -> Element[ipywidgets.widgets.widget_date.DatePicker]:
+) -> ValueElement[ipywidgets.widgets.widget_date.DatePicker, datetime.date]:
     """
     Display a widget for picking dates.
 
@@ -821,7 +821,7 @@ def DatePicker(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_date.DatePicker
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _DatePicker
@@ -846,7 +846,7 @@ def _Dropdown(
     on_options: typing.Callable[[Any], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[Any], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.Dropdown]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.Dropdown, Any]:
     """Allows you to select a single item from a dropdown.
 
     Parameters
@@ -902,7 +902,7 @@ def Dropdown(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Dropdown
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Dropdown
@@ -935,7 +935,7 @@ def _FileUpload(
     on_multiple: typing.Callable[[bool], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_button.ButtonStyle]]], Any] = None,
     on_value: typing.Callable[[dict], Any] = None,
-) -> Element[ipywidgets.widgets.widget_upload.FileUpload]:
+) -> ValueElement[ipywidgets.widgets.widget_upload.FileUpload, dict]:
     """
     Upload file(s) from browser to Python kernel as bytes
 
@@ -961,7 +961,7 @@ def FileUpload(**kwargs):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_upload.FileUpload
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FileUpload
@@ -996,7 +996,7 @@ def _FloatLogSlider(
     on_step: typing.Callable[[float], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.SliderStyle]]], Any] = None,
     on_value: typing.Callable[[float], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.FloatLogSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_float.FloatLogSlider, float]:
     """Slider/trackbar of logarithmic floating values with the specified range.
 
     Parameters
@@ -1046,7 +1046,7 @@ def FloatLogSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatLogSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FloatLogSlider
@@ -1071,7 +1071,7 @@ def _FloatProgress(
     on_orientation: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.ProgressStyle]]], Any] = None,
     on_value: typing.Callable[[float], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.FloatProgress]:
+) -> ValueElement[ipywidgets.widgets.widget_float.FloatProgress, float]:
     """Displays a progress bar.
 
     Parameters
@@ -1109,7 +1109,7 @@ def FloatProgress(**kwargs):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatProgress
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FloatProgress
@@ -1142,7 +1142,7 @@ def _FloatRangeSlider(
     on_step: typing.Callable[[float], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.SliderStyle]]], Any] = None,
     on_value: typing.Callable[[tuple], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.FloatRangeSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_float.FloatRangeSlider, tuple]:
     """Slider/trackbar that represents a pair of floats bounded by minimum and maximum value.
 
     Parameters
@@ -1189,7 +1189,7 @@ def FloatRangeSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FloatRangeSlider
@@ -1222,7 +1222,7 @@ def _FloatSlider(
     on_step: typing.Callable[[float], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.SliderStyle]]], Any] = None,
     on_value: typing.Callable[[float], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.FloatSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_float.FloatSlider, float]:
     """Slider/trackbar of floating values with the specified range.
 
     Parameters
@@ -1269,7 +1269,7 @@ def FloatSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FloatSlider
@@ -1292,7 +1292,7 @@ def _FloatText(
     on_step: typing.Callable[[float], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[float], Any] = None,
-) -> Element[ipywidgets.widgets.widget_float.FloatText]:
+) -> ValueElement[ipywidgets.widgets.widget_float.FloatText, float]:
     """Displays a float value within a textbox. For a textbox in
     which the value must be within a specific range, use BoundedFloatText.
 
@@ -1324,7 +1324,7 @@ def FloatText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_float.FloatText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _FloatText
@@ -1511,7 +1511,7 @@ def _HTML(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.HTML]:
+) -> ValueElement[ipywidgets.widgets.widget_string.HTML, str]:
     """Renders the string `value` as HTML.
     :param description: Description of the control.
     :param description_tooltip: Tooltip for the description (defaults to description).
@@ -1530,7 +1530,7 @@ def HTML(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTML
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _HTML
@@ -1549,7 +1549,7 @@ def _HTMLMath(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.HTMLMath]:
+) -> ValueElement[ipywidgets.widgets.widget_string.HTMLMath, str]:
     """Renders the string `value` as HTML, and render mathematics.
     :param description: Description of the control.
     :param description_tooltip: Tooltip for the description (defaults to description).
@@ -1568,7 +1568,7 @@ def HTMLMath(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.HTMLMath
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _HTMLMath
@@ -1585,7 +1585,7 @@ def _Image(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_value: typing.Callable[[bytes], Any] = None,
     on_width: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_media.Image]:
+) -> ValueElement[ipywidgets.widgets.widget_media.Image, bytes]:
     """Displays an image as a widget.
 
     The `value` of this widget accepts a byte string.  The byte string is the
@@ -1610,7 +1610,7 @@ def Image(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Image
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Image
@@ -1635,7 +1635,7 @@ def _IntProgress(
     on_orientation: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.ProgressStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.IntProgress]:
+) -> ValueElement[ipywidgets.widgets.widget_int.IntProgress, int]:
     """Progress bar that represents an integer bounded from above and below.
 
     :param bar_style: Use a predefined styling for the progess bar.
@@ -1657,7 +1657,7 @@ def IntProgress(**kwargs):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntProgress
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _IntProgress
@@ -1690,7 +1690,7 @@ def _IntRangeSlider(
     on_step: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.SliderStyle]]], Any] = None,
     on_value: typing.Callable[[tuple], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.IntRangeSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_int.IntRangeSlider, tuple]:
     """Slider/trackbar that represents a pair of ints bounded by minimum and maximum value.
 
     Parameters
@@ -1726,7 +1726,7 @@ def IntRangeSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _IntRangeSlider
@@ -1759,7 +1759,7 @@ def _IntSlider(
     on_step: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_int.SliderStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.IntSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_int.IntSlider, int]:
     """Slider widget that represents an integer bounded from above and below.
 
     :param continuous_update: Update the value of the widget as the user is holding the slider.
@@ -1785,7 +1785,7 @@ def IntSlider(**kwargs):
         kwargs["style"] = SliderStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _IntSlider
@@ -1808,7 +1808,7 @@ def _IntText(
     on_step: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.IntText]:
+) -> ValueElement[ipywidgets.widgets.widget_int.IntText, int]:
     """Textbox widget that represents an integer.
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
     :param description: Description of the control.
@@ -1829,7 +1829,7 @@ def IntText(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.IntText
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _IntText
@@ -1848,7 +1848,7 @@ def _Label(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.Label]:
+) -> ValueElement[ipywidgets.widgets.widget_string.Label, str]:
     """Label widget.
 
     It also renders math inside the string `value` as Latex (requires $ $ or
@@ -1871,7 +1871,7 @@ def Label(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Label
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Label
@@ -2092,7 +2092,7 @@ def _Password(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.Password]:
+) -> ValueElement[ipywidgets.widgets.widget_string.Password, str]:
     """Single line textbox widget.
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
     :param description: Description of the control.
@@ -2113,7 +2113,7 @@ def Password(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Password
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Password
@@ -2142,7 +2142,7 @@ def _Play(
     on_step: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int.Play]:
+) -> ValueElement[ipywidgets.widgets.widget_int.Play, int]:
     """Play/repeat buttons to step through values automatically, and optionally loop.
 
     :param description: Description of the control.
@@ -2167,7 +2167,7 @@ def Play(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int.Play
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Play
@@ -2192,7 +2192,7 @@ def _RadioButtons(
     on_options: typing.Callable[[Any], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[Any], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.RadioButtons]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.RadioButtons, Any]:
     """Group of radio buttons that represent an enumeration.
 
     Only one radio button can be toggled at any point in time.
@@ -2250,7 +2250,7 @@ def RadioButtons(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.RadioButtons
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _RadioButtons
@@ -2277,7 +2277,7 @@ def _Select(
     on_rows: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[Any], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.Select]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.Select, Any]:
     """
     Listbox that only allows one item to be selected at any given time.
 
@@ -2338,7 +2338,7 @@ def Select(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.Select
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Select
@@ -2365,7 +2365,7 @@ def _SelectMultiple(
     on_rows: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[Sequence[Any]], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.SelectMultiple]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.SelectMultiple, Sequence[Any]]:
     """
     Listbox that allows many items to be selected at any given time.
 
@@ -2433,7 +2433,7 @@ def SelectMultiple(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectMultiple
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _SelectMultiple
@@ -2464,7 +2464,7 @@ def _SelectionRangeSlider(
     on_readout: typing.Callable[[bool], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[tuple], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.SelectionRangeSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.SelectionRangeSlider, tuple]:
     """
     Slider to select multiple contiguous items from a list.
 
@@ -2543,7 +2543,7 @@ def SelectionRangeSlider(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionRangeSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _SelectionRangeSlider
@@ -2574,7 +2574,7 @@ def _SelectionSlider(
     on_readout: typing.Callable[[bool], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[Any], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.SelectionSlider]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.SelectionSlider, Any]:
     """
     Slider to select a single item from a list or dictionary.
 
@@ -2645,7 +2645,7 @@ def SelectionSlider(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.SelectionSlider
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _SelectionSlider
@@ -2738,7 +2738,7 @@ def _Text(
     on_placeholder: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.Text]:
+) -> ValueElement[ipywidgets.widgets.widget_string.Text, str]:
     """Single line textbox widget.
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
     :param description: Description of the control.
@@ -2759,7 +2759,7 @@ def Text(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Text
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Text
@@ -2784,7 +2784,7 @@ def _Textarea(
     on_rows: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_string.Textarea]:
+) -> ValueElement[ipywidgets.widgets.widget_string.Textarea, str]:
     """Multiline text area widget.
     :param continuous_update: Update the value as the user types. If False, update on submission, e.g., pressing Enter or navigating away.
     :param description: Description of the control.
@@ -2806,7 +2806,7 @@ def Textarea(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_string.Textarea
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Textarea
@@ -2831,7 +2831,7 @@ def _ToggleButton(
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_tooltip: typing.Callable[[str], Any] = None,
     on_value: typing.Callable[[bool], Any] = None,
-) -> Element[ipywidgets.widgets.widget_bool.ToggleButton]:
+) -> ValueElement[ipywidgets.widgets.widget_bool.ToggleButton, bool]:
     """Displays a boolean `value` in the form of a toggle button.
 
     Parameters
@@ -2865,7 +2865,7 @@ def ToggleButton(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.ToggleButton
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _ToggleButton
@@ -2896,7 +2896,7 @@ def _ToggleButtons(
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_selection.ToggleButtonsStyle]]], Any] = None,
     on_tooltips: typing.Callable[[Sequence[str]], Any] = None,
     on_value: typing.Callable[[Any], Any] = None,
-) -> Element[ipywidgets.widgets.widget_selection.ToggleButtons]:
+) -> ValueElement[ipywidgets.widgets.widget_selection.ToggleButtons, Any]:
     """Group of toggle buttons that represent an enumeration.
 
     Only one toggle button can be toggled at any point in time.
@@ -2972,7 +2972,7 @@ def ToggleButtons(**kwargs):
         kwargs["style"] = ToggleButtonsStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtons
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _ToggleButtons
@@ -3164,7 +3164,7 @@ def _Valid(
     on_readout: typing.Callable[[str], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[bool], Any] = None,
-) -> Element[ipywidgets.widgets.widget_bool.Valid]:
+) -> ValueElement[ipywidgets.widgets.widget_bool.Valid, bool]:
     """Displays a boolean `value` in the form of a green check (True / valid)
     or a red cross (False / invalid).
 
@@ -3191,13 +3191,13 @@ def Valid(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_bool.Valid
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Valid
 
 
-def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None) -> Element[ipywidgets.widgets.valuewidget.ValueWidget]:
+def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None) -> ValueElement[ipywidgets.widgets.valuewidget.ValueWidget, Any]:
     """Widget that can be used for the input of an interactive function
     :param value: The value of the widget.
     """
@@ -3209,7 +3209,7 @@ def ValueWidget(**kwargs):
 
     widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _ValueWidget
@@ -3232,7 +3232,7 @@ def _Video(
     on_loop: typing.Callable[[bool], Any] = None,
     on_value: typing.Callable[[bytes], Any] = None,
     on_width: typing.Callable[[str], Any] = None,
-) -> Element[ipywidgets.widgets.widget_media.Video]:
+) -> ValueElement[ipywidgets.widgets.widget_media.Video, bytes]:
     """Displays a video as a widget.
 
     The `value` of this widget accepts a byte string.  The byte string is the
@@ -3260,7 +3260,7 @@ def Video(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     widget_cls = ipywidgets.widgets.widget_media.Video
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del _Video
@@ -3403,7 +3403,7 @@ def __BoundedInt(
     on_min: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int._BoundedInt]:
+) -> ValueElement[ipywidgets.widgets.widget_int._BoundedInt, int]:
     """Base class for widgets that represent an integer bounded from above and below.
 
     :param description: Description of the control.
@@ -3424,7 +3424,7 @@ def _BoundedInt(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedInt
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del __BoundedInt
@@ -3445,7 +3445,7 @@ def __BoundedIntRange(
     on_min: typing.Callable[[int], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[tuple], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int._BoundedIntRange]:
+) -> ValueElement[ipywidgets.widgets.widget_int._BoundedIntRange, tuple]:
     """
     :param description: Description of the control.
     :param description_tooltip: Tooltip for the description (defaults to description).
@@ -3465,7 +3465,7 @@ def _BoundedIntRange(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._BoundedIntRange
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del __BoundedIntRange
@@ -3482,7 +3482,7 @@ def __Int(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[int], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int._Int]:
+) -> ValueElement[ipywidgets.widgets.widget_int._Int, int]:
     """Base class for widgets that represent an integer.
     :param description: Description of the control.
     :param description_tooltip: Tooltip for the description (defaults to description).
@@ -3500,7 +3500,7 @@ def _Int(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._Int
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del __Int
@@ -3517,7 +3517,7 @@ def __IntRange(
     on_layout: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_layout.Layout]]], Any] = None,
     on_style: typing.Callable[[Union[Dict[str, Any], Element[ipywidgets.widgets.widget_description.DescriptionStyle]]], Any] = None,
     on_value: typing.Callable[[tuple], Any] = None,
-) -> Element[ipywidgets.widgets.widget_int._IntRange]:
+) -> ValueElement[ipywidgets.widgets.widget_int._IntRange, tuple]:
     """
     :param description: Description of the control.
     :param description_tooltip: Tooltip for the description (defaults to description).
@@ -3535,7 +3535,7 @@ def _IntRange(**kwargs):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
     widget_cls = ipywidgets.widgets.widget_int._IntRange
     comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return ValueElement("value", comp, kwargs=kwargs)
 
 
 del __IntRange

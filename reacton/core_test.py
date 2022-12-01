@@ -2,7 +2,7 @@ import time
 import traceback
 import unittest.mock
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, List, Optional, Tuple, TypeVar, cast
+from typing import Callable, Generic, List, Optional, Tuple, TypeVar, cast
 
 import ipywidgets
 import ipywidgets as widgets
@@ -2334,4 +2334,47 @@ def test_set_state_during_close():
         return w.Button(description=str(value))
 
     box, rc = react.render(Test(), handle_error=False)
+    rc.close()
+
+
+class ValueLike(Generic[T]):
+    def __init__(self, value: T):
+        self.value = value
+
+    def get(self) -> T:
+        return self.value
+
+    def set(self, value: T):
+        self.value = value
+
+
+def test_value_element():
+    value = ValueLike(42)
+
+    @react.component
+    def Test():
+        return w.IntSlider().connect(value)
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc._find(widgets.IntSlider).assert_matches(value=42)
+    rc._find(widgets.IntSlider).widget.value = 43
+    assert value.value == 43
+    rc.close()
+
+
+def test_value_component():
+    value = ValueLike(42)
+
+    @react.value_component(int, "hoeba")
+    def IntSlider(hoeba=0, on_hoeba=lambda x: x):
+        return w.IntSlider(value=hoeba, on_value=on_hoeba)
+
+    @react.component
+    def Test():
+        return IntSlider().connect(value)
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc._find(widgets.IntSlider).assert_matches(value=42)
+    rc._find(widgets.IntSlider).widget.value = 43
+    assert value.value == 43
     rc.close()
