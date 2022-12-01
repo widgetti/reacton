@@ -1,4 +1,8 @@
+import threading
+import time
+
 import ipywidgets as widgets
+import pytest
 
 import reacton as react
 import reacton.ipywidgets as w
@@ -43,6 +47,34 @@ def test_find_nested():
 
     box, rc = react.render(Test())
     assert rc._find(widgets.HBox).single.find(widgets.Button).single.widget.description == "2"
+
+
+def test_assert_matches_wait():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            with w.VBox():
+                w.Button(description="1")
+        return main
+
+    box, rc = react.render(Test())
+    rc._find(widgets.Button).assert_matches_wait(description="1")
+    with pytest.raises(TimeoutError):
+        rc._find(widgets.Button).assert_matches_wait(description="3", timeout=0.1)
+
+
+def test_assert_wait():
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            with w.VBox():
+                w.Button(description="1")
+        return main
+
+    box, rc = react.render(Test())
+    rc._find(widgets.Button).assert_wait(lambda x: x.description == "1")
+    with pytest.raises(AssertionError):
+        rc._find(widgets.Button).assert_wait(lambda x: x.description == "xx", timeout=0.1)
 
 
 def test_find_by_class_and_attr_nested():
@@ -118,3 +150,35 @@ def test_find_count():
     assert len(rc._find(widgets.Button, description="should-not-be-found")) == 0
     assert len(rc._find(widgets.Button, description="1")) == 1
     assert len(rc._find(widgets.Button)) == 2
+
+
+def test_wait_for():
+    set_state = None
+
+    @react.component
+    def Test():
+        nonlocal set_state
+        state, set_state = react.use_state(0)
+        with w.VBox() as main:
+            w.Button(description="1")
+            w.Button(description="2")
+            if state == 1:
+                w.Button(description="3")
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_state is not None
+
+    def run():
+        assert set_state is not None
+        time.sleep(0.3)
+        set_state(1)
+
+    threading.Thread(target=run).start()
+    assert len(rc._find(widgets.Button, description="should-not-be-found")) == 0
+    assert len(rc._find(widgets.Button, description="1")) == 1
+    assert len(rc._find(widgets.Button)) == 2
+    finder = rc._find(widgets.Button, description="3")
+    assert len(finder) == 0
+    finder = finder.wait_for()
+    assert finder.widget.description == "3"
