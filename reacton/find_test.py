@@ -31,7 +31,7 @@ def test_find_by_class_and_attr():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.Button, description="1").single.widget.description == "1"
+    assert rc.find(widgets.Button, description="1").single.widget.description == "1"
     assert rc._find(widgets.Button, description="2").single.widget.description == "2"
 
 
