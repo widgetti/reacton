@@ -216,7 +216,7 @@ class Element(Generic[W]):
 
         def format_kwarg(key, value):
             if key == "children":
-                if len(value) > 0:
+                if isinstance(value, (list, tuple)) and len(value) > 0:
                     contains_elements = any(isinstance(child, Element) for child in value)
                     if contains_elements:
                         return "children = ..."
