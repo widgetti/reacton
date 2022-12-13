@@ -17,3 +17,4 @@ Direct link to examples:
    * [ButtonClick](./_output/lab/index.html?path=click-button.ipynb)
    * [Calculator](./_output/lab/index.html?path=calculator.ipynb)
    * [Todo-app](./_output/lab/index.html?path=todo-app.ipynb)
+   * [Markdown](./_output/lab/index.html?path=markdown.ipynb)

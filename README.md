@@ -105,13 +105,19 @@ We take care of not re-creating new Buttons widgets (which is relatively expensi
 
 Given this [suggestion](https://github.com/jupyter-widgets/ipywidgets/issues/2428#issuecomment-500084610) on how to make a widget with markdown, we don't have an obvious path forward to create a new Markdown widget that can be reused. Should we inherit? From which class? Should we compose and inherit from VBox or HBox and add the HTML widget as a single child?
 
-With react-ipywidgest there is an obvious way:
+With Reacton there is an obvious way:
 ```python
+import reacton
+import markdown
+import reacton.ipywidgets as w
+
+
 @reacton.component
 def Markdown(md: str):
-    from myst_parser.main import to_html
-    html = to_html(md)
+    html = markdown.markdown(md)
     return w.HTML(value=html)
+
+display(Markdown("# Reacton rocks\nSeriously **bold** idea!"))
 ```
 
 This `Markdown` component can now be reused to create a markdown editor:
@@ -120,12 +126,16 @@ This `Markdown` component can now be reused to create a markdown editor:
 @reacton.component
 def MarkdownEditor(md : str):
     md, set_md = reacton.use_state(md)
+    edit, set_edit = reacton.use_state(True)
     with w.VBox() as main:
-        w.Textarea(value=md, on_value=set_md)
         Markdown(md)
+        w.ToggleButton(description="Edit",
+                       value=edit,
+                       on_value=set_edit)
+        if edit:
+            w.Textarea(value=md, on_value=set_md, rows=10)
     return main
-
-display(MarkdownEditor("Mark-*down* **component**"))
+display(MarkdownEditor("# Reacton rocks\nSeriously **bold** idea!"))
 ```
 
 The `MarkdownEditor` component also shows another feature we can provide: All container widgets (like HBox, VBox, and all ipyvuetify widgets) can act as a context manager, which will add all widgets elements created within it as its children. Using a context manager leads to better readable code (less parenthesis and parenthsis issues).
@@ -154,7 +164,7 @@ Direct link to examples:
    * [ButtonClick](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=click-button.ipynb)
    * [Calculator](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=calculator.ipynb)
    * [Todo-app](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=todo-app.ipynb)
-
+   * [Markdown](https://reacton.solara.dev/en/latest/_output/lab/index.html?path=markdown.ipynb)
 
 # Installation
 ## User
