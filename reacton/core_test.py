@@ -144,7 +144,7 @@ def test_no_on_value_on_write():
         return w.IntSlider(value=value, on_value=on_value)
 
     box, rc = react.render(Test(), handle_error=False)
-    assert len(rc._find(widgets.IntSlider)) == 1
+    assert len(rc.find(widgets.IntSlider)) == 1
     set_value(1)
     on_value.assert_not_called()
     rc.close()
@@ -158,11 +158,11 @@ def test_render_element_twice(ButtonComponent, Container):
         return Container(children=[el, el])
 
     box, rc = react.render(Test(el), handle_error=False)
-    assert len(rc._find(widgets.Button)) == 2
+    assert len(rc.find(widgets.Button)) == 2
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 2
+    assert len(rc.find(widgets.Button)) == 2
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 2
+    assert len(rc.find(widgets.Button)) == 2
     rc.close()
 
 
@@ -190,15 +190,15 @@ def test_remove_element_twice(ButtonComponent, Container):
         return main
 
     box, rc = react.render(Test(el1, el2), handle_error=False)
-    assert len(rc._find(widgets.Button)) == 3
+    assert len(rc.find(widgets.Button)) == 3
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 3
+    assert len(rc.find(widgets.Button)) == 3
     rc.force_update()
-    assert len(rc._find(widgets.Button)) == 3
-    assert rc._find(widgets.Button)[0].widget.description == "Hi1"
+    assert len(rc.find(widgets.Button)) == 3
+    assert rc.find(widgets.Button)[0].widget.description == "Hi1"
     set_first(False)
-    assert len(rc._find(widgets.FloatLogSlider)) == 3
-    assert rc._find(widgets.FloatLogSlider)[0].widget.description == "Hi2"
+    assert len(rc.find(widgets.FloatLogSlider)) == 3
+    assert rc.find(widgets.FloatLogSlider)[0].widget.description == "Hi2"
     rc.force_update()
     rc.close()
 
@@ -225,20 +225,20 @@ def test_remove_element_repeated(ButtonComponent, Container):
         return main
 
     box, rc = react.render(Test(), handle_error=False)
-    assert len(rc._find(widgets.Button)) == 4
-    buttons = rc._find(widgets.Button).widgets
+    assert len(rc.find(widgets.Button)) == 4
+    buttons = rc.find(widgets.Button).widgets
     assert [b is not buttons[0] for b in buttons]
     rc.force_update()
-    buttons = rc._find(widgets.Button).widgets
+    buttons = rc.find(widgets.Button).widgets
     assert [b is not buttons[0] for b in buttons]
-    assert len(rc._find(widgets.Button)) == 4
-    buttons = rc._find(widgets.Button).widgets
+    assert len(rc.find(widgets.Button)) == 4
+    buttons = rc.find(widgets.Button).widgets
     assert [b is not buttons[0] for b in buttons]
     rc.force_update()
-    buttons = rc._find(widgets.Button).widgets
+    buttons = rc.find(widgets.Button).widgets
     assert [b is not buttons[0] for b in buttons]
-    assert len(rc._find(widgets.Button)) == 4
-    assert rc._find(widgets.Button)[0].widget.description == "Hi"
+    assert len(rc.find(widgets.Button)) == 4
+    assert rc.find(widgets.Button)[0].widget.description == "Hi"
     set_other_case(False)
     rc.force_update()
     rc.close()
@@ -265,7 +265,7 @@ def test_replace_parent(ButtonComponent):
         return main
 
     box, rc = react.render(Test(), handle_error=False)
-    assert len(rc._find(widgets.Button)) == 1
+    assert len(rc.find(widgets.Button)) == 1
     rc.force_update()
     set_other_case(False)
     rc.force_update()
@@ -358,11 +358,11 @@ def test_render_replace_component_with_element():
             return w.Button(description="Button in root")
 
     hbox, rc = react.render(Test(), handle_error=False)
-    rc._find(widgets.Button).widget.description == "Button in root"
+    rc.find(widgets.Button).widget.description == "Button in root"
     set_value(1)
-    rc._find(widgets.Button).widget.description == "Button in container"
+    rc.find(widgets.Button).widget.description == "Button in container"
     set_value(0)
-    rc._find(widgets.Button).widget.description == "Button in root"
+    rc.find(widgets.Button).widget.description == "Button in root"
     rc.close()
 
 
@@ -1153,7 +1153,7 @@ def test_context_with_precreated_element(shared):
         return v
 
     box, rc = react.render(Test())
-    button = rc._find(widgets.Button).widget
+    button = rc.find(widgets.Button).widget
     if shared:
         assert button.description == "Value: 1"
     else:
@@ -1587,11 +1587,11 @@ def test_exception_recover_in_render():
 
     box, rc = react.render(Test(), handle_error=True)
     assert set_fail is not None
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     set_fail(True)
-    assert not rc._find(ipywidgets.IntSlider)
+    assert not rc.find(ipywidgets.IntSlider)
     assert not rc._is_rendering
-    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     rc.close()
 
 
@@ -1623,19 +1623,19 @@ def test_exception_handler_in_render():
     box, rc = react.render(Handler())
     assert set_fail is not None
     assert clear is not None
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
 
     set_fail(True)
-    assert "fail" in rc._find(ipywidgets.Label).widget.value
+    assert "fail" in rc.find(ipywidgets.Label).widget.value
     assert not rc._is_rendering
 
     # we keep the UI the same
     set_fail(False)
-    assert "fail" in rc._find(ipywidgets.Label).widget.value
+    assert "fail" in rc.find(ipywidgets.Label).widget.value
 
     # we have to explicitly clear the exception to try a rerender
     clear()
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     rc.close()
 
 
@@ -1665,11 +1665,11 @@ def test_exception_handler_exception():
     box, rc = react.render(Handler())
     assert set_fail is not None
     assert clear is not None
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     set_fail(True)
     # because the Handler failed to catch the error, the core library does it
     # using a HTML widget
-    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     assert not rc._is_rendering
 
     rc.close()
@@ -1693,7 +1693,7 @@ def test_recover_exception_in_reconcilliate():
     box, rc = react.render(Test())
     assert set_fail is not None
     set_fail(True)
-    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     assert not rc._is_rendering
     rc.close()
 
@@ -1718,21 +1718,21 @@ def test_recover_exception_in_cleanup():
 
     box, rc = react.render(Test())
     assert set_fail is not None
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     set_fail(True)
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     # it will not fail in the cleanup, so after we set it to False
     set_fail(False)
-    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     assert not rc._is_rendering
     rc.close()
 
     # now do the cleanup due to rendering sth else
     box, rc = react.render(Test())
     set_fail(True)
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     rc.render(w.Button(description="Might fail because of cleanup"))
-    assert "Traceback" in rc._find(ipywidgets.HTML).widget.value
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     rc.close()
 
 
@@ -1750,11 +1750,11 @@ def test_recover_exception_in_widget_update():
 
     # with pytest.raises(Exception):
     box, rc = react.render(Test())
-    assert rc._find(ipywidgets.IntSlider)
+    assert rc.find(ipywidgets.IntSlider)
     assert set_fail is not None
     set_fail(True)
     assert not rc._is_rendering
-    assert not rc._find(ipywidgets.IntSlider)
+    assert not rc.find(ipywidgets.IntSlider)
     rc.close()
 
 
@@ -2252,7 +2252,7 @@ def test_nested_render():
         return w.VBox(children=[button])
 
     box, rc = react.render(Test())
-    assert len(rc._find(widgets.Button)) == 1
+    assert len(rc.find(widgets.Button)) == 1
     rc.close()
 
 
@@ -2279,7 +2279,7 @@ def test_mutate_warning():
 
     box, rc = react.render(Test())
     with pytest.warns(UserWarning, match="mutating"):
-        rc._find(widgets.Button).widget.click()
+        rc.find(widgets.Button).widget.click()
     rc.close()
 
 
@@ -2311,11 +2311,11 @@ def test_rerender_component_switch(Container):
 
     box, rc = react.render(Test(), handle_error=False)
     assert set_value is not None
-    rc._find(widgets.Button).assert_matches(description="1")
+    rc.find(widgets.Button).assert_matches(description="1")
     set_value(2)
-    rc._find(widgets.Button).assert_matches(description="2")
+    rc.find(widgets.Button).assert_matches(description="2")
     set_value(1)
-    rc._find(widgets.Button).assert_matches(description="1")
+    rc.find(widgets.Button).assert_matches(description="1")
     rc.close()
 
 
@@ -2356,8 +2356,8 @@ def test_value_element():
         return w.IntSlider().connect(value)
 
     box, rc = react.render(Test(), handle_error=False)
-    rc._find(widgets.IntSlider).assert_matches(value=42)
-    rc._find(widgets.IntSlider).widget.value = 43
+    rc.find(widgets.IntSlider).assert_matches(value=42)
+    rc.find(widgets.IntSlider).widget.value = 43
     assert value.value == 43
     rc.close()
 
@@ -2374,7 +2374,7 @@ def test_value_component():
         return IntSlider().connect(value)
 
     box, rc = react.render(Test(), handle_error=False)
-    rc._find(widgets.IntSlider).assert_matches(value=42)
-    rc._find(widgets.IntSlider).widget.value = 43
+    rc.find(widgets.IntSlider).assert_matches(value=42)
+    rc.find(widgets.IntSlider).widget.value = 43
     assert value.value == 43
     rc.close()

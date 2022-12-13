@@ -10,7 +10,8 @@ nav:
   - examples.md
   - API: api.md
   - understanding.md
-  - libraries.md
+  - Libraries: libraries.md
+  - Testing: testing.md
 
 markdown_extensions:
   - pymdownx.highlight:

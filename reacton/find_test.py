@@ -17,7 +17,7 @@ def test_find_by_class():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.Button).single.widget.description == "test"
+    assert rc.find(widgets.Button).single.widget.description == "test"
 
 
 def test_find_by_class_and_attr():
@@ -32,7 +32,7 @@ def test_find_by_class_and_attr():
 
     box, rc = react.render(Test())
     assert rc.find(widgets.Button, description="1").single.widget.description == "1"
-    assert rc._find(widgets.Button, description="2").single.widget.description == "2"
+    assert rc.find(widgets.Button, description="2").single.widget.description == "2"
 
 
 def test_find_nested():
@@ -46,7 +46,7 @@ def test_find_nested():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.HBox).single.find(widgets.Button).single.widget.description == "2"
+    assert rc.find(widgets.HBox).single.find(widgets.Button).single.widget.description == "2"
 
 
 def test_assert_matches_wait():
@@ -58,9 +58,9 @@ def test_assert_matches_wait():
         return main
 
     box, rc = react.render(Test())
-    rc._find(widgets.Button).assert_matches_wait(description="1")
+    rc.find(widgets.Button).assert_matches_wait(description="1")
     with pytest.raises(TimeoutError):
-        rc._find(widgets.Button).assert_matches_wait(description="3", timeout=0.1)
+        rc.find(widgets.Button).assert_matches_wait(description="3", timeout=0.1)
 
 
 def test_assert_wait():
@@ -72,9 +72,9 @@ def test_assert_wait():
         return main
 
     box, rc = react.render(Test())
-    rc._find(widgets.Button).assert_wait(lambda x: x.description == "1")
+    rc.find(widgets.Button).assert_wait(lambda x: x.description == "1")
     with pytest.raises(AssertionError):
-        rc._find(widgets.Button).assert_wait(lambda x: x.description == "xx", timeout=0.1)
+        rc.find(widgets.Button).assert_wait(lambda x: x.description == "xx", timeout=0.1)
 
 
 def test_find_by_class_and_attr_nested():
@@ -92,8 +92,8 @@ def test_find_by_class_and_attr_nested():
         return main
 
     box, rc = react.render(Test())
-    rc._find(widgets.HBox, box_style="success").find(widgets.Button, description="1").matches(description="1", disabled=True)
-    rc._find(widgets.HBox, box_style="info").find(widgets.Button, description="2").matches(description="2", disabled=False)
+    rc.find(widgets.HBox, box_style="success").find(widgets.Button, description="1").matches(description="1", disabled=True)
+    rc.find(widgets.HBox, box_style="info").find(widgets.Button, description="2").matches(description="2", disabled=False)
 
 
 def test_find_by_meta_widget():
@@ -107,9 +107,9 @@ def test_find_by_meta_widget():
         return main
 
     box, rc = react.render(Test())
-    rc._find(widgets.Widget, meta_name="a").single
-    assert rc._find(widgets.Button, meta_name="b").widget.description == "testb"
-    assert rc._find(widgets.Button, meta_not_exist="b").widgets == []
+    rc.find(widgets.Widget, meta_name="a").single
+    assert rc.find(widgets.Button, meta_name="b").widget.description == "testb"
+    assert rc.find(widgets.Button, meta_not_exist="b").widgets == []
 
 
 @react.component
@@ -132,10 +132,10 @@ def test_find_by_meta_component():
         return main
 
     box, rc = react.render(Test())
-    assert rc._find(widgets.Button, meta_name="b").widget.description == "testb"
+    assert rc.find(widgets.Button, meta_name="b").widget.description == "testb"
     # make sure the meta dicts get merged
-    assert len(rc._find(widgets.Button, meta_level1="1").widgets) == 2
-    assert len(rc._find(widgets.Button, meta_level2="2").widgets) == 2
+    assert len(rc.find(widgets.Button, meta_level1="1").widgets) == 2
+    assert len(rc.find(widgets.Button, meta_level2="2").widgets) == 2
 
 
 def test_find_count():
@@ -147,9 +147,9 @@ def test_find_count():
         return main
 
     box, rc = react.render(Test())
-    assert len(rc._find(widgets.Button, description="should-not-be-found")) == 0
-    assert len(rc._find(widgets.Button, description="1")) == 1
-    assert len(rc._find(widgets.Button)) == 2
+    assert len(rc.find(widgets.Button, description="should-not-be-found")) == 0
+    assert len(rc.find(widgets.Button, description="1")) == 1
+    assert len(rc.find(widgets.Button)) == 2
 
 
 def test_wait_for():
@@ -175,10 +175,10 @@ def test_wait_for():
         set_state(1)
 
     threading.Thread(target=run).start()
-    assert len(rc._find(widgets.Button, description="should-not-be-found")) == 0
-    assert len(rc._find(widgets.Button, description="1")) == 1
-    assert len(rc._find(widgets.Button)) == 2
-    finder = rc._find(widgets.Button, description="3")
+    assert len(rc.find(widgets.Button, description="should-not-be-found")) == 0
+    assert len(rc.find(widgets.Button, description="1")) == 1
+    assert len(rc.find(widgets.Button)) == 2
+    finder = rc.find(widgets.Button, description="3")
     assert len(finder) == 0
     finder = finder.wait_for()
     assert finder.widget.description == "3"
