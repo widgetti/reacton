@@ -95,5 +95,5 @@ def test_docs_example_async():
 
 All of these examples can be found in the tests of Reacton itself, don't be afraid to read the test code:
 
-  * https://github.com/widgetti/reacton/blob/master/reacton/find_test.py
-  * https://github.com/widgetti/reacton/blob/master/reacton/core_test.py
+  * [find_test.py](https://github.com/widgetti/reacton/blob/master/reacton/find_test.py)
+  * [core_test.py](https://github.com/widgetti/reacton/blob/master/reacton/core_test.py)

@@ -5,6 +5,8 @@
 
 Write ipywidgets like Reacton. Creating a Web-based UI from Python, using ipywidgets made easier, fun, and without bugs.
 
+![logo](https://user-images.githubusercontent.com/1765949/207259505-077acebd-1d74-4273-abf5-3a0226c03efd.png)
+
 ## What is it?
 
 A way to write reusable components in a React-like way, to make Python-based UI's using the ipywidgets ecosystem (ipywidgets, ipyvolume, bqplot, threejs, leaflet, ipyvuetify, ...).
