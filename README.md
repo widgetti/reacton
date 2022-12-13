@@ -157,7 +157,7 @@ The `MarkdownEditor` component also shows another feature we can provide: All co
 # Documentation
 
 
-[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.solara.dev/)
+[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://reacton.solara.dev/)
 
 
 ## Examples
