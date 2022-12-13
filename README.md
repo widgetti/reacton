@@ -9,6 +9,7 @@ Write ipywidgets like Reacton. Creating a Web-based UI from Python, using ipywid
 
 ![logo](https://user-images.githubusercontent.com/1765949/207259505-077acebd-1d74-4273-abf5-3a0226c03efd.png)
 
+
 ## What is it?
 
 A way to write reusable components in a React-like way, to make Python-based UI's using the ipywidgets ecosystem (ipywidgets, ipyvolume, bqplot, threejs, leaflet, ipyvuetify, ...).
@@ -206,3 +207,15 @@ Conda users:
 To get an editable install, use the `-e` flag.
 
     $ pip install -e .
+
+
+## Article
+
+  Read [Advance your ipywidget app development with Reacton — A pure Python port of React for faster development](https://maartenbreddels.medium.com/advance-your-ipywidget-app-development-with-reacton-6734a5607d69) for a longer background and introduction to Reacton.
+
+
+### Solara
+
+  In this article, we also reveal our next framework, Solara, inspired on NextJS. If you are interested in a production ready framework, built on top of Reacton, for building larger data apps, you may consider signing up for our beta test.
+
+  [![Solara](https://cdn-images-1.medium.com/max/1600/1*3_hAS8kKxMokCSyB_jfy9g.png)](https://interest.solara.dev/)
