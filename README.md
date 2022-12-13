@@ -1,4 +1,4 @@
-[![Documentation](https://readthedocs.org/projects/reacton/badge/?version=latest)](https://reacton.solara.dev/)
+[![Documentation](https://readthedocs.org/projects/react-ipywidgets/badge/?version=latest)](https://reacton.solara.dev/)
 [![Jupyter Lab](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://reacton.solara.dev/en/latest/_output/lab/index.html)
 
 # Reacton: React for ipywidgets
