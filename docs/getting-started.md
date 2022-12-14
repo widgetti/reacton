@@ -26,6 +26,6 @@ ButtonClick()
 Or explicitly display it using:
 
 ```py
-el = ButtonClick
+el = ButtonClick()
 display(el)
 ```
