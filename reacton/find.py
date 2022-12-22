@@ -72,10 +72,10 @@ class Finder(collections.abc.Sequence, Generic[W]):
         return self.single.widgets[0]
 
     def assert_empty(self):
-        assert len(self.widgets) == 0, f"Expected no widgets, but got: {self.widgets}"
+        assert len(self.widgets) == 0, f"Expected no widgets, but got: {self.widgets}, current structure:\n{self._current_structure()}"
 
     def assert_not_empty(self):
-        assert len(self.widgets) != 0, "Expected widgets, but none found"
+        assert len(self.widgets) != 0, f"Expected widgets, but none found, current structure:\n{self._current_structure()}"
 
     def assert_single(self):
         assert len(self.widgets) == 1, f"Expected a single widget, but got: {self.widgets}"
