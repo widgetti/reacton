@@ -17,8 +17,8 @@ def pretty_print(widget: Widget, indent=0, indent_size=2):
         if isinstance(value, list):
             return "[" + ", ".join(format_arg(v) for v in value) + "]"
         value_repr = repr(value)
-        if len(value_repr) > 100:
-            value_repr = value_repr[:20] + "..." + value_repr[-20:]
+        if len(value_repr) > 300:
+            value_repr = value_repr[:50] + "..." + value_repr[-50:]
         return value_repr
 
     def format_kwarg(key, value):
