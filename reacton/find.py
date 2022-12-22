@@ -154,21 +154,20 @@ class Finder(collections.abc.Sequence, Generic[W]):
         queries = self.queries + [{"type": "getitem", "item": item}]
         return Finder([self.widgets[item]], queries, parent=self)
 
-    def find(self, widget_class: Type[X], **matches):
+    def find(self, widget_class: Type[X] = Widget, **matches):
         def test(widget: Widget):
             if isinstance(widget, widget_class):
                 for name, expected in matches.items():
-                    if not hasattr(widget, name):
-                        if name.startswith("meta_"):
-                            meta_attr_name = name[5:]
-                            if hasattr(widget, "_react_meta") and meta_attr_name in widget._react_meta:  # type: ignore
-                                value = widget._react_meta[meta_attr_name]  # type: ignore
-                            else:
-                                return False
+                    if not hasattr(widget, name) and name.startswith("meta_"):
+                        meta_attr_name = name[5:]
+                        if hasattr(widget, "_react_meta") and meta_attr_name in widget._react_meta:  # type: ignore
+                            value = widget._react_meta[meta_attr_name]  # type: ignore
                         else:
-                            raise AttributeError(f"Widget {widget} has no attribute {name}")
-                    else:
+                            return False
+                    elif hasattr(widget, name):
                         value = getattr(widget, name)
+                    else:
+                        return False
                     if value != expected:
                         return False
                 return True

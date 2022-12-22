@@ -20,6 +20,12 @@ def test_find_by_class():
     assert rc.find(widgets.Button).single.widget.description == "test"
 
 
+def test_find_non_existing_attr():
+    el = w.Button(description="test")
+    box, rc = react.render(el, handle_error=False)
+    rc.find(widgets.Button, doesnotexist="test").assert_empty()
+
+
 def test_find_by_class_and_attr():
     @react.component
     def Test():
