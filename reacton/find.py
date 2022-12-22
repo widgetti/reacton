@@ -28,6 +28,9 @@ def pretty_print(widget: Widget, indent=0, indent_size=2):
     keys = list(widget._repr_keys())
     if hasattr(widget, "_react_meta"):
         keys += ["_react_meta"]
+    if "children" in keys:
+        keys.remove("children")
+        keys = keys + ["children"]
     kwargs = [format_kwarg(key, getattr(widget, key)) for key in keys]
     args_formatted = "".join([f"\n{arg}," for arg in kwargs])
     return f"{name}({args_formatted}\n{' ' * (indent * indent_size)})"
