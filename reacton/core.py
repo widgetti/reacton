@@ -1318,7 +1318,7 @@ class _RenderContext:
                             if traceback.tb_next:  # is there an error inside the call
                                 self.tracebacks.append(traceback.tb_next)
                         self.tracebacks.append(el.traceback)
-                    logger.error("Component %r raised exception %r", el.component, e)
+                    logger.exception("Component %r raised exception %r", el.component, e)
                     context.exceptions_self.append(e)
                     self._rerender_needed_reason = "Exception ocurred during render"
                     self._rerender_needed = True
