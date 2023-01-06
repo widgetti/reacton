@@ -1735,6 +1735,36 @@ def test_exception_handler_in_event_widget_vue():
     rc.close()
 
 
+def test_exception_handler_due_to_use_memo():
+    @react.component
+    def Child():
+        value, set_value = react.use_state(0)
+        for i in range(value):
+            react.use_memo(lambda: 1)  # this will raise an exception if value changes
+        return w.IntSlider(value=value, on_value=set_value)
+
+    @react.component
+    def Container():
+        exception, clear = react.use_exception()
+        if not exception:
+            return Child()
+        else:
+            return w.Button(on_click=clear, description=str(exception))
+
+    box, rc = react.render(Container(), handle_error=False)
+    assert clear is not None
+    assert rc.find(ipywidgets.IntSlider).widget.value == 0
+    rc.find(ipywidgets.IntSlider).widget.value = 1
+    rc.find(ipywidgets.Button).assert_empty()
+    rc.find(ipywidgets.IntSlider).widget.value = 0
+    rc.find(ipywidgets.Button).widget.click()
+    rc.find(ipywidgets.Button).assert_empty()
+    assert rc.find(ipywidgets.IntSlider).widget.value == 0
+    assert not rc._is_rendering
+
+    rc.close()
+
+
 def test_recover_exception_in_reconcilliate():
     set_fail = None
 
