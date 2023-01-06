@@ -1279,13 +1279,14 @@ class _RenderContext:
             # call the function, and recurse into, until we hit leafs
             # find a context from previous reconsolidation phase, or otherwise the previous render run
             context_previous = context.children_next.get(key)
+
             if context_previous is None:
                 context_previous = context.children.get(key)
             parent_context = context
             del context
             if context_previous is not None:
                 # We could reuse the same context
-                if context_previous.root_element is None:
+                if context_previous.root_element is None and context_previous.root_element_next is None:
                     # this happens when we already created a context (with state) using state_set()
                     context = context_previous
                     logger.debug("Render: Previous element was None, so we reuse the ComponentContext")

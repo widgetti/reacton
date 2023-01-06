@@ -2409,6 +2409,43 @@ def test_rerender_component_switch(Container):
     rc.close()
 
 
+def test_rerender_component_switch_memo(Container):
+    # this tests when during the initial render phase, we have
+    # two render loops, where we switch a component, that
+    # should not re-used the context of the previous render loop
+    # this is something we check by having less use_memo's the
+    # second time
+    @react.component
+    def Component1():
+        react.use_memo(lambda: 1)
+        react.use_memo(lambda: 1)
+        return w.Button(description="1")
+
+    @react.component
+    def Component2():
+        react.use_memo(lambda: 1)
+        return w.Button(description="2")
+
+    set_value = None
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(1)
+        set_value(2)
+        with Container() as main:
+            if value == 1:
+                Component1()
+            else:
+                Component2()
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_value is not None
+    rc.find(widgets.Button).assert_matches(description="2")
+    rc.close()
+
+
 def test_set_state_during_close():
     @react.component
     def Test():
