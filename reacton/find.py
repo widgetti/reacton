@@ -129,7 +129,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
             time.sleep(iteration_delay)
 
         assert last_e is not None
-        raise TimeoutError(f"Timeout, waiting for {matches}") from last_e
+        raise TimeoutError(f"Timeout, waiting for {matches}, current structure:\n{self._current_structure()}") from last_e
 
     def assert_wait(self, f: Callable[[W], bool], timeout=1, iteration_delay=0.001):
         start = time.time()
@@ -138,7 +138,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
             if result:
                 return
             time.sleep(iteration_delay)
-        assert f(self.widget)
+        raise TimeoutError(f"Timeout, waiting for condition on widget, current structure:\n{self.parent._current_structure()}")
 
     @property
     def single(self) -> "Finder[W]":

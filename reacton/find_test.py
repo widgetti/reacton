@@ -79,7 +79,7 @@ def test_assert_wait():
 
     box, rc = react.render(Test())
     rc.find(widgets.Button).assert_wait(lambda x: x.description == "1")
-    with pytest.raises(AssertionError):
+    with pytest.raises(TimeoutError):
         rc.find(widgets.Button).assert_wait(lambda x: x.description == "xx", timeout=0.1)
 
 
