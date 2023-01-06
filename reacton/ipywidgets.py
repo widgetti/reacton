@@ -8,7 +8,7 @@ import ipywidgets.widgets.widget_description
 import ipywidgets.widgets.widget_int
 
 import reacton
-from reacton.core import Element, ValueElement
+from reacton.core import Element, ValueElement, _event_handler_exception_wrapper
 
 from .utils import implements
 
@@ -90,9 +90,10 @@ def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kw
 class ButtonElement(reacton.core.Element):
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         if name == "on_click":
+            callback_exception_safe = _event_handler_exception_wrapper(callback)
 
             def on_click(change):
-                callback()
+                callback_exception_safe()
 
             self._callback_wrappers[callback] = on_click
             widget.on_click(on_click)

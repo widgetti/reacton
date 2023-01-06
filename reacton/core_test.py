@@ -4,6 +4,7 @@ import unittest.mock
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Generic, List, Optional, Tuple, TypeVar, cast
 
+import ipyvuetify
 import ipywidgets
 import ipywidgets as widgets
 import numpy as np
@@ -13,8 +14,8 @@ import traitlets
 import reacton as react
 from reacton.core import component, use_effect
 
+from . import bqplot  # noqa: F401
 from . import logging  # noqa: F401
-from . import bqplot
 from . import ipyvuetify as v
 from . import ipywidgets as w
 from .core import ipywidget_version_major
@@ -1670,6 +1671,65 @@ def test_exception_handler_exception():
     # because the Handler failed to catch the error, the core library does it
     # using a HTML widget
     assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
+    assert not rc._is_rendering
+
+    rc.close()
+
+
+def test_exception_handler_in_event_widget():
+    # when the exception handling raises an exception, rerender again and bubble up
+    exception = None
+    clear = None
+
+    @react.component
+    def Container():
+        nonlocal clear, exception
+        exception, clear = react.use_exception()
+
+        def on_click():
+            raise Exception("in event handler: on_click")
+
+        def on_description(change):
+            raise Exception("in event handler: on_description")
+
+        return w.Button(on_click=on_click, on_description=on_description)
+
+    box, rc = react.render(Container(), handle_error=False)
+    assert clear is not None
+    rc.find(ipywidgets.Button).widget.click()
+    assert exception is not None
+    assert str(exception) == "in event handler: on_click"
+    rc.find(ipywidgets.Button).widget.description = "new description"
+    assert str(exception) == "in event handler: on_description"
+    # because the Handler failed to catch the error, the core library does it
+    assert not rc._is_rendering
+
+    rc.close()
+
+
+def test_exception_handler_in_event_widget_vue():
+    # when the exception handling raises an exception, rerender again and bubble up
+    exception = None
+    clear = None
+
+    @react.component
+    def Container():
+        nonlocal clear, exception
+        exception, clear = react.use_exception()
+
+        def on_click():
+            raise Exception("in event handler: on_click")
+
+        btn = v.Btn(children=[str(exception)])
+        v.use_event(btn, "click", lambda *_ignore: on_click())
+        return btn
+
+    box, rc = react.render(Container(), handle_error=False)
+    assert clear is not None
+    rc.find(ipyvuetify.Btn).widget.fire_event("click", {})
+    assert exception is not None
+    assert str(exception) == "in event handler: on_click"
+    # because the Handler failed to catch the error, the core library does it
     assert not rc._is_rendering
 
     rc.close()

@@ -40,8 +40,7 @@ import ipywidgets as widgets
 import typing_extensions
 from typing_extensions import Literal, Protocol
 
-from . import patch  # noqa: F401
-from . import _version
+from . import _version, patch  # noqa: F401
 
 __version__ = _version.__version__
 
@@ -109,6 +108,28 @@ def suppress_events():
 
 
 widgets.Widget.element = classmethod(element)
+
+
+def _event_handler_exception_wrapper(f):
+    """Wrap an event handler to catch exceptions and put them in a reacton context.
+
+    This allows a component to catch the exception of a direct child"""
+    rc = get_render_context()
+    context = rc.context
+    assert context is not None
+
+    def wrapper(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except Exception as e:
+            assert context is not None
+            # because widgets don't have a context, but are a child of a component
+            # we add it to exceptions_children, not exception_self
+            # this allows a component to catch the exception of a direct child
+            context.exceptions_children.append(e)
+            rc.force_update()
+
+    return wrapper
 
 
 def join_key(parent_key, key):
@@ -347,11 +368,12 @@ class Element(Generic[W]):
 
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
+        callback_exception_safe = _event_handler_exception_wrapper(callback)
 
         def on_change(change):
             if are_events_supressed():
                 return
-            callback(change["new"])
+            callback_exception_safe(change["new"])
 
         self._callback_wrappers[callback] = on_change
         widget.observe(on_change, target_name)
