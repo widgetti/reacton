@@ -61,5 +61,8 @@ Documentation = "https://reacton.solara.dev"
 [tool.black]
 line-length = 160
 
+[tool.ruff]
+line-length = 160
+
 [tool.isort]
 profile = "black"
