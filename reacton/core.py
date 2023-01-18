@@ -40,6 +40,8 @@ import ipywidgets as widgets
 import typing_extensions
 from typing_extensions import Literal, Protocol
 
+import reacton.logging  # noqa: F401  # has sidefx
+
 from . import _version, patch  # noqa: F401
 
 __version__ = _version.__version__
@@ -73,7 +75,7 @@ WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
 EffectCallable = Callable[[], Optional[EffectCleanupCallable]]
 ROOT_KEY = "ROOT::"
-logger = logging.getLogger("react")  # type: ignore
+logger = logging.getLogger("reacton")  # type: ignore
 
 # this will show friendly stack traces
 DEBUG = 0
