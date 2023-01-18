@@ -1392,6 +1392,13 @@ class _RenderContext:
                     # child does not handle exceptions, so bubble up
                     self.context.exceptions_children.extend(context.exceptions_self)
                     self.context.exceptions_children.extend(context.exceptions_children)
+                if self.context.exceptions_self or self.context.exceptions_children:
+                    if not self._rerender_needed:
+                        # this happens when an exception was added from an event handler
+                        # this means no exception was raised during the render phase
+                        # but we still need to rerender, until someone catches the exception
+                        self._rerender_needed_reason = "Exception ocurred during during event handler"
+                        self._rerender_needed = True
 
             assert context is not None
 
@@ -1695,6 +1702,10 @@ class _RenderContext:
                 self._visit_children(el, key, parent_key, self._remove_element)
             try:
                 self.context = child_context = context.children[key]
+                # we are removing the element, so we want to handle the
+                # exceptions any more, only if the cleanup fails
+                child_context.exceptions_self = []
+                child_context.exceptions_children = []
 
                 for effect_index, effect in enumerate(self.context.effects):
                     try:

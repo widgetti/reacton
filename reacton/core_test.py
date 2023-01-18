@@ -1682,10 +1682,7 @@ def test_exception_handler_in_event_widget():
     clear = None
 
     @react.component
-    def Container():
-        nonlocal clear, exception
-        exception, clear = react.use_exception()
-
+    def Button():
         def on_click():
             raise Exception("in event handler: on_click")
 
@@ -1694,11 +1691,23 @@ def test_exception_handler_in_event_widget():
 
         return w.Button(on_click=on_click, on_description=on_description)
 
+    @react.component
+    def Container():
+        nonlocal clear, exception
+        exception, clear = react.use_exception()
+        # breakpoint()
+        if exception:
+            return w.IntSlider()
+        else:
+            return Button()
+
     box, rc = react.render(Container(), handle_error=False)
     assert clear is not None
     rc.find(ipywidgets.Button).widget.click()
     assert exception is not None
     assert str(exception) == "in event handler: on_click"
+    rc.find(ipywidgets.IntSlider).assert_not_empty()
+    clear()
     rc.find(ipywidgets.Button).widget.description = "new description"
     assert str(exception) == "in event handler: on_description"
     # because the Handler failed to catch the error, the core library does it
