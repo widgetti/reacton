@@ -2371,14 +2371,16 @@ def test_mutate_warning():
         items, set_items = react.use_state([1, 2, 3])
 
         def add_item():
-            items.append(len(items))
+            items.append(len(items) + 1)
             set_items(items)
 
-        return w.Button(on_click=add_item)
+        return w.Button(description=str(items), on_click=add_item)
 
     box, rc = react.render(Test())
     with pytest.warns(UserWarning, match="mutating"):
         rc.find(widgets.Button).widget.click()
+    # even if we get a warning, it should rerender
+    assert rc.find(widgets.Button).widget.description == "[1, 2, 3, 4]"
     rc.close()
 
 
