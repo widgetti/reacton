@@ -42,7 +42,7 @@ from typing_extensions import Literal, Protocol
 
 import reacton.logging  # noqa: F401  # has sidefx
 
-from . import _version, patch  # noqa: F401
+from . import _version, patch, utils  # noqa: F401
 
 __version__ = _version.__version__
 
@@ -613,7 +613,7 @@ def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None
 
     This function can only be called from a component function.
 
-    The value rturns the current state (which equals initial at the first render call).
+    The value returns the current state (which equals initial at the first render call).
     Or the value that was last
 
     Subsequent
@@ -971,7 +971,7 @@ class _RenderContext:
         else:
             memo = self.context.memo[self.context.memo_index]
             value, dependencies_previous = memo
-            if dependencies_previous == dependencies:
+            if utils.equals(dependencies_previous, dependencies):
                 logger.info("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
             else:
                 logger.info("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
@@ -990,6 +990,8 @@ class _RenderContext:
             self.context.state[key] = initial
             if isinstance(initial, (list, dict, set)):
                 self.context.state_metadata[key] = len(initial)
+            elif utils.isinstance_lazy(initial, "pandas.DataFrame"):
+                self.context.state_metadata[key] = utils.dataframe_fingerprint(initial)
             logger.info("Initial state = %r for key %r (%r)", initial, key, id(self.context))
             return initial, self.make_setter(key, self.context, eq)
         else:
@@ -1003,28 +1005,46 @@ class _RenderContext:
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
 
-            if context.state[key] is value and isinstance(value, (list, dict, set)):
-                if context.state_metadata[key] != len(value):
-                    warn(
-                        "You are setting the state with the same object, this will not trigger a rerender. "
-                        f"We noticed the length of {value} changed compared to the previous time it was set. Are you mutating an existing state object? "
-                        "A common mistake is appending to a list, mutating a dict or set, etc.",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-
-            should_update = not eq(context.state[key], value) if eq is not None else context.state[key] != value
+            should_update = False
+            new_metadata = None
+            if eq is None:
+                if context.state[key] is value and isinstance(value, (list, dict, set)):
+                    new_metadata = len(value)
+                    if context.state_metadata[key] != new_metadata:
+                        warn(
+                            "You are setting the state with the same object, this will usually not trigger a rerender. "
+                            f"The length of {value} changed compared to the previous time it was set. Are you mutating an existing state object? "
+                            "A common mistake is appending to a list, mutating a dict or set, etc.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        should_update = True
+                if context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame"):
+                    new_metadata = utils.dataframe_fingerprint(value)
+                    if context.state_metadata[key] != new_metadata:
+                        warn(
+                            "You are setting the state with the dataframe, this will usually not trigger a rerender. "
+                            "We noticed the ids of the dataframe series are changed. Are you mutating an dataframe? "
+                            "Consider making a copy of the dataframe.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        should_update = True
+            equals = eq or utils.equals
+            should_update = not equals(context.state[key], value) or should_update
 
             # if a cleanup during close trigger a state update in a different component, we want to ignore that
             # otherwise we get a deadlock
             if self._closing:
-
                 should_update = False
 
             if should_update:
                 context.state[key] = value
-                if isinstance(value, (list, dict, set)):
-                    context.state_metadata[key] = len(value)
+                if context.state[key] is value and isinstance(value, (list, dict, set)) and new_metadata is None:
+                    new_metadata = len(value)
+                if context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame") and new_metadata is None:
+                    new_metadata = utils.dataframe_fingerprint(value)
+                context.state_metadata[key] = new_metadata
                 # TODO: enable
                 # context.needs_render = True
                 if self._rerender_needed is False:
@@ -1489,7 +1509,7 @@ class _RenderContext:
                         if effect.next:
                             # if we have a next, it means that effect itself is executed
                             # TODO: custom equals
-                            if effect.next.dependencies is not None and effect.dependencies == effect.next.dependencies:
+                            if effect.next.dependencies is not None and utils.equals(effect.dependencies, effect.next.dependencies):
                                 logger.info("No need to add effect, dependencies are the same (%r)", effect.dependencies)
                                 # not needed, just remove the reference
                                 effect.next = None

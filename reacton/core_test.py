@@ -8,6 +8,7 @@ import ipyvuetify
 import ipywidgets
 import ipywidgets as widgets
 import numpy as np
+import pandas as pd
 import pytest
 import traitlets
 
@@ -2381,6 +2382,113 @@ def test_mutate_warning():
         rc.find(widgets.Button).widget.click()
     # even if we get a warning, it should rerender
     assert rc.find(widgets.Button).widget.description == "[1, 2, 3, 4]"
+    rc.close()
+
+
+def test_set_state_with_dataframe():
+    df1 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    df2 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 7]})
+    set_df = None
+
+    @react.component
+    def Test():
+        nonlocal set_df
+        df, set_df = react.use_state(cast(pd.DataFrame, None))
+        # set_df(df))
+        return w.Button(description=str(df))
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_df is not None
+    assert rc.find(widgets.Button).widget.description == "None"
+    assert rc.render_count == 1
+    set_df(df1)
+    assert rc.render_count == 2
+    # should not rerender
+    set_df(df1)
+    assert rc.render_count == 2
+    assert rc.find(widgets.Button).widget.description == str(df1)
+    set_df(df2)
+    assert rc.render_count == 3
+    assert rc.find(widgets.Button).widget.description == str(df2)
+
+    with pytest.warns(UserWarning, match="mutating"):
+        # mutate the dataframe
+        df2["b"] = df2["b"] + 1
+        # should trigger the warning
+        set_df(df2)
+
+    rc.close()
+
+
+def test_use_memo_dataframe():
+    df1 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    df2 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 7]})
+    set_df = None
+    use_memos = 0
+
+    @react.component
+    def Test():
+        nonlocal set_df
+        nonlocal use_memos
+        df, set_df = react.use_state(cast(pd.DataFrame, None))
+
+        def increase_use_memos():
+            nonlocal use_memos
+            use_memos += 1
+
+        react.use_memo(increase_use_memos, [df])
+        return w.Button(description=str(df))
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_df is not None
+    assert rc.find(widgets.Button).widget.description == "None"
+    assert rc.render_count == 1
+    assert use_memos == 1
+    set_df(df1)
+    assert use_memos == 2
+    # should not trigger use_memo
+    set_df(df1)
+    assert use_memos == 2
+    set_df(df2)
+    assert use_memos == 3
+
+    # TODO: mutation detection in use_memo
+    rc.close()
+
+
+def test_use_effect_dataframe():
+    df1 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    df2 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 7]})
+    set_df = None
+    use_effects = 0
+
+    @react.component
+    def Test():
+        nonlocal set_df
+        nonlocal use_effects
+        df, set_df = react.use_state(cast(pd.DataFrame, None))
+
+        def increase_use_effects():
+            nonlocal use_effects
+            use_effects += 1
+
+        react.use_effect(increase_use_effects, [df])
+        return w.Button(description=str(df))
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert set_df is not None
+    assert rc.find(widgets.Button).widget.description == "None"
+    assert rc.render_count == 1
+    assert use_effects == 1
+    set_df(df1)
+    assert use_effects == 2
+    # should not trigger use_effect
+    set_df(df1)
+    assert use_effects == 2
+    set_df(df2)
+    assert use_effects == 3
+
+    # TODO: mutation detection in use_effect
     rc.close()
 
 
