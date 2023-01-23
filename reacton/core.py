@@ -285,7 +285,8 @@ class Element(Generic[W]):
         assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         assert rc.context is not None
         ca = rc.container_adders.pop()
-        self.add_children(ca.collect())
+        collected = ca.collect()
+        self.add_children(collected)
 
     def add_children(self, children):
         if self.child_prop_name not in self.kwargs:
@@ -431,24 +432,27 @@ class ValueElement(Generic[W, V], Element[W]):
 FuncT = TypeVar("FuncT", bound=Callable[..., Element])
 
 
-def find_children(el):
-    children = set()
-    if not isinstance(el.kwargs, dict):
-        raise RuntimeError("keyword arguments for {el} should be a dict, not {el.kwargs}")
-    for arg in list(el.kwargs.values()) + list(el.args):
-        if isinstance(arg, Element):
-            children.add(arg)
-        elif isinstance(arg, (tuple, list)):
-            for child in arg:
-                if isinstance(child, Element):
-                    children.add(child)
-                    children |= find_children(child)
-        elif isinstance(arg, dict):
-            for child in arg.values():
-                if isinstance(child, Element):
-                    children.add(child)
-                    children |= find_children(child)
-    return children
+def find_elements(value: Union[Element, List, Tuple, Dict]) -> Set[Element]:
+    if isinstance(value, Element):
+        el = value
+        elements = {el}
+        if not isinstance(el.kwargs, dict):
+            raise RuntimeError("keyword arguments for {el} should be a dict, not {el.kwargs}")
+        elements |= find_elements(el.args)
+        elements |= find_elements(el.kwargs)
+        return elements
+    elif isinstance(value, (tuple, list)):
+        elements = set()
+        for child in value:
+            if isinstance(child, (Element, tuple, list, dict)):
+                elements |= find_elements(child)
+        return elements
+    elif isinstance(value, dict):
+        elements = set()
+        for child in value.values():
+            if isinstance(child, (Element, tuple, list, dict)):
+                elements |= find_elements(child)
+        return elements
 
 
 class ContainerAdder(Generic[W]):
@@ -463,7 +467,7 @@ class ContainerAdder(Generic[W]):
     def collect(self):
         children = set()
         for el in self.created:
-            children |= find_children(el)
+            children |= find_elements(el) - {el}
         top_level = [k for k in self.created if k not in children]
         return top_level
 

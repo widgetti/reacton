@@ -555,6 +555,24 @@ def test_state_outside():
     checkbox.close()
 
 
+def test_children_collect():
+    class SomeContainer(widgets.Widget):
+        v_slots = traitlets.Any(widgets.Widget)
+
+    @react.component
+    def Test():
+        with w.HBox() as main:
+            button = w.Button(description="Button")
+            SomeContainer.element(v_slots=[{"name": "extension", "children": button}])
+        return main
+
+    vbox, rc = react.render(Test(), handle_error=False)
+    # should only have SomeContainer as child
+    assert len(rc.find(widgets.HBox).widget.children) == 1
+
+    rc.close()
+
+
 def test_children():
     clear()
     # hbox = widgets.HBox()
