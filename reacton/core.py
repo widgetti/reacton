@@ -1434,8 +1434,6 @@ class _RenderContext:
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
         context = self.context
         assert context is not None
-        assert not context.exceptions_children, f"Exceptions found in reconciliation phase: {context.exceptions_children} for context: {context!r}"
-        assert not context.exceptions_self, f"Exceptions found in reconciliation phase: {context.exceptions_self} for context: {context!r}"
 
         el_prev = context.elements.get(key)
 
