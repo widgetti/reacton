@@ -1,5 +1,6 @@
 import functools
 import inspect
+import types
 from typing import Callable, TypeVar, cast
 
 import ipywidgets as widgets
@@ -34,15 +35,19 @@ def wrap(mod, globals):
 
 
 def equals(a, b):
+    from reacton.core import Element, same_component
+
     if a is b:
         return True
-    try:
-        return bool(a == b)
-    except Exception:
-        pass
     if type(a) != type(b):  # is this always true? after a == b failed?
         return False
-    if isinstance(a, dict) and isinstance(b, dict):
+    if isinstance(a, Element):
+        return same_component(a.component, b.component) and equals(a.args, b.args) and equals(a.kwargs, b.kwargs)
+    elif isinstance(a, types.FunctionType):
+        return a.__code__ == b.__code__ and (
+            (a.__closure__ == b.__closure__) or equals([c.cell_contents for c in a.__closure__ or ()], [c.cell_contents for c in b.__closure__ or ()])
+        )
+    elif isinstance(a, dict) and isinstance(b, dict):
         if len(a) != len(b):
             return False
         for key in a:
@@ -58,6 +63,10 @@ def equals(a, b):
             if not equals(a[i], b[i]):
                 return False
         return True
+    try:
+        return bool(a == b)
+    except Exception:
+        pass
     return False
 
 

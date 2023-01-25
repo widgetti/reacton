@@ -151,6 +151,28 @@ def same_component(c1, c2):
     return c1 == c2
 
 
+def _with_tracebacks(e, tracebacks):
+    # copy it, and we need with_traceback for unknown reasons not to cause
+    # an infinite loop
+    e_original = e
+    e = copy.copy(e).with_traceback(e.__traceback__)
+    tb_next = None
+
+    # last item is the top of the stack
+    for tb in tracebacks:
+        # make a copy, so we do not mutate the original traceback
+        tb = TracebackType(tb_next=tb_next, tb_frame=tb.tb_frame, tb_lasti=tb.tb_lasti, tb_lineno=tb.tb_lineno)
+        tb_next = tb
+
+    if TRACEBACK_ORIGINAL:
+        e = e.with_traceback(tb_next)
+        e_original.__cause__ = e
+        return e_original
+    else:
+        e = e.with_traceback(tb_next)
+        return e
+
+
 class ComponentCreateError(RuntimeError):
     def __init__(self, rich_traceback):
         super().__init__(rich_traceback)
@@ -1212,21 +1234,8 @@ class _RenderContext:
                     # construct a fake traceback (showing how the elements were constructed)
                     if not self.tracebacks:
                         raise
-                    # copy it, and we need with_traceback for unknown reasons not to cause
-                    # an infinite loop
-                    e_original = copy.copy(e).with_traceback(e.__traceback__)
-                    tb_next = None
-
-                    # last item is the top of the stack
-                    for tb in self.tracebacks:
-                        # make a copy, so we do not mutate the original traceback
-                        tb = TracebackType(tb_next=tb_next, tb_frame=tb.tb_frame, tb_lasti=tb.tb_lasti, tb_lineno=tb.tb_lineno)
-                        tb_next = tb
-
-                    if TRACEBACK_ORIGINAL:
-                        raise e.with_traceback(tb_next) from e_original
-                    else:
-                        raise e.with_traceback(tb_next)
+                    e = _with_tracebacks(e, self.tracebacks)
+                    raise e
                 else:
                     raise
 
@@ -1237,9 +1246,12 @@ class _RenderContext:
 
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         if exceptions:
+            exc = exceptions[0]
+            if DEBUG:
+                exc = _with_tracebacks(exc, self.tracebacks)
+
             if self.handle_error:
                 logger.info("Exception occurred, rendering error message")
-                exc = exceptions[0]
                 if exc.__traceback__ is None:
                     value = "Exception occurred, but no traceback available"
                 else:
@@ -1251,7 +1263,7 @@ class _RenderContext:
 
                 return self.render(w.HTML(value="<pre>" + value + "</pre>"), self.container)
             else:
-                raise exceptions[0]
+                raise exc
         return widget
 
     def _render(self, element: Element, default_key: str, parent_key: str):
