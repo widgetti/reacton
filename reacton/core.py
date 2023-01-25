@@ -1140,6 +1140,8 @@ class _RenderContext:
                         # we started the rendering loop (main_render_phase is True), so we keep going
                         # but if an exception bubbled up, we should stop
                         while self._rerender_needed and not self.context_root.exceptions_children:
+                            if render_counts > 50:
+                                raise RuntimeError(f"Too many renders triggered, your render loop does not stop, last reason: {self._rerender_needed_reason}")
                             logger.info("Entering nested render phase: %r", self._rerender_needed_reason)
                             self._rerender_needed = False
                             self._rerender_needed_reason = None
@@ -1152,8 +1154,6 @@ class _RenderContext:
                             logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reason)
                             assert self.context is self.context_root
                             render_counts += 1
-                            if render_counts > 50:
-                                raise RuntimeError("Too many renders triggered, your render loop does not stop")
                         logger.debug("Render phase resulted in (next) elements:")
                         for el in self._shared_elements_next:
                             logger.debug("\t%r %x", el, id(el))
