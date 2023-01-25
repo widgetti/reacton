@@ -90,6 +90,10 @@ def Container(request):
     return dict(ContainerWidget=w.HBox, ContainerFunction=ContainerFunction)[request.param]
 
 
+Container1 = Container
+Container2 = Container
+
+
 def test_internals():
     @react.component
     def Child():
@@ -1813,6 +1817,32 @@ def test_recover_exception_in_reconcilliate():
     set_fail(True)
     assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
     assert not rc._is_rendering
+    rc.close()
+
+
+def test_recover_exception_in_cleanup_child(Container1, Container2):
+    set_fail = None
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        fail, set_fail = react.use_state(False)
+
+        def some_effect():
+            def cleanup():
+                # breakpoint()
+                raise Exception("fail")
+
+            return cleanup
+
+        react.use_effect(some_effect, [fail])
+        return w.IntSlider()
+
+    box, rc = react.render(Container1(children=[Test()]), handle_error=False)
+    assert set_fail is not None
+    assert rc.find(ipywidgets.IntSlider)
+    with pytest.raises(Exception):
+        rc.render(Container1(children=[Container2()]))
     rc.close()
 
 

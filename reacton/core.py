@@ -1736,7 +1736,7 @@ class _RenderContext:
                     try:
                         effect.cleanup()
                     except BaseException as e:
-                        context.exceptions_self.append(e)
+                        child_context.exceptions_self.append(e)
                         self._rerender_needed_reason = "Exception ocurred during effect"
                         self._rerender_needed = True
                 assert self.context.root_element is not None
@@ -1745,6 +1745,10 @@ class _RenderContext:
             finally:
                 # restore context
                 self.context = context
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                # child does not handle exceptions, so bubble up
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
             del context.children[key]
         else:
             self._visit_children(el, key, parent_key, self._remove_element)
