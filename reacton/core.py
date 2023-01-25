@@ -1841,6 +1841,7 @@ def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     import IPython.display  # type: ignore
 
     box = widgets.VBox(_view_count=0)
+    el = _wrap(el, jupyter_decorator_components)
     widget, rc = render(el, container=box)
     displayed = False
 
@@ -1863,6 +1864,17 @@ def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     IPython.display.display(data, raw=True)
     if ipywidget_version_major < 8:
         widget._handle_displayed()
+
+
+# list of decorators that wrap an element when displayed
+# in a jupyter environment, like notebook, or lab via _ipython_display_
+jupyter_decorator_components: List[Callable[..., Element]] = []
+
+
+def _wrap(el: Element, decorators: List[FuncT]) -> Element:
+    for c in jupyter_decorator_components:
+        el = c(children=[el])
+    return el
 
 
 def make(el: Element, handle_error: bool = True):

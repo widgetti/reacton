@@ -13,6 +13,7 @@ import pytest
 import traitlets
 
 import reacton as react
+import reacton.core
 from reacton.core import component, use_effect
 
 from . import bqplot  # noqa: F401
@@ -2672,3 +2673,27 @@ def test_value_component():
     rc.find(widgets.IntSlider).widget.value = 43
     assert value.value == 43
     rc.close()
+
+
+def test_jupyter_decorator():
+    context = react.create_context(1)
+
+    @react.component
+    def Decorator(children=[]):
+        context.provide(42)
+        return children[0]
+
+    reacton.core.jupyter_decorator_components.append(Decorator)
+    try:
+
+        @react.component
+        def Test():
+            value = react.use_context(context)
+            return w.Button(description=str(value))
+
+        react.display(Test())
+        assert react.core.local.last_rc is not None
+        react.core.local.last_rc.find(widgets.Button).assert_matches(description="42")
+        react.core.local.last_rc.close()
+    finally:
+        reacton.core.jupyter_decorator_components.pop()
