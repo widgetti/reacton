@@ -384,7 +384,10 @@ class Element(Generic[W]):
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
         on_change = self._callback_wrappers[callback]
-        widget.unobserve(on_change, target_name)
+        try:
+            widget.unobserve(on_change, target_name)
+        except ValueError:
+            logger.error("Could not remove event listener %r from %r", name, widget)
 
 
 class Value(Generic[V], Protocol):
