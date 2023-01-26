@@ -558,17 +558,22 @@ def component(obj: FuncT, mime_bundle=...) -> FuncT:
     ...
 
 
+@overload
+def component(obj: Callable[P, None], mime_bundle=...) -> Callable[P, Element]:
+    ...
+
+
 # it is actually this...
 # def component(obj: Union[Type[widgets.Widget], FuncT]) -> Union[ComponentWidget, ComponentFunction[FuncT]]:
 # but casting to FuncT gives much better type hints (e.g. argument types checks etc)
 
 
-def component(obj: FuncT = None, mime_bundle: Dict[str, Any] = mime_bundle_default):
-    def wrapper(obj: FuncT) -> FuncT:
+def component(obj: Union[Callable[P, None], FuncT] = None, mime_bundle: Dict[str, Any] = mime_bundle_default):
+    def wrapper(obj: Union[Callable[P, None], FuncT]) -> FuncT:
         if isclass(obj) and issubclass(obj, widgets.Widget):
             return cast(FuncT, ComponentWidget(widget=obj, mime_bundle=mime_bundle))
         else:
-            return cast(FuncT, ComponentFunction(f=obj, mime_bundle=mime_bundle))
+            return cast(FuncT, ComponentFunction(f=cast(FuncT, obj), mime_bundle=mime_bundle))
 
     if obj is not None:
         return wrapper(obj)
@@ -1372,7 +1377,16 @@ class _RenderContext:
                 # back the root element
                 root_element: Optional[Element] = None
                 try:
-                    root_element = el.component.f(*el.args, **el.kwargs)
+                    if _default_container is not None:
+                        with _default_container() as container:
+                            root_element = el.component.f(*el.args, **el.kwargs)
+                        if root_element is None:
+                            if len(container.kwargs["children"]) == 1:
+                                root_element = container.kwargs["children"][0]
+                            else:
+                                root_element = container
+                    else:
+                        root_element = el.component.f(*el.args, **el.kwargs)
                 except BaseException as e:
                     if DEBUG:
                         # we might be interested in the traceback inside the call...
@@ -1896,6 +1910,7 @@ def make(el: Element, handle_error: bool = True):
 
 
 _last_interactive_vbox = None
+_default_container: Optional[Callable[..., Element]] = None
 
 
 def component_interactive(static=None, **kwargs):

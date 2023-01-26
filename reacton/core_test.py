@@ -2697,3 +2697,25 @@ def test_jupyter_decorator():
         react.core.local.last_rc.close()
     finally:
         reacton.core.jupyter_decorator_components.pop()
+
+
+def test_implicit_component():
+    reacton.core._default_container = w.VBox
+
+    @react.component
+    def Test(a: int):
+        w.Button(description="hoeba: " + str(a))
+
+    box, rc = react.render(Test(1), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "hoeba: 1"
+    rc.close()
+
+    @react.component
+    def Test2(a: int):
+        w.Button(description="hoeba: " + str(a))
+        w.Button(description="hoeba: " + str(a + 1))
+
+    box, rc = react.render(Test2(1), handle_error=False)
+    assert rc.find(widgets.Button)[0].widget.description == "hoeba: 1"
+    assert rc.find(widgets.Button)[1].widget.description == "hoeba: 2"
+    rc.close()
