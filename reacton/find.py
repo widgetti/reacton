@@ -186,28 +186,43 @@ class Finder(collections.abc.Sequence, Generic[W]):
         found: List[Element] = []
 
         while queue:
-            widget = queue.pop(0)
-            if f(widget):
-                found.append(widget)
+            value = queue.pop(0)
+            if isinstance(value, Widget) and f(value):
+                found.append(value)
             else:
-                for name in widget.keys:
-                    value = getattr(widget, name)
-                    if isinstance(value, Widget):
-                        if value not in visited:
-                            visited.add(value)
-                            queue.append(value)
-                    elif isinstance(value, (list, tuple)):
-                        for el in value:
-                            if isinstance(el, Widget):
-                                if id(el) not in visited:
-                                    visited.add(id(el))
-                                    queue.append(el)
-                    elif isinstance(value, dict):
-                        for name, el in value.items():
-                            if isinstance(el, Widget):
-                                if id(el) not in visited:
-                                    visited.add(id(el))
-                                    queue.append(el)
+                if isinstance(value, Widget):
+                    widget = value
+                    for name in widget.keys:
+                        value = getattr(widget, name)
+                        if isinstance(value, Widget):
+                            if value not in visited:
+                                visited.add(value)
+                                queue.append(value)
+                        elif isinstance(value, (list, tuple)):
+                            for el in value:
+                                if isinstance(el, (Widget, list, dict)):
+                                    if id(el) not in visited:
+                                        visited.add(id(el))
+                                        queue.append(el)
+                        elif isinstance(value, dict):
+                            for name, el in value.items():
+                                if isinstance(el, (Widget, list, dict)):
+                                    if id(el) not in visited:
+                                        visited.add(id(el))
+                                        queue.append(el)
+                elif isinstance(value, list):
+                    for el in value:
+                        if isinstance(el, (Widget, list, dict)):
+                            if id(el) not in visited:
+                                visited.add(id(el))
+                                queue.append(el)
+                elif isinstance(value, dict):
+                    for name, el in value.items():
+                        if isinstance(el, (Widget, list, dict)):
+                            if id(el) not in visited:
+                                visited.add(id(el))
+                                queue.append(el)
+
         return found
 
 
