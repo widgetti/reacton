@@ -2722,6 +2722,46 @@ def test_implicit_component():
     rc.close()
 
 
+def test_create_widget():
+    @react.component
+    def Test(a: int = 1, label="lala", on_a=None):
+        return w.IntSlider(value=a, on_value=on_a, description=label)
+
+    widget: widgets.Widget = Test.widget(a=1, label="lala")  # type: ignore
+    mock = unittest.mock.Mock()
+    widget.trait_names() == ["a", "label"]
+    widget.observe(mock, "a")
+    widget.a = 2
+    mock.assert_called_once_with({"name": "a", "old": 1, "new": 2, "owner": widget, "type": "change"})
+    slider = widget.children[0]
+    assert isinstance(slider, widgets.IntSlider)
+    slider.value = 3
+    mock.assert_called_with({"name": "a", "old": 2, "new": 3, "owner": widget, "type": "change"})
+
+    widget.rc.close()
+
+    @reacton.component
+    def BiSlider(value, on_value):
+        x, y = value
+        with w.VBox() as main:
+            w.IntSlider(min=0, max=10, value=x, on_value=lambda x: on_value((x, y)))
+            w.IntSlider(min=0, max=x**2, value=y, on_value=lambda y: on_value((x, y)))
+        return main
+
+    widget: widgets.Widget = BiSlider.widget(value=(3, 4))  # type: ignore
+    slider1 = widget.children[0].children[0]
+    slider2 = widget.children[0].children[1]
+    assert slider1.value == 3
+    assert slider2.value == 4
+    widget.value = (2, 3)
+    assert slider1.value == 2
+    assert slider2.value == 3
+
+    slider1.value = 3
+    assert slider2.max == 9
+    widget.rc.close()
+
+
 def test_display_element():
     button = w.Button(description="hoeba")
 

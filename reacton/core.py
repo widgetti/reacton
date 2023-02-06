@@ -37,6 +37,7 @@ from warnings import warn
 
 import ipywidgets
 import ipywidgets as widgets
+import traitlets
 import typing_extensions
 from typing_extensions import Literal, Protocol
 
@@ -529,6 +530,63 @@ class ComponentFunction(Component):
         self.mime_bundle = mime_bundle
         self.value_name = value_name
         functools.update_wrapper(self, f)
+
+    def widget(self, **kwargs):
+        return self.widget_class()(**kwargs)
+
+    def widget_class(self):
+        args = list(inspect.signature(self.f).parameters.keys())
+        listeners = set()
+        normal_kwargs = set()
+        for name in args:
+            if name.startswith("on_"):
+                listeners.add(name)
+            else:
+                normal_kwargs.add(name)
+        component = self
+
+        class Container(widgets.VBox, widgets.ValueWidget):
+            description = traitlets.Unicode()
+
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self._children = []
+                traits = {}
+
+                for name in normal_kwargs:
+                    traits[name] = traitlets.Any()
+                Container.add_traits(self, **traits)
+                for name, value in kwargs.items():
+                    if name in normal_kwargs:
+                        setattr(self, name, value)
+                for name in normal_kwargs:
+                    self.observe(self._rerender, name)
+                el = self._create_el()
+                self.rc = _RenderContext(el, self)
+                self.rc.render(el, self)
+
+            def _create_el(self):
+                kwargs = {}
+                for name in normal_kwargs:
+                    kwargs[name] = getattr(self, name)
+                for name in listeners:
+                    propname = name[3:]
+
+                    def closure(propname=propname):
+                        def setter(value):
+                            setattr(self, propname, value)
+
+                        return setter
+
+                    kwargs[name] = closure()
+                logger.info("calling component with kwargs: %r", kwargs)
+                return component(**kwargs)
+
+            def _rerender(self, change):
+                el = self._create_el()
+                self.rc.update(el)
+
+        return Container
 
     def __eq__(self, rhs):
         if self is rhs:
@@ -1116,6 +1174,14 @@ class _RenderContext:
                 self.context.effects[self.context.effect_index] = Effect(effect, dependencies)
             self.context.effect_index += 1
 
+    def update(self, element: Element):
+        if self._is_rendering:
+            self.element = element
+            self._rerender_needed = True
+            self._rerender_needed_reason = "root element changed"
+        else:
+            self.render(element, self.container)
+
     def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
         widget = None
@@ -1137,11 +1203,12 @@ class _RenderContext:
             try:
                 local.rc = self
                 self.element = element
+                del element
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
                 self._rerender_needed = False
                 self._rerender_needed_reason = None
-                logger.info("Render phase: %r %r", self.render_count, "main" if main_render_phase else "(nested)")
+                logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
                 self._is_rendering = True
                 # if we got called recursively, self.context is not the root context
@@ -1150,12 +1217,12 @@ class _RenderContext:
                 self.context.exception_handler = False
                 self.context.exceptions_children = []
                 self.context.exceptions_self = []
-                self.context.root_element_next = element
+                self.context.root_element_next = self.element
                 assert self.context is not None
 
                 try:
                     self._shared_elements_next = set()
-                    self._render(element, "/", parent_key=ROOT_KEY)
+                    self._render(self.element, "/", parent_key=ROOT_KEY)
                     self.first_render = False
                 except BaseException:
                     self._is_rendering = False
@@ -1178,7 +1245,7 @@ class _RenderContext:
                             self.context.exceptions_children = []
                             self.context.exceptions_self = []
 
-                            self._render(element, "/", parent_key=ROOT_KEY)
+                            self._render(self.element, "/", parent_key=ROOT_KEY)
                             logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reason)
                             assert self.context is self.context_root
                             render_counts += 1
@@ -1194,7 +1261,7 @@ class _RenderContext:
                             break
 
                         logger.info("Render reconsolidate...")
-                        widget = self._reconsolidate(element, default_key="/", parent_key=ROOT_KEY)
+                        widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
                         logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
@@ -1206,7 +1273,7 @@ class _RenderContext:
                             logger.debug("\t%r %x", el, id(el))
                         # RESET
                         assert self.context is self.context_root
-                        if element.is_shared:
+                        if self.element.is_shared:
                             assert widget in self._shared_widgets.values()
                         else:
                             assert widget in self.context_root.widgets.values()
