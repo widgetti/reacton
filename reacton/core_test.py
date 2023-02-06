@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import traitlets
+from IPython.display import display
 
 import reacton as react
 import reacton.core
@@ -2718,4 +2719,32 @@ def test_implicit_component():
     box, rc = react.render(Test2(1), handle_error=False)
     assert rc.find(widgets.Button)[0].widget.description == "hoeba: 1"
     assert rc.find(widgets.Button)[1].widget.description == "hoeba: 2"
+    rc.close()
+
+
+def test_display_element():
+    button = w.Button(description="hoeba")
+
+    @react.component
+    def Test():
+        with w.VBox() as box:
+            display(button)
+        return box
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "hoeba"
+    rc.close()
+
+
+def test_display_dataframe():
+    df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+
+    @react.component
+    def Test():
+        with w.VBox() as box:
+            display(df)
+        return box
+
+    box, rc = react.render(Test(), handle_error=False)
+    # assert rc.find(widgets.Button).widget.description == "hoeba"
     rc.close()
