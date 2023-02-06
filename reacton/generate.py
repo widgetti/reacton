@@ -173,16 +173,16 @@ class CodeGen(Generic[W]):
             # TODO: we can special case this (Tuple is subclass of Instance)
             # but it's fixed length
             if isinstance(trait, traitlets.traitlets.Instance):
-                if trait.klass.__name__ == "array":
+                if trait.klass.__name__ == "array":  # type: ignore
                     import pdb
 
                     pdb.set_trace()
                 if trait.klass.__module__ == "builtins":
-                    return trait.klass.__name__
+                    return trait.klass.__name__  # type: ignore
                 else:
-                    type_name = str(trait.klass.__module__) + "." + trait.klass.__name__
+                    type_name = str(trait.klass.__module__) + "." + trait.klass.__name__  # type: ignore
                     type_name = type_name_alias.get(type_name, type_name)
-                    if issubclass(trait.klass, widgets.Widget):
+                    if issubclass(trait.klass, widgets.Widget):  # type: ignore
                         element_class_name_type = "Element"  # self.get_element_class
                         type_name = f"{element_class_name_type}[{type_name}]"
                     return type_name

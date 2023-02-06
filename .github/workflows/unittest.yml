@@ -22,6 +22,6 @@ jobs:
       - name: Downgrade pip
         run: pip install "pip<22"
       - name: Install
-        run: pip install ".[dev]"
+        run: pip install ".[dev]" "black<23"
       - name: test
         run: pytest --cov=reacton reacton
