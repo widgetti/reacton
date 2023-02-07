@@ -41,8 +41,8 @@ import traitlets
 import typing_extensions
 from typing_extensions import Literal, Protocol
 
-import reacton.display  # noqa: F401  # has sidefx
 import reacton.logging  # noqa: F401  # has sidefx
+import reacton.patch_display  # noqa: F401  # has sidefx
 
 from . import _version, patch, utils  # noqa: F401
 

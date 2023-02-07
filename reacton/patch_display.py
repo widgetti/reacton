@@ -15,7 +15,7 @@ def publish(data, metadata=None, *args, **kwargs):
 
         Output(outputs=[{"output_type": "display_data", "data": data, "metadata": metadata}])
     else:
-        original_display_publisher_publish(data, metadata, *args, **kwargs)
+        return original_display_publisher_publish(data, metadata, *args, **kwargs)
 
 
 class ReactonDisplayFormatter(BaseFormatter):
@@ -37,7 +37,7 @@ class ReactonDisplayFormatter(BaseFormatter):
                 if isinstance(obj, Element):
                     # add directly as a child
                     rc.container_adders[-1].add(obj)
-                    return None
+                    return True  # we handled it
         return ipython_display_formatter_original(obj)
 
 
