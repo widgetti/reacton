@@ -23,7 +23,7 @@ jobs:
         run: pip install "pip<22"
       - name: Install dependencies
         run: |
-          pip install ".[dev]" mypy "black<23"
+          pip install ".[dev]" "mypy<1" "black<23"
           mypy --install-types --non-interactive reacton
       - name: Run black
         run: black reacton
