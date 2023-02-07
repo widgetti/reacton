@@ -89,7 +89,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
     def matches(self, **matches):
         self.assert_matches(**matches)
 
-    def wait_for(self, state="attached", timeout=1):
+    def wait_for(self, state="attached", timeout=1, iteration_delay=0.01):
         start = time.time()
         finder = self
         while time.time() - start < timeout:
@@ -101,7 +101,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
                     return finder
             else:
                 raise ValueError(f"Unknown state {state}, expected 'attached' or 'detached'")
-            time.sleep(0.001)
+            time.sleep(iteration_delay)
             finder = self._reexecute_find()
         raise TimeoutError(f"Timeout waiting for {self}, current structure:\n{self._current_structure()}")
 
