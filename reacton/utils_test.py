@@ -51,15 +51,15 @@ def test_equals():
     assert equals(dar1, dar2)
     assert not equals(dar1, dar3)
 
-    def make_function(a):
+    def make_function(a, ar1, ar2):
         def func(x):
-            return x**a
+            return x**a + (ar1 == ar2)
 
         return func
 
-    f1 = make_function(1)
-    f2 = make_function(1)
-    f3 = make_function(2)
+    f1 = make_function(1, ar1, ar2)
+    f2 = make_function(1, ar1, ar2)
+    f3 = make_function(2, ar2, ar2)
     assert f1 == f1
     assert f1 != f2
     assert equals(f1, f1)

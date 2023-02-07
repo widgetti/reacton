@@ -45,7 +45,7 @@ def equals(a, b):
         return same_component(a.component, b.component) and equals(a.args, b.args) and equals(a.kwargs, b.kwargs)
     elif isinstance(a, types.FunctionType):
         return a.__code__ == b.__code__ and (
-            (a.__closure__ == b.__closure__) or equals([c.cell_contents for c in a.__closure__ or ()], [c.cell_contents for c in b.__closure__ or ()])
+            (equals(a.__closure__, b.__closure__)) or equals([c.cell_contents for c in a.__closure__ or ()], [c.cell_contents for c in b.__closure__ or ()])
         )
     elif isinstance(a, dict) and isinstance(b, dict):
         if len(a) != len(b):
