@@ -535,7 +535,8 @@ class ComponentFunction(Component):
         return self.widget_class()(**kwargs)
 
     def widget_class(self):
-        args = list(inspect.signature(self.f).parameters.keys())
+        parameters = inspect.signature(self.f).parameters
+        args = list(parameters.keys())
         listeners = set()
         normal_kwargs = set()
         for name in args:
@@ -554,7 +555,12 @@ class ComponentFunction(Component):
                 traits = {}
 
                 for name in normal_kwargs:
-                    traits[name] = traitlets.Any()
+                    if name != "children":  # children is a special trait we keep
+                        if name in normal_kwargs:
+                            trait = traitlets.Any(default_value=parameters[name].default)
+                        else:
+                            trait = traitlets.Any()
+                        traits[name] = trait
                 Container.add_traits(self, **traits)
                 for name, value in kwargs.items():
                     if name in normal_kwargs:
@@ -568,7 +574,8 @@ class ComponentFunction(Component):
             def _create_el(self):
                 kwargs = {}
                 for name in normal_kwargs:
-                    kwargs[name] = getattr(self, name)
+                    if name != "children":
+                        kwargs[name] = getattr(self, name)
                 for name in listeners:
                     propname = name[3:]
 

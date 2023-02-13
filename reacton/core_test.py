@@ -2724,13 +2724,17 @@ def test_implicit_component():
 
 def test_create_widget():
     @react.component
-    def Test(a: int = 1, label="lala", on_a=None):
+    def Test(a: int = 1, label="lala", on_a=None, children=[]):
+        # adding children shouldn't change the children trait
+        assert children == []
         return w.IntSlider(value=a, on_value=on_a, description=label)
 
-    widget: widgets.Widget = Test.widget(a=1, label="lala")  # type: ignore
+    widget: widgets.Widget = Test.widget(a=1)  # type: ignore
+    assert widget.trait_metadata("children", "to_json") is not None
     mock = unittest.mock.Mock()
     widget.trait_names() == ["a", "label"]
     widget.observe(mock, "a")
+    assert widget.label == "lala"
     widget.a = 2
     mock.assert_called_once_with({"name": "a", "old": 1, "new": 2, "owner": widget, "type": "change"})
     slider = widget.children[0]
