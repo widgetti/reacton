@@ -108,7 +108,7 @@ We now have a simple component that we can reuse, e.g., like this:
 def ManyButtons(count=10):
     count, set_count = reacton.use_state(count)
     slider = w.IntSlider(min=0, max=20, value=count, on_value=set_count)
-    buttons = [ButtonClick(f"Hi-{i}") for i in range(count)]
+    buttons = [ButtonClick() for i in range(count)]
     return w.VBox(children=[slider, *buttons])
 display(ManyButtons())
 ```
