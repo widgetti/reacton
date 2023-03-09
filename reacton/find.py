@@ -51,7 +51,7 @@ class Finder(collections.abc.Sequence, Generic[W]):
         return parent
 
     def __repr__(self):
-        return "Finder structure:\n%r" % self._current_structure()
+        return "Finder structure:\n%s" % self._current_structure()
 
     def _reexecute_find(self):
         finder = self._root()
