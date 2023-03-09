@@ -1,5 +1,6 @@
 import functools
 import inspect
+import sys
 import types
 from typing import Callable, TypeVar, cast
 
@@ -71,12 +72,14 @@ def equals(a, b):
 
 
 def import_item(name: str):
-    """Import an object by name like pandas.DataFrame"""
-    parts = name.rsplit(".", 2)
+    """Import an object by name like pandas.DataFrame if the module is imported, else return None"""
+    parts = name.rsplit(".", 1)
     if len(parts) == 1:
-        return __import__(name)
+        return sys.modules.get(name)
     else:
-        module = __import__(".".join(parts[:-1]), fromlist=[parts[-1]])
+        module = sys.modules.get(parts[0])
+        if module is None:
+            return None
         return getattr(module, parts[-1])
 
 
@@ -85,8 +88,9 @@ def isinstance_lazy(value, types):
         types = [types]
     types = [import_item(t) if isinstance(t, str) else t for t in types]
     for type in types:
-        if isinstance(value, type):
+        if type is not None and isinstance(value, type):
             return True
+    return False
 
 
 def dataframe_fingerprint(df):

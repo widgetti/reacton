@@ -1,8 +1,10 @@
+import sys
+
 import pytest
 
 import reacton.ipywidgets as w
 
-from .utils import equals
+from .utils import equals, import_item, isinstance_lazy
 
 
 class NeverEquals:
@@ -82,3 +84,25 @@ def test_equals():
     assert equals(el1.kwargs, el2.kwargs)
     assert equals(el1, el2)
     assert not equals(el1, el3)
+
+
+def test_import_item():
+    assert import_item("sys.modules") is sys.modules
+    assert import_item("sys") is sys
+    assert import_item("doesnotexist") is None
+    assert import_item("doesnotexist.a") is None
+    assert import_item("doesnotexist.a.b") is None
+
+
+def test_isinstance_lazy():
+    assert isinstance_lazy(1, int)
+    assert isinstance_lazy(1, (int, "does.not.exist"))
+    assert not isinstance_lazy(1, "does.not.exist")
+    import pandas
+
+    sys.modules.pop("pandas", None)
+    assert not isinstance_lazy(1, "pandas.DataFrame")
+    import pandas as pd
+
+    df = pd.DataFrame()
+    assert isinstance_lazy(df, "pandas.DataFrame")
