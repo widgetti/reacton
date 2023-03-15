@@ -94,6 +94,7 @@ def test_import_item():
     assert import_item("doesnotexist.a.b") is None
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_isinstance_lazy():
     assert isinstance_lazy(1, int)
     assert isinstance_lazy(1, (int, "does.not.exist"))

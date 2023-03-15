@@ -51,6 +51,7 @@ dev = [
     "ipyvuetify",
     "bump2version",
     "jinja2",
+    "pandas",
 ]
 
 [project.urls]
