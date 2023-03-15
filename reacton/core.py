@@ -1035,7 +1035,7 @@ class _RenderContext:
             assert self.context is self.context_root
         if self.container:
             self.container.close()
-            if isinstance(self.container, widgets.DOMWidget):
+            if isinstance(self.container, widgets.DOMWidget) and self.container.layout is not None:
                 self.container.layout.close()
         if self._shared_elements:
             raise RuntimeError(f"Element not cleaned up: {self._shared_elements}")
