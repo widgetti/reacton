@@ -1944,8 +1944,29 @@ def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _Re
     return widget, _rc
 
 
+_colab_enabled_custom_widget_manager = False
+
+
 def display(el: Element, mime_bundle: Dict[str, Any] = mime_bundle_default):
     import IPython.display  # type: ignore
+
+    if utils.environment() == "colab":
+        if "ipyvuetify" in sys.modules:
+            # we probably want to use ipyvuetify
+            # so we need to enable the custom widget manager
+            global _colab_enabled_custom_widget_manager
+            if not _colab_enabled_custom_widget_manager:
+                from google.colab import output
+
+                output.enable_custom_widget_manager()
+                _colab_enabled_custom_widget_manager = True
+            import ipyvue
+
+            # also, ipyvuetify needs ipyvue/jupyter-vuetify to be loaded on the frontend
+            # in colab, we need to do that for every iframe.
+            # see https://github.com/googlecolab/colabtools/issues/3501
+
+            IPython.display.display(ipyvue.Html(tag="span", style_="display: none"))
 
     box = widgets.VBox(_view_count=0)
     el = _wrap(el, jupyter_decorator_components)

@@ -125,3 +125,20 @@ def not_equals(a, b):
         return (a != b).any()
     else:
         return a != b
+
+
+def environment() -> str:
+    try:
+        module = get_ipython().__module__  # type: ignore
+        shell = get_ipython().__class__.__name__  # type: ignore
+    except NameError:
+        return "python"  # Probably standard Python interpreter
+    else:
+        if module == "google.colab._shell":
+            return "colab"
+        elif shell == "ZMQInteractiveShell":
+            return "jupyter"  # Jupyter notebook, lab or qtconsole
+        elif shell == "TerminalInteractiveShell":
+            return "ipython"  # Terminal running IPython
+        else:
+            return "unknown"  # Other type
