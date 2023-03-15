@@ -2798,3 +2798,36 @@ def test_display_dataframe():
     box, rc = react.render(Test(), handle_error=False)
     # assert rc.find(widgets.Button).widget.description == "hoeba"
     rc.close()
+
+
+def test_component_context_manager():
+    calls = 0
+
+    class ContextManager:
+        def __init__(self, el) -> None:
+            pass
+
+        def __enter__(self):
+            nonlocal calls
+            calls += 1
+
+        def __exit__(self, *args):
+            pass
+
+    def set_text(text: str):
+        pass
+
+    reacton.core._component_context_manager_classes.append(ContextManager)
+
+    @react.component
+    def Test():
+        nonlocal set_text
+        text, set_text = reacton.use_state("hoeba")  # type: ignore
+        return w.Button(description=text)
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert calls == 1
+    set_text("different")
+    assert calls == 2
+    rc.close()
+    reacton.core._component_context_manager_classes.pop()

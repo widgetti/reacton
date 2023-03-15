@@ -948,6 +948,8 @@ class ComponentContext:
     # it will always bubble up to the parent component.
     exception_handler: bool = False
 
+    context_managers: List[ContextManager] = field(default_factory=list)
+
 
 TEffect = TypeVar("TEffect", bound="Effect")
 
@@ -1417,7 +1419,7 @@ class _RenderContext:
                     if not same_component(context_previous.invoke_element.component, el.component):
                         logger.debug("Render: Not the same component, we just copy the children and elements of the ComponentContext")
                         # The old context is cleaned up in the reconciliation phase
-                        context = ComponentContext(parent=parent_context)
+                        context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
                     else:
                         logger.debug("Render: Same component: %r", el.component)
                         context = context_previous
@@ -1429,7 +1431,7 @@ class _RenderContext:
                         #     return
             else:
                 logger.debug("Render: New ComponentContext")
-                context = ComponentContext(parent=parent_context)
+                context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
             context.invoke_element = el
             assert context.parent is not None
             self.container_adders = []
@@ -1452,16 +1454,20 @@ class _RenderContext:
                 # back the root element
                 root_element: Optional[Element] = None
                 try:
-                    if _default_container is not None:
-                        with _default_container() as container:
+                    stack = contextlib.ExitStack()
+                    with contextlib.ExitStack() as stack:
+                        for cm in context.context_managers:
+                            stack.enter_context(cm)
+                        if _default_container is not None:
+                            with _default_container() as container:
+                                root_element = el.component.f(*el.args, **el.kwargs)
+                            if root_element is None:
+                                if len(container.kwargs["children"]) == 1:
+                                    root_element = container.kwargs["children"][0]
+                                else:
+                                    root_element = container
+                        else:
                             root_element = el.component.f(*el.args, **el.kwargs)
-                        if root_element is None:
-                            if len(container.kwargs["children"]) == 1:
-                                root_element = container.kwargs["children"][0]
-                            else:
-                                root_element = container
-                    else:
-                        root_element = el.component.f(*el.args, **el.kwargs)
                 except BaseException as e:
                     if DEBUG:
                         # we might be interested in the traceback inside the call...
@@ -1984,10 +1990,6 @@ def make(el: Element, handle_error: bool = True):
     return hbox
 
 
-_last_interactive_vbox = None
-_default_container: Optional[Callable[..., Element]] = None
-
-
 def component_interactive(static=None, **kwargs):
     import IPython.display
 
@@ -2017,3 +2019,10 @@ def __getattr__(name):
     if name == "_last_rc":
         return getattr(local, "last_rc", None)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+_last_interactive_vbox = None
+_default_container: Optional[Callable[..., Element]] = None
+# not a public api yet, used in solara for now only.
+# lifecycle of context objects are linked to the lifecycle of the component
+_component_context_manager_classes: List[Any] = []
