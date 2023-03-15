@@ -1,13 +1,12 @@
 from IPython.core.formatters import BaseFormatter
 from IPython.core.interactiveshell import InteractiveShell
 
-ipython_display_formatter_original = InteractiveShell.instance().display_formatter.ipython_display_formatter
-original_display_publisher_publish = InteractiveShell.instance().display_pub.publish
-
 
 def publish(data, metadata=None, *args, **kwargs):
     """Will intercept a display call and add the display data to an output widget when in a reacton context/render function."""
     from .core import get_render_context
+
+    assert original_display_publisher_publish is not None
 
     rc = get_render_context(required=False)
     if rc is not None:
@@ -29,6 +28,7 @@ class ReactonDisplayFormatter(BaseFormatter):
     """
 
     def __call__(self, obj):
+        assert ipython_display_formatter_original is not None
         from .core import Element, get_render_context  # noqa
 
         rc = get_render_context(required=False)
@@ -41,5 +41,22 @@ class ReactonDisplayFormatter(BaseFormatter):
         return ipython_display_formatter_original(obj)
 
 
-InteractiveShell.instance().display_formatter.ipython_display_formatter = ReactonDisplayFormatter()
-InteractiveShell.instance().display_pub.publish = publish
+patched = False
+ipython_display_formatter_original = None
+original_display_publisher_publish = None
+
+
+def patch():
+    global patched, ipython_display_formatter_original, original_display_publisher_publish
+    if patched:
+        return
+    patched = True
+    shell = InteractiveShell.instance()
+    ipython_display_formatter_original = shell.display_formatter.ipython_display_formatter
+    original_display_publisher_publish = shell.display_pub.publish
+    shell.display_formatter.ipython_display_formatter = ReactonDisplayFormatter()
+    shell.display_pub.publish = publish
+
+
+if InteractiveShell.initialized():
+    patch()

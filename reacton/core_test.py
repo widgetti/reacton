@@ -22,6 +22,9 @@ from . import logging  # noqa: F401
 from . import ipyvuetify as v
 from . import ipywidgets as w
 from .core import ipywidget_version_major
+from .patch_display import patch as patch_display
+
+patch_display()
 
 T = TypeVar("T")
 
