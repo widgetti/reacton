@@ -1,13 +1,13 @@
 
 # fully automated
 
-    $ ./release.sh 1.3.1
+    $ ./release.sh 1.3.2
 
 # semi automated
 To make a new release
 ```
 # update reacton/_version.py
-$ git add -u && git commit -m 'Release v1.3.1' && git tag v1.3.1 && git push upstream master v1.3.1
+$ git add -u && git commit -m 'Release v1.3.2' && git tag v1.3.2 && git push upstream master v1.3.2
 ```
 
 
@@ -15,5 +15,5 @@ If a problem happens, and you want to keep the history clean
 ```
 # do fix
 $ git rebase -i HEAD~3
-$ git tag v1.3.1 -f &&  git push upstream master v1.3.1 -f
+$ git tag v1.3.2 -f &&  git push upstream master v1.3.2 -f
 ```
