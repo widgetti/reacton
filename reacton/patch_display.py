@@ -9,7 +9,10 @@ def publish(data, metadata=None, *args, **kwargs):
     assert original_display_publisher_publish is not None
 
     rc = get_render_context(required=False)
-    if rc is not None:
+    # only during the render phase we want to capture the display calls
+    # during the reconsolidation phase we want to let the original display publisher do its thing
+    # such as adding it to a output widget
+    if rc is not None and not rc.reconsolidating:
         from .ipywidgets import Output
 
         Output(outputs=[{"output_type": "display_data", "data": data, "metadata": metadata}])

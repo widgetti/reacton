@@ -998,6 +998,7 @@ class _RenderContext:
         self._closing = False
         self.tracebacks: List[TracebackType] = []
         self.handle_error = handle_error
+        self.reconsolidating = False
         if initial_state:
             self.state_set(self.context_root, initial_state)
 
@@ -1270,7 +1271,11 @@ class _RenderContext:
                             break
 
                         logger.info("Render reconsolidate...")
-                        widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
+                        self.reconsolidating = True
+                        try:
+                            widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
+                        finally:
+                            self.reconsolidating = False
                         logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
