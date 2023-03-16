@@ -1870,14 +1870,21 @@ class _RenderContext:
                 widget = context.widgets[key]
             assert widget.comm is not None
             assert widget.model_id in widgets.Widget.widgets
-            for orphan in self._orphans.get(widget.model_id, set()):
 
+            def close(widget: widgets.Widget):
+                # this happens for v.Chip, which has a close trait
+                if not callable(widget.close):
+                    super(widget.__class__, widget).close()  # type: ignore
+                else:
+                    widget.close()
+
+            for orphan in self._orphans.get(widget.model_id, set()):
                 orphan_widget = widgets.Widget.widgets.get(orphan)
                 if orphan_widget:
-                    orphan_widget.close()
+                    close(orphan_widget)
             if widget.model_id in self._orphans:
                 del self._orphans[widget.model_id]
-            widget.close()
+            close(widget)
         if el.is_shared:
             del self._shared_widgets[el]
         else:

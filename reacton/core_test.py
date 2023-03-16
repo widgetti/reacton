@@ -2834,3 +2834,8 @@ def test_component_context_manager():
     assert calls == 2
     rc.close()
     reacton.core._component_context_manager_classes.pop()
+
+
+def test_close_when_overridden():
+    box, rc = react.render(v.Chip(), handle_error=False)
+    rc.close()
