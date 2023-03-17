@@ -1175,7 +1175,6 @@ class _RenderContext:
             # we always set it, even replacing it when we didn't execute it
             # in the consolidation phase we decide what to do (e.g. skip it)
             logger.info("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
-            assert not previous_effect._cleaned_up
             if previous_effect.executed:
                 # line up...
                 previous_effect.next = Effect(effect, dependencies)
@@ -1627,17 +1626,18 @@ class _RenderContext:
                             # if we have a next, it means that effect itself is executed
                             # TODO: custom equals
                             if effect.next.dependencies is not None and utils.equals(effect.dependencies, effect.next.dependencies):
-                                logger.info("No need to add effect, dependencies are the same (%r)", effect.dependencies)
+                                logger.info("No need to add effect, dependencies are the same (%r %r)", effect.callable, effect.dependencies)
                                 # not needed, just remove the reference
                                 effect.next = None
                             else:
                                 # dependencies changed, cleanup and execute next
-                                try:
-                                    effect.cleanup()
-                                except BaseException as e:
-                                    context.exceptions_self.append(e)
-                                    self._rerender_needed_reason = "Exception ocurred during effect"
-                                    self._rerender_needed = True
+                                if not effect._cleaned_up:
+                                    try:
+                                        effect.cleanup()
+                                    except BaseException as e:
+                                        context.exceptions_self.append(e)
+                                        self._rerender_needed_reason = "Exception ocurred during effect"
+                                        self._rerender_needed = True
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
                                     effect()
@@ -1846,7 +1846,8 @@ class _RenderContext:
 
                 for effect_index, effect in enumerate(self.context.effects):
                     try:
-                        effect.cleanup()
+                        if not effect._cleaned_up:
+                            effect.cleanup()
                     except BaseException as e:
                         child_context.exceptions_self.append(e)
                         self._rerender_needed_reason = "Exception ocurred during effect"

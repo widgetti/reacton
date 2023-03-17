@@ -41,6 +41,28 @@ def count():
     return len(widgets.Widget.widgets)
 
 
+class ContextManager:
+    def __init__(self, el) -> None:
+        self.el = el
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        def effect():
+            def cleanup():
+                pass
+
+            return cleanup
+
+        reacton.use_effect(effect, [])
+
+
+def set_text(text: str):
+    pass
+
+
+reacton.core._component_context_manager_classes.append(ContextManager)
 # components used for testing
 
 
