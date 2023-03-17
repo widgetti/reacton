@@ -390,7 +390,7 @@ class Element(Generic[W]):
         # it's an event listener
         if callback != callback_prev and callback_prev is not None:
             self._remove_widget_event_listener(widget, name, callback_prev)
-        if callback is not None:
+        if callback is not None and callback != callback_prev:
             self._add_widget_event_listener(widget, name, callback)
 
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
