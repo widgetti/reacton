@@ -140,9 +140,9 @@ def test_internals():
     assert rc.context_root.root_element == app
     assert rc.context_root.root_element_next is None
     assert list(rc.context_root.children_next) == []
-    assert list(rc.context_root.children) == ["App/"]
+    assert list(rc.context_root.children) == ["/"]
 
-    app_context = rc.context_root.children["App/"]
+    app_context = rc.context_root.children["/"]
     assert list(app_context.children_next) == []
     assert list(app_context.children) == ["child"]
     assert app_context.invoke_element is app
@@ -373,7 +373,33 @@ def test_render_replace():
     rc.close()
 
 
-def test_render_replace_component_with_element():
+def test_render_conditional_child():
+
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        if value == 0:
+            return w.Button(description="Button in child")
+        else:
+            return w.Label(description="Label in child")
+
+    @react.component
+    def Test():
+        return Child()
+
+    hbox, rc = react.render(Test(), handle_error=False)
+    assert rc._find(widgets.Button).widget.description == "Button in child"
+    set_value(1)
+    assert rc._find(widgets.Label).widget.description == "Label in child"
+    set_value(0)
+    assert rc._find(widgets.Button).widget.description == "Button in child"
+    rc.close()
+
+
+def test_render_conditional_replace_component_with_element():
 
     set_value = lambda x: None  # noqa
 
@@ -844,7 +870,7 @@ def test_use_effect_no_deps():
     cleanups = 0
 
     @react.component
-    def TestNoDeps(a, b):
+    def TestNoDeps(a, b, not_used=0):
         def test_effect():
             def cleanup():
                 nonlocal cleanups
@@ -860,7 +886,7 @@ def test_use_effect_no_deps():
     hbox, rc = react.render(TestNoDeps(a=1, b=1))
     assert calls == 1
     assert cleanups == 0
-    rc.render(TestNoDeps(a=1, b=1), hbox)
+    rc.render(TestNoDeps(a=1, b=1, not_used=2), hbox)
     assert calls == 2
     assert cleanups == 1
     rc.close()
@@ -1945,9 +1971,9 @@ def test_state_get():
     slider, rc = react.render_fixed(Test())
     assert set_value is not None
     state = rc.state_get()
-    assert state == {"children": {"Test/": {"state": {"0": 0}}}, "state": {}}
+    assert state == {"children": {"/": {"state": {"0": 0}}}, "state": {}}
     set_value(42)
-    assert state == {"children": {"Test/": {"state": {"0": 42}}}, "state": {}}
+    assert state == {"children": {"/": {"state": {"0": 42}}}, "state": {}}
     assert slider.value == 42
     rc.close()
 
@@ -2860,4 +2886,58 @@ def test_component_context_manager():
 
 def test_close_when_overridden():
     box, rc = react.render(v.Chip(), handle_error=False)
+    rc.close()
+
+
+def test_render_perf_child_only():
+
+    render_child = unittest.mock.Mock()
+    render_main = unittest.mock.Mock()
+    set_text = lambda x: None  # noqa
+
+    @react.component
+    def ClickButton():
+        render_child()
+        nonlocal set_text
+        text, set_text = react.use_state("initial")
+        return w.Button(description=text)
+
+    @react.component
+    def Test():
+        render_main()
+        return ClickButton()
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert len(rc._find(widgets.Button)) == 1
+    assert render_child.call_count == 1
+    assert render_main.call_count == 1
+    assert rc._find(widgets.Button).widget.description == "initial"
+    set_text("new")
+    assert render_child.call_count == 2
+    assert render_main.call_count == 1
+    assert rc._find(widgets.Button).widget.description == "new"
+    rc.close()
+
+
+def test_render_repeated(ButtonComponent):
+    set_state = lambda x: None  # noqa
+
+    @reacton.component
+    def Test():
+        nonlocal set_state
+        state, set_state = reacton.use_state(0)
+        if state == 0:
+            return w.Button(description="hoeba")
+        if state == 1:
+            with w.VBox() as main:
+                w.Button(description="hoeba1")
+                w.Button(description="hoeba2")
+                ButtonComponent()
+            set_state(0)
+            return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert len(rc.find(widgets.Button, description="hoeba")) == 1
+    set_state(1)
+    assert len(rc.find(widgets.Button, description="hoeba")) == 1
     rc.close()

@@ -228,6 +228,21 @@ class Element(Generic[W]):
             assert frame_py is not None
             self.traceback = TracebackType(tb_frame=frame_py, tb_lasti=self.traceback.tb_lasti, tb_lineno=frame_py.f_lineno, tb_next=None)
 
+    def _arguments_changed(self, other: "Element"):
+        if len(self.args) != len(other.args):
+            return True
+        if len(self.kwargs) != len(other.kwargs):
+            return True
+        for k, v in self.kwargs.items():
+            if k not in other.kwargs:
+                return True
+            if not utils.equals(v, other.kwargs[k]):
+                return True
+        for a, b in zip(self.args, other.args):
+            if not utils.equals(a, b):
+                return True
+        return False
+
     def key(self, value: str):
         """Returns the same element with a custom key set.
 
@@ -933,7 +948,8 @@ class ComponentContext:
 
     # to track key collisions, and remove unused elements
     used_keys: Set[str] = field(default_factory=set)
-    # needs_render: bool = False
+    # if a child component's state if changed, it needs a rerender
+    needs_render: bool = True
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
@@ -1149,7 +1165,7 @@ class _RenderContext:
                     new_metadata = utils.dataframe_fingerprint(value)
                 context.state_metadata[key] = new_metadata
                 # TODO: enable
-                # context.needs_render = True
+                context.needs_render = True
                 if self._rerender_needed is False:
                     self._rerender_needed = True
                     self._rerender_needed_reason = f"{key} changed"
@@ -1363,7 +1379,7 @@ class _RenderContext:
         if default_key == "/":
             # if this is the root element, reset
             context.used_keys.clear()
-            default_key = element.component.name + "/"
+            default_key = "/"
 
         el = element
         # if we did not define a custom key, use the default key
@@ -1386,12 +1402,18 @@ class _RenderContext:
                 return
             else:
                 self._shared_elements_next.add(el)
+        el_prev = context.elements_next.get(key)
+        if el_prev is None:
+            el_prev = context.elements.get(key)
         context.elements_next[key] = el
         # used for testing
         el._render_count += 1
 
         if isinstance(el.component, ComponentWidget):
             assert not el.args, "no positional args supported for widgets"
+            # if at this place we had a componentfunction, remove it
+            if key in context.children_next:
+                del context.children_next[key]
 
         if el.args or el.kwargs:
             # do this conditionally to make logs cleaner
@@ -1424,6 +1446,7 @@ class _RenderContext:
                         logger.debug("Render: Not the same component, we just copy the children and elements of the ComponentContext")
                         # The old context is cleaned up in the reconciliation phase
                         context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
+                        el_prev = None  # we dont want to compare the old element
                     else:
                         logger.debug("Render: Same component: %r", el.component)
                         context = context_previous
@@ -1436,66 +1459,83 @@ class _RenderContext:
             else:
                 logger.debug("Render: New ComponentContext")
                 context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
+                el_prev = None  # we dont want to compare the old element
             context.invoke_element = el
             assert context.parent is not None
             self.container_adders = []
             logger.debug("Render: Enter context %r and excuting component function %r", key, el.component.f)
             self.context = context
             render_count = self.render_count
+            needs_render = context.needs_render
+            if not needs_render:
+                if el_prev is not None and context_previous is context:
+                    assert not isinstance(el_prev.component, ComponentWidget)
+                    needs_render = el._arguments_changed(el_prev)
+                if context.exceptions_children:
+                    # we have exceptions, so we need to render
+                    needs_render = True
+            if not needs_render:
+                assert el_prev is not None
             try:
-                context.state_index = 0
-                context.effect_index = 0
-                context.memo_index = 0
-                context.user_contexts = {}
-                context.exception_handler = False
                 # this is reset in use_exception
                 # context.exceptions_children = []
                 # TODO: why do the tests pass if we comment the next line out
                 context.exceptions_self = []
-                # when we have nested renders, we can already have this filled
-                context.elements_next.clear()
-                # Now, we actually execute the render function, and get
-                # back the root element
-                root_element: Optional[Element] = None
-                try:
-                    stack = contextlib.ExitStack()
-                    with contextlib.ExitStack() as stack:
-                        for cm in context.context_managers:
-                            stack.enter_context(cm)
-                        if _default_container is not None:
-                            with _default_container() as container:
+                if needs_render:
+                    context.state_index = 0
+                    context.effect_index = 0
+                    context.memo_index = 0
+                    context.user_contexts = {}
+                    context.exception_handler = False
+                    # we reset if before calling the component
+                    # which might set it to true again
+                    context.needs_render = False
+                    # Now, we actually execute the render function, and get
+                    # back the root element
+                    root_element: Optional[Element] = None
+                    try:
+                        stack = contextlib.ExitStack()
+                        with contextlib.ExitStack() as stack:
+                            for cm in context.context_managers:
+                                stack.enter_context(cm)
+                            if _default_container is not None:
+                                with _default_container() as container:
+                                    root_element = el.component.f(*el.args, **el.kwargs)
+                                if root_element is None:
+                                    if len(container.kwargs["children"]) == 1:
+                                        root_element = container.kwargs["children"][0]
+                                    else:
+                                        root_element = container
+                            else:
                                 root_element = el.component.f(*el.args, **el.kwargs)
-                            if root_element is None:
-                                if len(container.kwargs["children"]) == 1:
-                                    root_element = container.kwargs["children"][0]
-                                else:
-                                    root_element = container
-                        else:
-                            root_element = el.component.f(*el.args, **el.kwargs)
-                except BaseException as e:
-                    if DEBUG:
-                        # we might be interested in the traceback inside the call...
-                        if len(self.tracebacks) == 0:
-                            assert e.__traceback__ is not None
-                            traceback = cast(TracebackType, e.__traceback__)
-                            if traceback.tb_next:  # is there an error inside the call
-                                self.tracebacks.append(traceback.tb_next)
-                        self.tracebacks.append(el.traceback)
-                    logger.exception("Component %r raised exception %r", el.component, e)
-                    context.exceptions_self.append(e)
-                    self._rerender_needed_reason = "Exception ocurred during render"
-                    self._rerender_needed = True
+                            assert root_element is not None
+                    except BaseException as e:
+                        if DEBUG:
+                            # we might be interested in the traceback inside the call...
+                            if len(self.tracebacks) == 0:
+                                assert e.__traceback__ is not None
+                                traceback = cast(TracebackType, e.__traceback__)
+                                if traceback.tb_next:  # is there an error inside the call
+                                    self.tracebacks.append(traceback.tb_next)
+                            self.tracebacks.append(el.traceback)
+                        logger.exception("Component %r raised exception %r", el.component, e)
+                        context.exceptions_self.append(e)
+                        self._rerender_needed_reason = "Exception ocurred during render"
+                        self._rerender_needed = True
+                        context.needs_render = True
 
-                if root_element is None and not context.exceptions_self:
-                    raise ValueError(f"Component {el.component} returned None")
+                    if root_element is None and not context.exceptions_self:
+                        raise ValueError(f"Component {el.component} returned None")
+                else:
+                    root_element = context.root_element_next or context.root_element
 
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 if root_element is not None:
                     logger.debug("root element: %r %x", root_element, id(root_element))
-                    context.root_element_next = root_element
                     new_parent_key = join_key(parent_key, key)
                     self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                    context.root_element_next = root_element
                 else:
                     if el.is_shared:
                         # TODO: why do the tests pass if we comment the next line out
@@ -1519,10 +1559,13 @@ class _RenderContext:
                     context.exceptions_self.append(e)
                     self._rerender_needed_reason = "Exception ocurred during render (hook count check)"
                     self._rerender_needed = True
+                    context.needs_render = True
                 # only expose to parent when no error occurs
                 context.parent.children_next[key] = context
                 # drop all children from the previous render run (this render phase)
                 context.children_next = {k: v for k, v in context.children_next.items() if k in context.used_keys}
+                # same for elements
+                context.elements_next = {k: v for k, v in context.elements_next.items() if k in context.used_keys}
             finally:
                 assert context.parent is parent_context
                 self.context = context.parent
@@ -1537,6 +1580,7 @@ class _RenderContext:
                         # but we still need to rerender, until someone catches the exception
                         self._rerender_needed_reason = "Exception ocurred during during event handler"
                         self._rerender_needed = True
+                        self.context.needs_render = True
 
             assert context is not None
 
@@ -1546,7 +1590,7 @@ class _RenderContext:
         key = el._key
         if key is None:
             if default_key == "/":
-                default_key = el.component.name + "/"
+                default_key = "/"
             key = default_key
         assert key is not None
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
@@ -1638,6 +1682,7 @@ class _RenderContext:
                                         context.exceptions_self.append(e)
                                         self._rerender_needed_reason = "Exception ocurred during effect"
                                         self._rerender_needed = True
+                                        context.needs_render = True
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
                                     effect()
@@ -1645,6 +1690,7 @@ class _RenderContext:
                                     context.exceptions_self.append(e)
                                     self._rerender_needed_reason = "Exception ocurred during effect"
                                     self._rerender_needed = True
+                                    context.needs_render = True
                         else:
                             try:
                                 effect()
@@ -1652,6 +1698,7 @@ class _RenderContext:
                                 context.exceptions_self.append(e)
                                 self._rerender_needed_reason = "Exception ocurred during effect"
                                 self._rerender_needed = True
+                                context.needs_render = True
 
                     if child_context.children_next:
                         # if we had two render phases, we can have old context left over
@@ -1816,7 +1863,7 @@ class _RenderContext:
         key = el._key
         if key is None:
             if default_key == "/":
-                default_key = el.component.name + "/"
+                default_key = "/"
             key = default_key
         assert key is not None
         assert self.context is not None
