@@ -14,6 +14,7 @@ import logging
 import sys
 import threading
 import traceback
+from collections import defaultdict
 from dataclasses import dataclass, field
 from inspect import isclass
 from types import TracebackType
@@ -858,6 +859,8 @@ class UserContext(Generic[T]):
         context = rc.context
         assert context is not None
         context.user_contexts[self] = obj
+        for listener in context.context_listeners.get(self, []):
+            listener()
 
     def __repr__(self):
         return f"UserContext({self._default_value}, name={self.name})"
@@ -874,17 +877,41 @@ def provide_context(user_context: UserContext[T], obj: T):
 
 
 def use_context(user_context: UserContext[T]) -> T:
+    counter, set_counter = use_state(0)
+
+    def force_update():
+        set_counter(lambda x: x + 1)
+
     rc = _get_render_context()
     value = None
     context = rc.context
+    # we need to walk up the context tree to find the nearest
+    # ancestor that has the context we are looking for.
     while value is None and context is not None:
         if user_context in context.user_contexts:
             value = context.user_contexts.get(user_context)
-            return cast(T, value)
+            break
         else:
             context = context.parent
 
-    return user_context._default_value
+    # we need to register a listener on the context so that we can
+    # force an update when the context value changes (using provides).
+    def connect():
+        if context is not None:
+            context.context_listeners[user_context].add(force_update)
+
+            def cleanup():
+                assert context is not None
+                context.context_listeners[user_context].remove(force_update)
+
+            return cleanup
+
+    use_effect(connect, dependencies=[context])
+    if context is None:
+        # we did not find the context, so we return the default value
+        return user_context._default_value
+    else:
+        return cast(T, value)
 
 
 """
@@ -944,7 +971,8 @@ class ComponentContext:
     memo: List[Any] = field(default_factory=list)
     memo_index = 0
     # for provide/use_context
-    user_contexts: Dict[Any, Any] = field(default_factory=dict)
+    user_contexts: Dict["UserContext", Any] = field(default_factory=dict)
+    context_listeners: Dict["UserContext", Set[Callable]] = field(default_factory=lambda: defaultdict(set))
 
     # to track key collisions, and remove unused elements
     used_keys: Set[str] = field(default_factory=set)
