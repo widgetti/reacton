@@ -1180,7 +1180,7 @@ def test_context():
         return w.Button(description=f"Child1: Clicked {clicks} times", on_click=lambda: dispatch("increment"))
 
     @react.component
-    def App():
+    def App(external_state=0):
         clicks, dispatch = react.use_reducer(click_reducer, 0)
         assert react.use_context(store_context) is None
         store_context.provide((clicks, dispatch))
@@ -1189,20 +1189,32 @@ def test_context():
             Child2()
         return main
 
-    hbox, rc = react.render_fixed(App())
-    button1 = hbox.children[0]
-    button2 = hbox.children[1]
+    hbox, rc = react.render(App(), handle_error=False)
+    button1 = hbox.children[0].children[0]
+    button2 = hbox.children[0].children[1]
     assert button1.description == "Child1: Clicked 0 times"
     assert button2.description == "Child2: Clicked 0 times"
+    assert Child1.render_count == 1  # type: ignore
+    assert SubChild2.render_count == 1  # type: ignore
     button1.click()
     assert button1.description == "Child1: Clicked 1 times"
     assert button2.description == "Child2: Clicked 1 times"
+    assert Child1.render_count == 2  # type: ignore
+    assert SubChild2.render_count == 2  # type: ignore
     button2.click()  # not attached
     assert button1.description == "Child1: Clicked 1 times"
     assert button2.description == "Child2: Clicked 1 times"
     button1.click()
     assert button1.description == "Child1: Clicked 2 times"
     assert button2.description == "Child2: Clicked 2 times"
+    assert Child1.render_count == 3  # type: ignore
+    assert SubChild2.render_count == 3  # type: ignore
+
+    # shouldn't re-render the children
+    rc.render(App(external_state=1))
+    assert Child1.render_count == 3  # type: ignore
+    assert SubChild2.render_count == 3  # type: ignore
+
     rc.close()
 
 

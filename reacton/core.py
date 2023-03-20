@@ -545,6 +545,7 @@ class ComponentFunction(Component):
         self.name = self.f.__name__
         self.mime_bundle = mime_bundle
         self.value_name = value_name
+        self.render_count = 0  # used for debugging, not thread safe, so count can be off
         functools.update_wrapper(self, f)
 
     def widget(self, **kwargs):
@@ -858,7 +859,7 @@ class UserContext(Generic[T]):
         rc = _get_render_context()
         context = rc.context
         assert context is not None
-        prev = context.user_contexts.get(self, self._default_value)
+        prev = context.user_contexts_prev.get(self, self._default_value)
         context.user_contexts[self] = obj
         if not utils.equals(prev, obj):
             for listener in context.context_listeners.get(self, []):
@@ -974,6 +975,7 @@ class ComponentContext:
     memo_index = 0
     # for provide/use_context
     user_contexts: Dict["UserContext", Any] = field(default_factory=dict)
+    user_contexts_prev: Dict["UserContext", Any] = field(default_factory=dict)
     context_listeners: Dict["UserContext", Set[Callable]] = field(default_factory=lambda: defaultdict(set))
 
     # to track key collisions, and remove unused elements
@@ -1533,6 +1535,7 @@ class _RenderContext:
                                 stack.enter_context(cm)
                             if _default_container is not None:
                                 with _default_container() as container:
+                                    el.component.render_count += 1
                                     root_element = el.component.f(*el.args, **el.kwargs)
                                 if root_element is None:
                                     if len(container.kwargs["children"]) == 1:
@@ -1540,6 +1543,7 @@ class _RenderContext:
                                     else:
                                         root_element = container
                             else:
+                                el.component.render_count += 1
                                 root_element = el.component.f(*el.args, **el.kwargs)
                             assert root_element is not None
                     except BaseException as e:
@@ -1599,6 +1603,7 @@ class _RenderContext:
                 context.children_next = {k: v for k, v in context.children_next.items() if k in context.used_keys}
                 # same for elements
                 context.elements_next = {k: v for k, v in context.elements_next.items() if k in context.used_keys}
+                context.user_contexts_prev = context.user_contexts
             finally:
                 assert context.parent is parent_context
                 self.context = context.parent
