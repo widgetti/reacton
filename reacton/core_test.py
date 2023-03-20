@@ -1896,7 +1896,11 @@ def test_recover_exception_in_cleanup_child(Container1, Container2):
     assert rc.find(ipywidgets.IntSlider)
     with pytest.raises(Exception):
         rc.render(Container1(children=[Container2()]))
-    rc.close()
+
+    try:
+        rc.close()
+    except Exception as e:
+        assert e.args[0] == "fail"
 
 
 def test_recover_exception_in_cleanup():

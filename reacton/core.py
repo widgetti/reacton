@@ -858,9 +858,11 @@ class UserContext(Generic[T]):
         rc = _get_render_context()
         context = rc.context
         assert context is not None
+        prev = context.user_contexts.get(self, self._default_value)
         context.user_contexts[self] = obj
-        for listener in context.context_listeners.get(self, []):
-            listener()
+        if not utils.equals(prev, obj):
+            for listener in context.context_listeners.get(self, []):
+                listener()
 
     def __repr__(self):
         return f"UserContext({self._default_value}, name={self.name})"
@@ -1087,6 +1089,9 @@ class _RenderContext:
         if self._orphans:
             orphan_widgets = set([widgets.Widget.widgets[k] for k in self._orphans])
             raise RuntimeError(f"Orphan widgets not cleaned up for widgets: {orphan_widgets}")
+        exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
+        if exceptions:
+            raise exceptions[0]
 
     def state_get(self, context: Optional[ComponentContext] = None):
         if context is None:
