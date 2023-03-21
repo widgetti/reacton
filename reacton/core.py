@@ -1960,9 +1960,9 @@ class _RenderContext:
             def close(widget: widgets.Widget):
                 # this happens for v.Chip, which has a close trait
                 if not callable(widget.close):
-                    super(widget.__class__, widget).close()  # type: ignore
-                else:
-                    widget.close()
+                    if hasattr(widget.__class__, "close"):
+                        delattr(widget.__class__, "close")
+                widget.close()
 
             for orphan in self._orphans.get(widget.model_id, set()):
                 orphan_widget = widgets.Widget.widgets.get(orphan)
