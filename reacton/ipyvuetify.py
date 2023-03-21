@@ -1376,7 +1376,7 @@ def _Chip(
     attributes: dict = {},
     children: list = [],
     class_: str = None,
-    close: bool = None,
+    close_: bool = None,
     close_icon: str = None,
     color: str = None,
     dark: bool = None,
