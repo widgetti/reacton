@@ -68,6 +68,22 @@ def test_equals():
     assert equals(f1, f2)
     assert not equals(f1, f3)
 
+    def make_function_empty_cell(a, ar1, ar2):
+        def func(x):
+            return x**a + (ar1 == ar2)  # noqa: F821
+
+        del a
+        return func
+
+    f1 = make_function_empty_cell(1, ar1, ar2)
+    f2 = make_function_empty_cell(1, ar1, ar2)
+    f3 = make_function_empty_cell(2, ar2, ar2)
+    assert f1 == f1
+    assert f1 != f2
+    assert equals(f1, f1)
+    assert equals(f1, f2)
+    assert not equals(f1, f3)
+
     def make_el(a):
         def on_click():
             pass

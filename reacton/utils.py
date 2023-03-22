@@ -44,10 +44,18 @@ def equals(a, b):
         return False
     if isinstance(a, Element):
         return same_component(a.component, b.component) and equals(a.args, b.args) and equals(a.kwargs, b.kwargs)
-    elif isinstance(a, types.FunctionType):
-        return a.__code__ == b.__code__ and (
-            (equals(a.__closure__, b.__closure__)) or equals([c.cell_contents for c in a.__closure__ or ()], [c.cell_contents for c in b.__closure__ or ()])
-        )
+    elif isinstance(a, types.FunctionType) and isinstance(b, types.FunctionType):
+        if a.__code__ != b.__code__:
+            return False
+        if a.__closure__ is None and b.__closure__ is None:
+            return True
+        elif a.__closure__ is None or b.__closure__ is None:
+            return False
+        else:
+            for cell_a, cell_b in zip(a.__closure__, b.__closure__):
+                if not (equals(cell_a, cell_b) or equals(cell_a.cell_contents, cell_b.cell_contents)):
+                    return False
+        return True
     elif isinstance(a, dict) and isinstance(b, dict):
         if len(a) != len(b):
             return False
