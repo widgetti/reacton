@@ -883,7 +883,8 @@ def get_context(user_context: UserContext[T]) -> T:
     """Similar to use_context, but does not trigger a re-render if the context changes."""
     rc = _get_render_context()
     value = None
-    context = rc.context
+    assert rc.context is not None
+    context = rc.context.parent
     # we need to walk up the context tree to find the nearest
     # ancestor that has the context we are looking for.
     while value is None and context is not None:
@@ -908,7 +909,8 @@ def use_context(user_context: UserContext[T]) -> T:
 
     rc = _get_render_context()
     value = None
-    context = rc.context
+    assert rc.context is not None
+    context = rc.context.parent
     # we need to walk up the context tree to find the nearest
     # ancestor that has the context we are looking for.
     while value is None and context is not None:
