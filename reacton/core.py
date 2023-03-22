@@ -879,6 +879,27 @@ def provide_context(user_context: UserContext[T], obj: T):
     user_context.provide(obj)
 
 
+def get_context(user_context: UserContext[T]) -> T:
+    """Similar to use_context, but does not trigger a re-render if the context changes."""
+    rc = _get_render_context()
+    value = None
+    context = rc.context
+    # we need to walk up the context tree to find the nearest
+    # ancestor that has the context we are looking for.
+    while value is None and context is not None:
+        if user_context in context.user_contexts:
+            value = context.user_contexts.get(user_context)
+            break
+        else:
+            context = context.parent
+
+    if context is None:
+        # we did not find the context, so we return the default value
+        return user_context._default_value
+    else:
+        return cast(T, value)
+
+
 def use_context(user_context: UserContext[T]) -> T:
     counter, set_counter = use_state(0)
 
