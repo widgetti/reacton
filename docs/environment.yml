@@ -1,17 +1,14 @@
-name: xeus-python-kernel-docs
-
+name: reacton-docs
 channels:
   - conda-forge
-
 dependencies:
   - mkdocs
   - mkdocs-material
   - mamba
   - empack
-
   - pip:
-      - jupyterlite
-      - jupyterlite-sphinx
-      - jupyterlite-xeus-python
+      - jupyterlite-core==0.1.0b20
+      - jupyterlite-sphinx>=0.8.0,<0.9.0
+      - jupyterlite-xeus-python>=0.7.0,<0.8.0
       - jupyterlab-night
       - jupyterlab_google_analytics
