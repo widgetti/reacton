@@ -1,11 +1,5 @@
 {
     "XeusPythonEnv": {
-        "packages": [
-            "reacton",
-            "bqplot",
-            "ipyvue",
-            "ipyvuetify",
-            "markdown"
-        ]
+        "environment_file": "xeus-python-environment.yml"
     }
 }
