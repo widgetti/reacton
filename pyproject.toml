@@ -52,6 +52,7 @@ dev = [
     "bump2version",
     "jinja2",
     "pandas",
+    "ipykernel",
 ]
 
 [project.urls]
