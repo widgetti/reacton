@@ -2019,10 +2019,10 @@ class _RenderContext:
 
             def close(widget: widgets.Widget):
                 # this happens for v.Chip, which has a close trait
-                if not callable(widget.close):
-                    if hasattr(widget.__class__, "close"):
-                        delattr(widget.__class__, "close")
-                widget.close()
+                if callable(widget.close):
+                    widget.close()
+                else:
+                    logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
 
             for orphan in self._orphans.get(widget.model_id, set()):
                 orphan_widget = widgets.Widget.widgets.get(orphan)

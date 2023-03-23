@@ -2904,6 +2904,8 @@ def test_component_context_manager():
 def test_close_when_overridden():
     box, rc = react.render(v.Chip(), handle_error=False)
     rc.close()
+    box, rc = react.render(v.Chip(), handle_error=False)
+    rc.close()
 
 
 def test_render_perf_child_only():
