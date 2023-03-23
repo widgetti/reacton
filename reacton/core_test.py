@@ -19,6 +19,7 @@ from reacton.core import component, use_effect
 
 from . import bqplot  # noqa: F401
 from . import logging  # noqa: F401
+from . import core
 from . import ipyvuetify as v
 from . import ipywidgets as w
 from .core import ipywidget_version_major
@@ -2956,4 +2957,40 @@ def test_render_repeated(ButtonComponent):
     assert len(rc.find(widgets.Button, description="hoeba")) == 1
     set_state(1)
     assert len(rc.find(widgets.Button, description="hoeba")) == 1
+    rc.close()
+
+
+def test_debug_set_state():
+    set_state = None
+    core.DEBUG = True
+
+    @reacton.component
+    def Test():
+        nonlocal set_state
+        state, set_state = reacton.use_state(0)  # i should be in the reason stacktrace
+        return w.Button(description=str(state))
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "0"
+    assert set_state is not None
+    set_state(2)
+    assert any(["i should be in the reason stacktrace" in k for k in rc._rerender_needed_reasons[-1].created_stack])
+    core.DEBUG = False
+    rc.close()
+
+
+def test_debug_infinite_loop():
+    @reacton.component
+    def Infinite():
+        state, set_state = reacton.use_state(0)
+        set_state(state + 1)
+        return w.Button(description=str(state))
+
+    with pytest.raises(RuntimeError) as e:
+        rc = core._RenderContext(Infinite(), handle_error=False)
+        rc.render(rc.element)
+
+    assert "Too many renders triggered" in str(e)
+    assert len(rc._rerender_needed_reasons) >= 50
+
     rc.close()
