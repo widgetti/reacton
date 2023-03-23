@@ -1,3 +1,4 @@
+import sys
 import time
 import traceback
 import unittest.mock
@@ -2962,6 +2963,8 @@ def test_render_repeated(ButtonComponent):
     rc.close()
 
 
+# does not run on Python 3.6
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_debug_set_state():
     set_state = None
     core.DEBUG = True
