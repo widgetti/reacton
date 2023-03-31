@@ -1,6 +1,7 @@
 import functools
 import inspect
 import sys
+import threading
 import types
 from typing import Callable, TypeVar, cast
 
@@ -150,3 +151,22 @@ def environment() -> str:
             return "ipython"  # Terminal running IPython
         else:
             return "unknown"  # Other type
+
+
+class ThreadSafeCounter:
+    def __init__(self):
+        self._value = 0
+        self._lock = threading.Lock()
+
+    def current(self):
+        return self._value
+
+    def increment(self):
+        with self._lock:
+            self._value += 1
+            return self._value
+
+    def decrement(self):
+        with self._lock:
+            self._value -= 1
+            return self._value

@@ -2999,3 +2999,53 @@ def test_debug_infinite_loop():
     assert len(rc._rerender_needed_reasons) >= 50
 
     rc.close()
+
+
+def test_batch_update():
+    set_state = lambda x: None  # noqa
+
+    @reacton.component
+    def Test():
+        nonlocal set_state
+        state, set_state = reacton.use_state(0)
+        with w.VBox() as main:
+            w.Button(description=str(state))
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "0"
+    assert rc.render_count == 1
+    with rc:
+        with rc:
+            set_state(1)
+            set_state(2)
+            set_state(3)
+            assert rc.render_count == 1
+        assert rc.render_count == 1
+    assert rc.render_count == 2
+    assert rc.find(widgets.Button).widget.description == "3"
+    rc.close()
+
+
+def test_batch_update_from_render():
+    set_state = lambda x: None  # noqa
+
+    @reacton.component
+    def Test():
+        nonlocal set_state
+        state, set_state = reacton.use_state(0)
+        if state == 1:
+            with rc:
+                set_state(2)
+                set_state(3)
+        with w.VBox() as main:
+            w.Button(description=str(state))
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "0"
+    assert rc.render_count == 1
+    set_state(1)
+    assert rc.render_count == 2
+    assert rc.find(widgets.Button).widget.description == "3"
+    rc.close()

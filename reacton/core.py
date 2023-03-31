@@ -1080,6 +1080,7 @@ class _RenderContext:
         self.tracebacks: List[TracebackType] = []
         self.handle_error = handle_error
         self.reconsolidating = False
+        self._batch_counter = utils.ThreadSafeCounter()
         if initial_state:
             self.state_set(self.context_root, initial_state)
 
@@ -1100,6 +1101,18 @@ class _RenderContext:
         self._orphans: Dict[str, Set[str]] = {}
         # for detecting stale elements used get_widget
         self._old_element_ids: Set[int] = set()
+
+    def __enter__(self):
+        counter = self._batch_counter.increment()
+        if counter == 1:
+            logger.info("entering batch render")
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        counter = self._batch_counter.decrement()
+        if counter == 0:
+            logger.info("finishing batch render (%s)", "needs rerender" if self._rerender_needed else "no rerender needed")
+            if self._rerender_needed:
+                self._possible_rerender()
 
     def find(self, cls: Type[W] = ipywidgets.Widget, **matches):
         from .find import finder
@@ -1254,10 +1267,7 @@ class _RenderContext:
                     else:
                         self._rerender_needed_reasons.append(RerenderReason(reason=f"state changed with key {key}", prev_value=prev_value, next_value=value))
                     self._rerender_needed = True
-                if not self._is_rendering:
-                    self.render(self.element, self.container)
-                else:
-                    logger.info("No render phase triggered, already rendering")
+                self._possible_rerender()
 
         return set_
 
@@ -1292,6 +1302,12 @@ class _RenderContext:
         else:
             self.render(element, self.container)
 
+    def _possible_rerender(self):
+        if not self._is_rendering and self._batch_counter.current() == 0:
+            self.render(self.element, self.container)
+        else:
+            logger.info("No render phase triggered, already rendering")
+
     def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
         widget = None
@@ -1299,6 +1315,8 @@ class _RenderContext:
             container = self.container
         was_locked = False
         if self.thread_lock.locked():
+            if self._lock_thread == threading.current_thread():
+                raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
             logger.info(
                 "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
                 self._lock_thread,
