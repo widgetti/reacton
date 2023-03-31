@@ -416,6 +416,7 @@ class Element(Generic[W]):
         def on_change(change):
             if are_events_supressed():
                 return
+            logger.info("event %r on %r with %r", name, widget, change)
             callback_exception_safe(change["new"])
 
         self._callback_wrappers[callback] = on_change
