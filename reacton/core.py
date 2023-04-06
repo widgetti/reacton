@@ -867,6 +867,14 @@ class UserContext(Generic[T]):
             for listener in context.context_listeners.get(self, []):
                 listener()
 
+    def get(self):
+        """Convenience method to get the context value, same as get_context"""
+        return get_context(self)
+
+    def use(self):
+        """Convenience method to use the context value, same as use_context"""
+        return use_context(self)
+
     def __repr__(self):
         return f"UserContext({self._default_value}, name={self.name})"
 
