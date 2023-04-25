@@ -95,7 +95,7 @@ class ButtonElement(reacton.core.Element):
             def on_click(change):
                 callback_exception_safe()
 
-            key = (widget, name, callback)
+            key = (widget.model_id, name, callback)
             self._callback_wrappers[key] = on_click
             widget.on_click(on_click)
 
@@ -104,7 +104,7 @@ class ButtonElement(reacton.core.Element):
 
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         if name == "on_click":
-            key = (widget, name, callback)
+            key = (widget.model_id, name, callback)
             on_click = self._callback_wrappers[key]
             del self._callback_wrappers[key]
             widget.on_click(on_click, remove=True)

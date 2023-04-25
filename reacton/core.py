@@ -193,7 +193,7 @@ class Element(Generic[W]):
     child_prop_name = "children"
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
-    _callback_wrappers: Dict[Tuple[widgets.Widget, str, Callable], Callable] = {}
+    _callback_wrappers: Dict[Tuple[str, str, Callable], Callable] = {}
     create_lock: ContextManager = threading.Lock()
     _shared = False
 
@@ -419,13 +419,13 @@ class Element(Generic[W]):
             logger.info("event %r on %r with %r", name, widget, change)
             callback_exception_safe(change["new"])
 
-        key = (widget, name, callback)
+        key = (widget.model_id, name, callback)
         self._callback_wrappers[key] = on_change
         widget.observe(on_change, target_name)
 
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
-        key = (widget, name, callback)
+        key = (widget.model_id, name, callback)
         on_change = self._callback_wrappers[key]
         del self._callback_wrappers[key]
         try:
