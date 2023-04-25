@@ -1989,8 +1989,12 @@ def test_state_get():
     slider, rc = react.render_fixed(Test())
     assert set_value is not None
     state = rc.state_get()
+    if "auto_subscribe_force_update_counter" in state["children"]["/"]["state"]:
+        del state["children"]["/"]["state"]["auto_subscribe_force_update_counter"]
     assert state == {"children": {"/": {"state": {"0": 0}}}, "state": {}}
     set_value(42)
+    if "auto_subscribe_force_update_counter" in state["children"]["/"]["state"]:
+        del state["children"]["/"]["state"]["auto_subscribe_force_update_counter"]
     assert state == {"children": {"/": {"state": {"0": 42}}}, "state": {}}
     assert slider.value == 42
     rc.close()
