@@ -193,7 +193,7 @@ class Element(Generic[W]):
     child_prop_name = "children"
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
-    _callback_wrappers: Dict[Callable, Callable] = {}
+    _callback_wrappers: Dict[Tuple[widgets.Widget, str, Callable], Callable] = {}
     create_lock: ContextManager = threading.Lock()
     _shared = False
 
@@ -419,16 +419,25 @@ class Element(Generic[W]):
             logger.info("event %r on %r with %r", name, widget, change)
             callback_exception_safe(change["new"])
 
-        self._callback_wrappers[callback] = on_change
+        key = (widget, name, callback)
+        self._callback_wrappers[key] = on_change
         widget.observe(on_change, target_name)
 
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
-        on_change = self._callback_wrappers[callback]
+        key = (widget, name, callback)
+        on_change = self._callback_wrappers[key]
+        del self._callback_wrappers[key]
         try:
             widget.unobserve(on_change, target_name)
         except ValueError:
             logger.error("Could not remove event listener %r from %r", name, widget)
+
+    def _cleanup_callbacks(self, widget: widgets.Widget):
+        args = self._get_widget_args()
+        for name, value in self.kwargs.items():
+            if name.startswith("on_") and name not in args and value is not None:
+                self._remove_widget_event_listener(widget, name, value)
 
 
 class Value(Generic[V], Protocol):
@@ -2058,6 +2067,7 @@ class _RenderContext:
                     close(orphan_widget)
             if widget.model_id in self._orphans:
                 del self._orphans[widget.model_id]
+            el._cleanup_callbacks(widget)
             close(widget)
         if el.is_shared:
             del self._shared_widgets[el]

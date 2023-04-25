@@ -106,7 +106,7 @@ def cleanup_guard():
     if leftover:
         leftover_widgets = [widgets.Widget.widgets[k] for k in leftover]
         assert not leftover_widgets
-        # raise RuntimeError(f"{leftover_widgets}")
+    assert reacton.core.Element._callback_wrappers == {}
 
 
 @pytest.fixture(params=["ButtonComponentWidget", "ButtonComponentFunction"])
@@ -3048,4 +3048,40 @@ def test_batch_update_from_render():
     set_state(1)
     assert rc.render_count == 2
     assert rc.find(widgets.Button).widget.description == "3"
+    rc.close()
+
+
+def test_event_multiple():
+    @reacton.component
+    def Test():
+        count, set_count = reacton.use_state(0)
+
+        def add():
+            set_count(count + 1)
+
+        def remove():
+            set_count(count - 1)
+
+        with w.VBox() as main:
+            for i in range(count):
+                w.Button(description=str(i), on_click=remove)
+            w.Button(description="Add", on_click=add)
+        return main
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc.find(widgets.Button, description="Add").widget.click()
+    rc.find(widgets.Button, description="0").assert_single()
+    assert len(rc.find(widgets.Button)) == 2
+
+    rc.find(widgets.Button, description="Add").widget.click()
+    rc.find(widgets.Button, description="1").assert_single()
+    assert len(rc.find(widgets.Button)) == 3
+
+    rc.find(widgets.Button, description="Add").widget.click()
+    rc.find(widgets.Button, description="2").assert_single()
+    assert len(rc.find(widgets.Button)) == 4
+
+    rc.find(widgets.Button, description="2").widget.click()
+    assert len(rc.find(widgets.Button)) == 3
+
     rc.close()
