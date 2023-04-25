@@ -84,6 +84,36 @@ def test_equals():
     assert equals(f1, f2)
     assert not equals(f1, f3)
 
+    def make_function_default_arg(a):
+        def func(x, c=a):
+            return x + c
+
+        return func
+
+    f1 = make_function_default_arg(1)
+    f2 = make_function_default_arg(1)
+    f3 = make_function_default_arg(2)
+    assert f1 == f1
+    assert f1 != f2
+    assert equals(f1, f1)
+    assert equals(f1, f2)
+    assert not equals(f1, f3)
+
+    def make_function_default_kwarg(a):
+        def func(x, *, c=a):
+            return x + c
+
+        return func
+
+    f1 = make_function_default_kwarg(1)
+    f2 = make_function_default_kwarg(1)
+    f3 = make_function_default_kwarg(2)
+    assert f1 == f1
+    assert f1 != f2
+    assert equals(f1, f1)
+    assert equals(f1, f2)
+    assert not equals(f1, f3)
+
     def make_el(a):
         def on_click():
             pass

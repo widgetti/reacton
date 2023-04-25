@@ -48,11 +48,19 @@ def equals(a, b):
     elif isinstance(a, types.FunctionType) and isinstance(b, types.FunctionType):
         if a.__code__ != b.__code__:
             return False
+        if not equals(a.__defaults__, b.__defaults__):
+            return False
+        if not equals(a.__kwdefaults__, b.__kwdefaults__):
+            return False
+        # comparing the closure is tricky, because the cells are not comparable
         if a.__closure__ is None and b.__closure__ is None:
+            # easy case, both have no closure
             return True
         elif a.__closure__ is None or b.__closure__ is None:
+            # one has a closure, the other not
             return False
         else:
+            # both have a closure
             for cell_a, cell_b in zip(a.__closure__, b.__closure__):
                 if not (equals(cell_a, cell_b) or equals(cell_a.cell_contents, cell_b.cell_contents)):
                     return False
