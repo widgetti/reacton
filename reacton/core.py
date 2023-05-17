@@ -358,9 +358,19 @@ class Element(Generic[W]):
         # Because we look before and after, we need a lock.
         # A different implementation might avoid this.
         with self.create_lock:
+            rc = get_render_context(required=True)
             before = set(widgets.Widget.widgets)
             try:
                 widget = self.component.widget(**kwargs)
+                hold_trait_notifications = widget.hold_trait_notifications
+
+                @contextlib.contextmanager
+                def hold_trait_notifications_extra(*args, **kwargs):
+                    with rc, hold_trait_notifications(*args, **kwargs):
+                        yield
+
+                widget.hold_trait_notifications = hold_trait_notifications_extra
+
                 if self._meta:
                     widget._react_meta = dict(self._meta)
             except Exception as e:
