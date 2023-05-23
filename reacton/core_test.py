@@ -2902,7 +2902,17 @@ def test_component_context_manager():
     assert calls == 1
     set_text("different")
     assert calls == 2
+    state = rc.state_get()
     rc.close()
+
+    # make sure it also works when the state is restored
+    calls = 0
+    box, rc = reacton.render(Test(), initial_state=state, handle_error=False)
+    assert calls == 1
+    set_text("something else")
+    assert calls == 2
+    rc.close()
+
     reacton.core._component_context_manager_classes.pop()
 
 

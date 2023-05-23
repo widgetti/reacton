@@ -1580,6 +1580,7 @@ class _RenderContext:
                 if context_previous.root_element is None and context_previous.root_element_next is None:
                     # this happens when we already created a context (with state) using state_set()
                     context = context_previous
+                    context.context_managers = [cm(el) for cm in _component_context_manager_classes]
                     logger.debug("Render: Previous element was None, so we reuse the ComponentContext")
                 else:
                     # except when the type has changed
