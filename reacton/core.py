@@ -14,6 +14,7 @@ import logging
 import sys
 import threading
 import traceback
+import weakref
 from collections import defaultdict
 from dataclasses import dataclass, field
 from inspect import isclass
@@ -2140,14 +2141,14 @@ def render(element: Element[T], container: widgets.Widget = None, children_trait
     container = container or widgets.VBox()
     _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
     _rc.render(element, _rc.container)
-    local.last_rc = _rc
+    local.last_rc = weakref.ref(_rc)
     return container, _rc
 
 
 def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _RenderContext]:
     _rc = _RenderContext(element, handle_error=handle_error)
     widget = _rc.render(element)
-    local.last_rc = _rc
+    local.last_rc = weakref.ref(_rc)
     return widget, _rc
 
 
@@ -2247,7 +2248,8 @@ def component_interactive(static=None, **kwargs):
 
 def __getattr__(name):
     if name == "_last_rc":
-        return getattr(local, "last_rc", None)
+        last_rc_ref = getattr(local, "last_rc", None)
+        return last_rc_ref() if last_rc_ref else None
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 

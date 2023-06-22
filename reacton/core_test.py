@@ -473,8 +473,8 @@ def test_render_many_flip_flop_component():
 
     assert isinstance(box.children[0], widgets.Button)
     assert box.children[0].description == "second"
-    assert react.core.local.last_rc is not None
-    react.core.local.last_rc.close()
+    assert react.core.local.last_rc() is not None
+    react.core.local.last_rc().close()
 
 
 def test_state_simple():
@@ -685,13 +685,13 @@ def test_display():
         return w.Button(description=f"Value {value}")
 
     react.display(Button(2))
-    assert react.core.local.last_rc is not None
-    vbox: widgets.VBox = react.core.local.last_rc.container
+    assert react.core.local.last_rc() is not None
+    vbox: widgets.VBox = react.core.local.last_rc().container
     assert vbox._view_count == 0
     vbox._view_count = 1  # act as if it is displayed
     vbox._view_count = 0  # and removed again
     # so we don't have to do this manually:
-    # react.core.local.last_rc.close()
+    # react.core.local.last_rc().close()
 
 
 def test_box():
@@ -998,8 +998,8 @@ def test_key_widget():
         return main
 
     box = react.make(Buttons(), handle_error=False)
-    assert react.core.local.last_rc
-    rc = react.core.local.last_rc
+    assert react.core.local.last_rc()
+    rc = react.core.local.last_rc()
     assert set_reverse is not None
     button1, slider1 = box.children[0].children
     assert isinstance(button1, widgets.Button)
@@ -1011,7 +1011,7 @@ def test_key_widget():
     assert isinstance(slider2, widgets.IntSlider)
     assert button1 is button2
     assert slider1 is slider2
-    assert react.core.local.last_rc
+    assert react.core.local.last_rc()
     rc.close()
 
 
@@ -1023,8 +1023,8 @@ def test_key_root():
     box = react.make(Buttons(), handle_error=False)
     button = box.children[0]
     assert isinstance(button, widgets.Button)
-    assert react.core.local.last_rc
-    react.core.local.last_rc.close()
+    assert react.core.local.last_rc()
+    react.core.local.last_rc().close()
 
 
 def test_key_component_function():
@@ -1046,8 +1046,8 @@ def test_key_component_function():
         return w.HBox(children=[slider, checkbox, buttons_box])
 
     box = react.make(Buttons(), handle_error=False)
-    assert react.core.local.last_rc
-    rc = react.core.local.last_rc
+    assert react.core.local.last_rc()
+    rc = react.core.local.last_rc()
     slider, checkbox, buttons = box.children[0].children
     assert buttons.children[0].description == "0: Clicked 0 times"
     assert buttons.children[1].description == "1: Clicked 0 times"
@@ -1122,8 +1122,8 @@ def test_interactive():
     hbox = box.children[0]
     button0 = hbox.children[0]
     assert button0.description == "Button 0"
-    assert react.core.local.last_rc is not None
-    react.core.local.last_rc.close()
+    assert react.core.local.last_rc() is not None
+    react.core.local.last_rc().close()
     for widget in control.children:
         if hasattr(widget, "layout"):
             widget.layout.close()
@@ -2422,8 +2422,8 @@ def test_render_twice_different_element():
     set_action(1)
 
     assert isinstance(box.children[0], widgets.Text)
-    assert react.core.local.last_rc is not None
-    react.core.local.last_rc.close()
+    assert react.core.local.last_rc() is not None
+    react.core.local.last_rc().close()
 
 
 def test_multithreaded_support():
@@ -2766,9 +2766,9 @@ def test_jupyter_decorator():
             return w.Button(description=str(value))
 
         react.display(Test())
-        assert react.core.local.last_rc is not None
-        react.core.local.last_rc.find(widgets.Button).assert_matches(description="42")
-        react.core.local.last_rc.close()
+        assert react.core.local.last_rc() is not None
+        react.core.local.last_rc().find(widgets.Button).assert_matches(description="42")
+        react.core.local.last_rc().close()
     finally:
         reacton.core.jupyter_decorator_components.pop()
 
