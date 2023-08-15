@@ -21,7 +21,7 @@ The following libraries are fully wrapped:
 This allows us to do instead:
 ```python
 import reacton.ipywidgets as w
-button_element = w.Button(description="Click me)
+button_element = w.Button(description="Click me")
 ```
 
 And enjoy auto complete and type checking.
