@@ -728,23 +728,27 @@ def get_widget(el: Element):
     element will be returned.
     """
     rc = get_render_context()
-    if rc.context is None:
-        raise RuntimeError("get_widget() can only be used in use_effect")
-    if el.is_shared:
-        if el not in rc._shared_widgets:
-            if id(el) in rc._old_element_ids:
-                raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
-            else:
-                raise KeyError(f"Element {el} not found in all known widgets for the component {rc._shared_widgets}")
-        return rc._shared_widgets[el]
-    else:
+    context = rc.context
+    # context0 = context
+    while context is not None:
+        if context is None:
+            raise RuntimeError("get_widget() can only be used in use_effect")
+        if el.is_shared:
+            if el not in rc._shared_widgets:
+                if id(el) in rc._old_element_ids:
+                    raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
+                else:
+                    raise KeyError(f"Element {el} not found in all known widgets for the component {rc._shared_widgets}")
+            return rc._shared_widgets[el]
+        else:
 
-        if el not in rc.context.element_to_widget:
-            if id(el) in rc._old_element_ids:
-                raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
-            else:
-                raise KeyError(f"Element {el} not found in all known widgets for the component {rc.context.widgets}")
-        return rc.context.element_to_widget[el]
+            if el not in context.element_to_widget:
+                if id(el) in rc._old_element_ids:
+                    raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
+            if el in context.element_to_widget:
+                return context.element_to_widget[el]
+        context = context.parent
+    raise KeyError(f"Element {el} not found in all known widgets")  # for the component {context.widgets}")
 
 
 def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
