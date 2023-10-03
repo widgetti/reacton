@@ -1380,7 +1380,7 @@ def test_container_context_bqplot():
     rc.close()
 
 
-def test_get_widget():
+def test_get_widget(Container):
 
     button1 = None
     button2 = None
@@ -1394,12 +1394,12 @@ def test_get_widget():
             button2 = react.core.get_widget(button2el)
 
         use_effect(get_widgets)
-        with w.VBox() as main:
+        with Container() as main:
             button1el = w.Button(description="1")
             button2el = w.Button(description="2")
         return main
 
-    box, rc = react.render_fixed(Multiple())
+    box, rc = react.render_fixed(Multiple(), handle_error=False)
     assert box.children[0] is button1
     assert box.children[1] is button2
     rc.close()
