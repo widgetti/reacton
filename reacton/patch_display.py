@@ -55,10 +55,11 @@ def patch():
         return
     patched = True
     shell = InteractiveShell.instance()
-    ipython_display_formatter_original = shell.display_formatter.ipython_display_formatter
+    ipython_display_formatter_original = shell.display_formatter.ipython_display_formatter  # type: ignore
     original_display_publisher_publish = shell.display_pub.publish
-    shell.display_formatter.ipython_display_formatter = ReactonDisplayFormatter()
-    shell.display_pub.publish = publish
+    assert shell.display_formatter is not None
+    shell.display_formatter.ipython_display_formatter = ReactonDisplayFormatter()  # type: ignore
+    shell.display_pub.publish = publish  # type: ignore
 
 
 if InteractiveShell.initialized():
