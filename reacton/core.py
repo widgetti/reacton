@@ -54,16 +54,30 @@ __version__ = _version.__version__
 ipywidget_version_major = int(widgets.__version__.split(".")[0])
 
 
-class _classproperty_widget_fix(object):
-    def __get__(self, owner_self, owner_cls):
-        assert owner_self is None
-        return owner_cls._active_widgets
+# see solara/server/patch.py for similar code
+def _widgets_dict_getter() -> Callable[[], Dict[str, widgets.Widget]]:
+    if ipywidget_version_major < 8:
+
+        def get():
+            return ipywidgets.widget.Widget.widgets
+
+    else:
+        if hasattr(ipywidgets.widgets.widget, "_instances"):  # since 8.0.3
+
+            def get():
+                return ipywidgets.widgets.widget._instances
+
+        elif hasattr(ipywidgets.widget.Widget, "_instances"):
+
+            def get():
+                return ipywidgets.widget.Widget._instances
+
+        else:
+            raise RuntimeError("Could not find _instances on ipywidgets version %r" % ipywidgets.__version__)
+    return get
 
 
-if ipywidget_version_major >= 8:
-    if not hasattr(widgets.Widget, "widgets"):
-        widgets.Widget.widgets = _classproperty_widget_fix()
-
+_get_widgets_dict = _widgets_dict_getter()
 
 _last_rc = None  # used for testing
 local = threading.local()
@@ -360,7 +374,7 @@ class Element(Generic[W]):
         # A different implementation might avoid this.
         with self.create_lock:
             rc = get_render_context(required=True)
-            before = set(widgets.Widget.widgets)
+            before = set(_get_widgets_dict())
             try:
                 widget = self.component.widget(**kwargs)
                 hold_trait_notifications = widget.hold_trait_notifications
@@ -379,7 +393,7 @@ class Element(Generic[W]):
             for name, callback in listeners.items():
                 if callback is not None:
                     self._add_widget_event_listener(widget, name, callback)
-            after = set(widgets.Widget.widgets)
+            after = set(_get_widgets_dict())
         orphans = (after - before) - {widget.model_id}
         return widget, orphans
 
@@ -1164,7 +1178,7 @@ class _RenderContext:
         if self._shared_elements:
             raise RuntimeError(f"Element not cleaned up: {self._shared_elements}")
         if self._orphans:
-            orphan_widgets = set([widgets.Widget.widgets[k] for k in self._orphans])
+            orphan_widgets = set([_get_widgets_dict()[k] for k in self._orphans])
             raise RuntimeError(f"Orphan widgets not cleaned up for widgets: {orphan_widgets}")
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         if exceptions:
@@ -1934,7 +1948,7 @@ class _RenderContext:
                     else:
                         context.widgets[key] = widget
                 # widgets are not always hashable, so store the model_id
-                orphan_widgets = set([widgets.Widget.widgets[k] for k in orphan_ids])
+                orphan_widgets = set([_get_widgets_dict()[k] for k in orphan_ids])
                 if orphan_ids:
                     for orphan_widget in orphan_widgets:
                         # these are shared widgets
@@ -2064,7 +2078,7 @@ class _RenderContext:
             else:
                 widget = context.widgets[key]
             assert widget.comm is not None
-            assert widget.model_id in widgets.Widget.widgets
+            assert widget.model_id in _get_widgets_dict()
 
             def close(widget: widgets.Widget):
                 # this happens for v.Chip, which has a close trait
@@ -2074,7 +2088,7 @@ class _RenderContext:
                     logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
 
             for orphan in self._orphans.get(widget.model_id, set()):
-                orphan_widget = widgets.Widget.widgets.get(orphan)
+                orphan_widget = _get_widgets_dict().get(orphan)
                 if orphan_widget:
                     close(orphan_widget)
             if widget.model_id in self._orphans:

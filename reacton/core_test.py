@@ -23,7 +23,7 @@ from . import logging  # noqa: F401
 from . import core
 from . import ipyvuetify as v
 from . import ipywidgets as w
-from .core import ipywidget_version_major
+from .core import _get_widgets_dict, ipywidget_version_major
 from .patch_display import patch as patch_display
 
 patch_display()
@@ -36,11 +36,11 @@ def first(container: List[T]) -> T:
 
 
 def clear():
-    widgets.Widget.widgets.clear()
+    _get_widgets_dict().clear()
 
 
 def count():
-    return len(widgets.Widget.widgets)
+    return len(_get_widgets_dict())
 
 
 class ContextManager:
@@ -99,12 +99,12 @@ def ContainerFunction(children=[]):
 
 @pytest.fixture(autouse=True)
 def cleanup_guard():
-    before = set(widgets.Widget.widgets)
+    before = set(_get_widgets_dict())
     yield
-    after = set(widgets.Widget.widgets)
+    after = set(_get_widgets_dict())
     leftover = after - before
     if leftover:
-        leftover_widgets = [widgets.Widget.widgets[k] for k in leftover]
+        leftover_widgets = [_get_widgets_dict()[k] for k in leftover]
         assert not leftover_widgets
     assert reacton.core.Element._callback_wrappers == {}
 
@@ -587,9 +587,9 @@ def test_state_outside():
     assert isinstance(hbox.children[0], widgets.Label)
     assert hbox.children[0].description == "Label"
 
-    before = dict(ipywidgets.Widget.widgets)
+    before = dict(_get_widgets_dict())
     checkbox.value = True
-    after = dict(ipywidgets.Widget.widgets)
+    after = dict(_get_widgets_dict())
     diff = set(after) - set(before)
     extra = list(diff)
     assert count() == 3 + 2 + 3  # similar
@@ -598,9 +598,9 @@ def test_state_outside():
     assert isinstance(hbox.children[0], widgets.Button)
     assert hbox.children[0].description == "Button"
 
-    before = dict(ipywidgets.Widget.widgets)
+    before = dict(_get_widgets_dict())
     checkbox.value = False
-    after = dict(ipywidgets.Widget.widgets)
+    after = dict(_get_widgets_dict())
     diff = set(after) - set(before)
     extra = list(diff)
     assert len(extra) == 3
@@ -821,14 +821,14 @@ def test_bqplot():
     assert figure.axes[0].scale is not figure.axes[1].scale
     assert figure.axes[0].scale is figure.marks[0].scales["x"]
 
-    before = dict(ipywidgets.Widget.widgets)
+    before = dict(_get_widgets_dict())
     exponent.value = 2
-    after = dict(ipywidgets.Widget.widgets)
+    after = dict(_get_widgets_dict())
     diff = set(after) - set(before)
     extra = list(diff)
     assert extra == []
 
-    before = dict(ipywidgets.Widget.widgets)
+    before = dict(_get_widgets_dict())
 
     assert count() == widgets_initial  # nothing should be recreated
     # figure = box.children[0]
