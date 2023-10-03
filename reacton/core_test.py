@@ -2844,7 +2844,7 @@ def test_display_element():
     from IPython.core.interactiveshell import InteractiveShell
 
     store = InteractiveShell.instance().display_pub.publish
-    InteractiveShell.instance().display_pub.publish = unittest.mock.Mock()
+    InteractiveShell.instance().display_pub.publish = unittest.mock.Mock()  # type: ignore
 
     @react.component
     def Test():
@@ -2854,9 +2854,9 @@ def test_display_element():
 
     box, rc = react.render(Test(), handle_error=False)
     assert rc.find(widgets.Button).widget.description == "hoeba"
-    InteractiveShell.instance().display_pub.publish.assert_not_called()
+    InteractiveShell.instance().display_pub.publish.assert_not_called()  # type: ignore
     rc.close()
-    InteractiveShell.instance().display_pub.publish = store
+    InteractiveShell.instance().display_pub.publish = store  # type: ignore
 
 
 def test_display_dataframe():
