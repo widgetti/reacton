@@ -41,7 +41,8 @@ def equals(a, b):
 
     if a is b:
         return True
-    if type(a) != type(b):  # is this always true? after a == b failed?
+    # ignore E721 for now
+    if type(a) != type(b):  # noqa: E721 # is this always true? after a == b failed?
         return False
     if isinstance(a, Element):
         return same_component(a.component, b.component) and equals(a.args, b.args) and equals(a.kwargs, b.kwargs)
