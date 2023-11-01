@@ -8,9 +8,9 @@ import ipywidgets
 import reacton
 from reacton.core import Element, ValueElement
 
-from . import ipywidgets as w
-from .ipyvue import use_event  # noqa: F401
-from .utils import implements
+from .. import ipywidgets as w
+from ..ipyvue import use_event  # noqa: F401
+from ..utils import implements
 
 
 @reacton.component
@@ -26,7 +26,7 @@ def BtnWithClick(on_click=None, **kwargs):
 
 
 if __name__ == "__main__":
-    from . import generate
+    from .. import generate
 
     class CodeGen(generate.CodeGen):
         def has_callback(self, cls, name):
