@@ -55,6 +55,13 @@ dev = [
     "ipykernel",
 ]
 
+generate = [
+    "black",
+    "bqplot",
+    "jinja2",
+    "mypy",
+]
+
 [project.urls]
 Home = "https://www.github.com/widgetti/reacton"
 Documentation = "https://reacton.solara.dev"
