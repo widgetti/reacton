@@ -339,7 +339,7 @@ del _{{ method_name }}
                 print(exception)
                 return
         with open(path, "w") as f:
-            print(code_total, file=f)
+            print(code_total, file=f, end="")
         os.system(f"mypy {path}")
 
 
