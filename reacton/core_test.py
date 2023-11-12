@@ -1,7 +1,9 @@
+import gc
 import sys
 import time
 import traceback
 import unittest.mock
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Generic, List, Optional, Tuple, TypeVar, cast
 
@@ -3099,3 +3101,17 @@ def test_event_multiple():
     assert len(rc.find(widgets.Button)) == 3
 
     rc.close()
+
+
+def test_memory_leak(ButtonComponent):
+    # we make sure that there is not reference to the context
+    # after we close it
+    box, rc = react.render(ButtonComponent(), handle_error=False)
+    rc.close()
+    # useful for debugging
+    # import objgraph
+    # objgraph.show_backrefs([rc], filename="reacton-mem-leak.png")
+    weak_rc = weakref.ref(rc)
+    del rc
+    gc.collect()
+    assert weak_rc() is None

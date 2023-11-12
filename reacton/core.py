@@ -130,6 +130,14 @@ def suppress_events():
 widgets.Widget.element = classmethod(element)
 
 
+def close_widget(widget: widgets.Widget):
+    # this happens for v.Chip, which has a close trait
+    if callable(widget.close):
+        widget.close()
+    else:
+        logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
+
+
 def _event_handler_exception_wrapper(f):
     """Wrap an event handler to catch exceptions and put them in a reacton context.
 
@@ -365,6 +373,13 @@ class Element(Generic[W]):
             else:
                 normal_kwargs[name] = value
         return normal_kwargs, listeners
+
+    def _close_widget(self, widget: widgets.Widget):
+        close_widget(widget)
+        try:
+            delattr(widget, "hold_trait_notifications")
+        except AttributeError:
+            raise
 
     def _create_widget(self, kwargs):
         # we can't use our own kwarg, since that contains elements, not widgets
@@ -1245,7 +1260,20 @@ class _RenderContext:
         if DEBUG:
             created_stack = traceback.format_stack()
 
+        # if we do not use a weakref, the memory test fails
+        # I am not sure exactly why, but this will at least make
+        # it easier for Python to garbage collect, since it will
+        # avoid circular references
+        context_ref = weakref.ref(context)
+        self_ref = weakref.ref(self)
+        del context
+        del self
+
         def set_(value):
+            context = context_ref()
+            assert context is not None
+            self = self_ref()
+            assert self is not None
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
@@ -2079,21 +2107,14 @@ class _RenderContext:
             assert widget.comm is not None
             assert widget.model_id in _get_widgets_dict()
 
-            def close(widget: widgets.Widget):
-                # this happens for v.Chip, which has a close trait
-                if callable(widget.close):
-                    widget.close()
-                else:
-                    logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
-
             for orphan in self._orphans.get(widget.model_id, set()):
                 orphan_widget = _get_widgets_dict().get(orphan)
                 if orphan_widget:
-                    close(orphan_widget)
+                    close_widget(orphan_widget)
             if widget.model_id in self._orphans:
                 del self._orphans[widget.model_id]
             el._cleanup_callbacks(widget)
-            close(widget)
+            el._close_widget(widget)
         if el.is_shared:
             del self._shared_widgets[el]
         else:
