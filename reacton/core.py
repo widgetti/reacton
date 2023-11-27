@@ -231,10 +231,7 @@ class Element(Generic[W]):
         # for debugging/testing only
         self._render_count = 0
 
-        self._current_context = None
         rc = _get_render_context(required=False)
-        if rc:
-            self._current_context = rc.context
         if rc is not None and rc.container_adders:
             rc.container_adders[-1].add(self)
         if DEBUG:
@@ -337,15 +334,12 @@ class Element(Generic[W]):
     def __enter__(self):
         rc = _get_render_context()
         ca = ContainerAdder[T](self, "children")
-        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         assert rc.context is not None
         rc.container_adders.append(ca)
         return self
 
     def __exit__(self, *args, **kwargs):
-
         rc = _get_render_context()
-        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         assert rc.context is not None
         ca = rc.container_adders.pop()
         collected = ca.collect()

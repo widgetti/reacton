@@ -19,7 +19,6 @@ class FigureElement(Element[bqplot.Figure]):
     def __enter__(self):
         rc = _get_render_context()
         ca = ContainerAdder[bqplot.Figure](self, "marks")
-        assert rc.context is self._current_context, f"Context change from {self._current_context} -> {rc.context}"
         rc.container_adders.append(ca)
         return self
 
