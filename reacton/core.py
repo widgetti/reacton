@@ -1258,16 +1258,8 @@ class _RenderContext:
         # I am not sure exactly why, but this will at least make
         # it easier for Python to garbage collect, since it will
         # avoid circular references
-        context_ref = weakref.ref(context)
-        self_ref = weakref.ref(self)
-        del context
-        del self
 
         def set_(value):
-            context = context_ref()
-            assert context is not None
-            self = self_ref()
-            assert self is not None
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
