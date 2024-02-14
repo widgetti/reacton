@@ -1486,7 +1486,11 @@ class _RenderContext:
                                         "make sure your root component always returns the same component type"
                                     )
                         if container:
-                            container.children = [widget]
+                            if widget is None:
+                                # Exception occurred, and we cannot render the widget
+                                container.children = []
+                            else:
+                                container.children = [widget]
 
                         if self.context_root.exceptions_children or self.context_root.exceptions_self:
                             # an exception bubbled up during reconsolidate
@@ -1928,8 +1932,14 @@ class _RenderContext:
                         raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
                     else:
                         logger.info("Creating new widget: %r %r", el, key)
-                        widget, orphan_ids = el._create_widget(kwargs)
-
+                        widget = None
+                        if not context.exceptions_children:
+                            try:
+                                widget, orphan_ids = el._create_widget(kwargs)
+                            except BaseException as e:
+                                context.exceptions_self.append(e)
+                                self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (creating widget)"))
+                                self._rerender_needed = True
                         if el.is_shared:
                             self._shared_widgets[el] = widget
                         else:
@@ -1940,12 +1950,13 @@ class _RenderContext:
                     # TODO: remove event listeners while doing so
                     # assign to _widgets[el] first, before errors can occur
                     kwargs = reconsolidate_children()
-                    try:
-                        el._update_widget(widget_previous, el_prev, kwargs)
-                    except BaseException as e:
-                        context.exceptions_self.append(e)
-                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
-                        self._rerender_needed = True
+                    if not context.exceptions_children:
+                        try:
+                            el._update_widget(widget_previous, el_prev, kwargs)
+                        except BaseException as e:
+                            context.exceptions_self.append(e)
+                            self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
+                            self._rerender_needed = True
                     if el.is_shared:
                         self._shared_widgets[el] = widget_previous
                     else:
@@ -1955,7 +1966,14 @@ class _RenderContext:
                     logger.info("Replacing widget: %r → %r %r", el_prev, el, key)
                     self._remove_element(el_prev, key, parent_key=parent_key)
                     kwargs = reconsolidate_children()
-                    widget, orphan_ids = el._create_widget(kwargs)
+                    widget = None
+                    if not context.exceptions_children:
+                        try:
+                            widget, orphan_ids = el._create_widget(kwargs)
+                        except BaseException as e:
+                            context.exceptions_self.append(e)
+                            self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
+                            self._rerender_needed = True
                     if el.is_shared:
                         self._shared_widgets[el] = widget
                     else:
@@ -2090,17 +2108,18 @@ class _RenderContext:
                 widget = self._shared_widgets[el]
             else:
                 widget = context.widgets[key]
-            assert widget.comm is not None
-            assert widget.model_id in _get_widgets_dict()
+            if widget is not None:
+                assert widget.comm is not None
+                assert widget.model_id in _get_widgets_dict()
 
-            for orphan in self._orphans.get(widget.model_id, set()):
-                orphan_widget = _get_widgets_dict().get(orphan)
-                if orphan_widget:
-                    close_widget(orphan_widget)
-            if widget.model_id in self._orphans:
-                del self._orphans[widget.model_id]
-            el._cleanup_callbacks(widget)
-            el._close_widget(widget)
+                for orphan in self._orphans.get(widget.model_id, set()):
+                    orphan_widget = _get_widgets_dict().get(orphan)
+                    if orphan_widget:
+                        close_widget(orphan_widget)
+                if widget.model_id in self._orphans:
+                    del self._orphans[widget.model_id]
+                el._cleanup_callbacks(widget)
+                el._close_widget(widget)
         if el.is_shared:
             del self._shared_widgets[el]
         else:

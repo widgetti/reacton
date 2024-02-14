@@ -1913,10 +1913,8 @@ def test_recover_exception_in_cleanup_child(Container1, Container2):
     with pytest.raises(Exception):
         rc.render(Container1(children=[Container2()]))
 
-    try:
+    with pytest.raises(Exception, match=".*fail.*"):
         rc.close()
-    except Exception as e:
-        assert e.args[0] == "fail"
 
 
 def test_recover_exception_in_cleanup():
@@ -1957,25 +1955,46 @@ def test_recover_exception_in_cleanup():
     rc.close()
 
 
-def test_recover_exception_in_widget_update():
+def test_recover_exception_in_widget_update(Container1, Container2):
     set_fail = None
+
+    @react.component
+    def Child(value):
+        with v.Container() as main:
+            v.Btn(children=[value])
+        return main
 
     @react.component
     def Test():
         nonlocal set_fail
         fail, set_fail = react.use_state(False)
-        value = 1
+        value = "ok"
         if fail:
-            value = "fail"  # type: ignore
-        return w.IntSlider(value=value)
+            value = 1  # type: ignore
+        if not fail:
+            with Container1() as main:
+                v.Btn(children=[value])
+        else:
+            with Container2() as main:
+                Child(value=value)
+        return main
 
-    # with pytest.raises(Exception):
     box, rc = react.render(Test())
-    assert rc.find(ipywidgets.IntSlider)
+    assert rc.find(ipyvuetify.Btn)
     assert set_fail is not None
     set_fail(True)
     assert not rc._is_rendering
-    assert not rc.find(ipywidgets.IntSlider)
+    assert not rc.find(ipyvuetify.Btn)
+    rc.close()
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(ipyvuetify.Btn)
+    assert set_fail is not None
+    with pytest.raises(Exception, match=".*Could not create widget.*"):
+        set_fail(True)
+    set_fail(True)
+    assert not rc._is_rendering
+    rc.render(w.HTML(value="recover"))
     rc.close()
 
 
