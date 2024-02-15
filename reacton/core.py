@@ -1217,15 +1217,15 @@ class _RenderContext:
             memo = (value, dependencies)
             self.context.memo.append(memo)
             self.context.memo_index += 1
-            logger.info("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
+            logger.debug("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
             return value
         else:
             memo = self.context.memo[self.context.memo_index]
             value, dependencies_previous = memo
             if utils.equals(dependencies_previous, dependencies):
-                logger.info("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+                logger.debug("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
             else:
-                logger.info("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+                logger.debug("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
                 value = f()
                 memo = (value, dependencies)
                 self.context.memo[self.context.memo_index] = memo
@@ -1243,11 +1243,11 @@ class _RenderContext:
                 self.context.state_metadata[key] = len(initial)
             elif utils.isinstance_lazy(initial, "pandas.DataFrame"):
                 self.context.state_metadata[key] = utils.dataframe_fingerprint(initial)
-            logger.info("Initial state = %r for key %r (%r)", initial, key, id(self.context))
+            logger.debug("Initial state = %r for key %r (%r)", initial, key, id(self.context))
             return initial, self.make_setter(key, self.context, eq)
         else:
             state = self.context.state[key]
-            logger.info("Got state = %r for key %r (%r)", state, key, id(self.context))
+            logger.debug("Got state = %r for key %r (%r)", state, key, id(self.context))
             return state, self.make_setter(key, self.context, eq)
 
     def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
@@ -1336,12 +1336,12 @@ class _RenderContext:
         if len(self.context.effects) <= self.context.effect_index:
             self.context.effect_index += 1
             self.context.effects.append(Effect(effect, dependencies))
-            logger.info("Initial effect = %r for index %r (%r)", effect, self.context.effect_index - 1, dependencies)
+            logger.debug("Initial effect = %r for index %r (%r)", effect, self.context.effect_index - 1, dependencies)
         else:
             previous_effect = self.context.effects[self.context.effect_index]
             # we always set it, even replacing it when we didn't execute it
             # in the consolidation phase we decide what to do (e.g. skip it)
-            logger.info("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
+            logger.debug("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
             if previous_effect.executed:
                 # line up...
                 previous_effect.next = Effect(effect, dependencies)
@@ -1848,7 +1848,7 @@ class _RenderContext:
                             # if we have a next, it means that effect itself is executed
                             # TODO: custom equals
                             if effect.next.dependencies is not None and utils.equals(effect.dependencies, effect.next.dependencies):
-                                logger.info("No need to add effect, dependencies are the same (%r %r)", effect.callable, effect.dependencies)
+                                logger.debug("No need to add effect, dependencies are the same (%r %r)", effect.callable, effect.dependencies)
                                 # not needed, just remove the reference
                                 effect.next = None
                             else:
@@ -1945,7 +1945,7 @@ class _RenderContext:
                         else:
                             context.widgets[key] = widget
                 elif el_prev is not None and el_prev.component == el.component:
-                    logger.info("Updating widget: %r  → %r %r", el_prev, el, key)
+                    logger.debug("Updating widget: %r  → %r %r", el_prev, el, key)
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
                     # assign to _widgets[el] first, before errors can occur
@@ -1963,7 +1963,7 @@ class _RenderContext:
                         context.widgets[key] = widget_previous
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
-                    logger.info("Replacing widget: %r → %r %r", el_prev, el, key)
+                    logger.debug("Replacing widget: %r → %r %r", el_prev, el, key)
                     self._remove_element(el_prev, key, parent_key=parent_key)
                     kwargs = reconsolidate_children()
                     widget = None
@@ -2060,7 +2060,7 @@ class _RenderContext:
         assert key is not None
         assert self.context is not None
         context = self.context
-        logger.info("Remove: (%s, %s) %r", parent_key, key, el)
+        logger.debug("Remove: (%s, %s) %r", parent_key, key, el)
 
         if el.is_shared:
             if el not in self._shared_elements:
