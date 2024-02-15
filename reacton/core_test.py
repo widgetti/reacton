@@ -3122,10 +3122,18 @@ def test_event_multiple():
     rc.close()
 
 
-def test_memory_leak(ButtonComponent):
+@reacton.component
+def UseMemoComponent():
+    rc = core.get_render_context()
+    reacton.use_memo(lambda: [rc], [])
+    return w.Button()
+
+
+@pytest.mark.parametrize("component", [w.Button, ButtonComponentFunction, UseMemoComponent])
+def test_memory_leak(component):
     # we make sure that there is not reference to the context
     # after we close it
-    box, rc = react.render(ButtonComponent(), handle_error=False)
+    box, rc = react.render(component(), handle_error=False)
     rc.close()
     # useful for debugging
     # import objgraph
