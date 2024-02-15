@@ -839,7 +839,7 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
     return state, dispatch
 
 
-def use_memo(f, dependencies=None, debug_name: str = None):
+def use_memo(f: Callable[[], T], dependencies=None, debug_name: str = None) -> T:
     if debug_name is None:
         debug_name = f.__name__
     rc = _get_render_context()
