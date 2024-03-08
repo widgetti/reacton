@@ -770,14 +770,42 @@ def get_widget(el: Element):
 
 
 def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
-    """Returns a (value, setter) tuple that is used to manage state in a component.
+    """Returns a `(value, setter)` tuple that is used to manage state in a component.
 
     This function can only be called from a component function.
 
-    The value returns the current state (which equals initial at the first render call).
-    Or the value that was last
+    The value returns the current state (which equals `initial` at the first render call). Or the value that was last set using the setter.
 
-    Subsequent
+    Note that the setter function can be used in two ways.
+
+    Directly setting the value:
+
+    ```python
+    @reacton.component
+    def ButtonClick():
+        clicks, set_clicks = reacton.use_state(0)
+        def my_click_handler():
+            set_clicks(clicks+1)
+        button = w.Button(description=f"Clicked {clicks} times",
+                        on_click=my_click_handler)
+        return button
+    ```
+
+    Updating the value based on the previous/current value.
+
+    ```python
+    @reacton.component
+    def ButtonClick():
+        clicks, set_clicks = reacton.use_state(0)
+        def my_click_handler():
+            set_clicks(lambda prev: prev+1)
+        button = w.Button(description=f"Clicked {clicks} times",
+                        on_click=my_click_handler)
+        return button
+    ```
+
+    The last one avoid issues with stale data, which means you have a reference to the value of an old render pass (not present in this simple example).
+
     """
     rc = _get_render_context()
     return rc.use_state(initial, key, eq)
