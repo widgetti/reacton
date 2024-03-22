@@ -11,6 +11,7 @@ from . import _version
 
 __version__ = _version.__version__
 from .core import (
+    Fragment,
     component,
     component_interactive,
     create_context,
@@ -34,6 +35,7 @@ from .core import (
 )
 
 __all__ = [
+    "Fragment",
     "__version__",
     "component",
     "value_component",

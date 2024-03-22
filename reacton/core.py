@@ -2180,7 +2180,13 @@ class _RenderContext:
             return f(value, key, parent_key)
         elif isinstance(value, (list, tuple)):
             was_tuple = isinstance(value, tuple)
-            values = [self._visit_children_values(v, f"{key}{index}/", parent_key, f) for index, v in enumerate(value)]
+            values = []
+            for index, v in enumerate(value):
+                new_value = self._visit_children_values(v, f"{key}{index}/", parent_key, f)
+                if isinstance(new_value, FragmentWidget):
+                    values.extend(new_value.children)
+                else:
+                    values.append(new_value)
             if was_tuple:
                 return tuple(values)
             return values
@@ -2320,8 +2326,18 @@ def __getattr__(name):
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
+class FragmentWidget(widgets.VBox):
+    def __init__(self, children, **kwargs):
+        super().__init__(children=children, **kwargs)
+
+
+@component
+def Fragment(children: List[Element]):
+    return FragmentWidget.element(children=children)
+
+
 _last_interactive_vbox = None
-_default_container: Optional[Callable[..., Element]] = None
+_default_container: Optional[Callable[..., Element]] = Fragment
 # not a public api yet, used in solara for now only.
 # lifecycle of context objects are linked to the lifecycle of the component
 _component_context_manager_classes: List[Any] = []

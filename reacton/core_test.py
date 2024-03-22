@@ -3142,3 +3142,25 @@ def test_memory_leak(component):
     del rc
     gc.collect()
     assert weak_rc() is None
+
+
+def test_fragment():
+    @reacton.component
+    def Children():
+        with reacton.Fragment():
+            w.Button(description="1")
+            w.Button(description="2")
+
+    @reacton.component
+    def Test():
+        with w.VBox():
+            Children()
+
+    box, rc = react.render(Test(), handle_error=False)
+    vbox = rc.find(widgets.VBox).widget
+    assert len(vbox.children) == 2
+    assert isinstance(vbox.children[0], widgets.Button)
+    assert isinstance(vbox.children[1], widgets.Button)
+    assert vbox.children[0].description == "1"
+    assert vbox.children[1].description == "2"
+    rc.close()
