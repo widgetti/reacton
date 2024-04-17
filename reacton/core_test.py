@@ -1998,6 +1998,28 @@ def test_recover_exception_in_widget_update(Container1, Container2):
     rc.close()
 
 
+def test_exception_in_child_no_run_effect():
+    set_fail = None
+
+    mock = unittest.mock.Mock()
+
+    @react.component
+    def Test():
+        nonlocal set_fail
+        children = v.Btn(children=[1])
+        # we do not want to run this effect
+        use_effect(mock, [])
+        return children
+
+    box, rc = react.render(Test(), handle_error=True)
+    assert not mock.called
+
+    assert not rc.find(ipyvuetify.Btn)
+    assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
+
+    rc.close()
+
+
 def test_state_get():
     set_value = None
 
