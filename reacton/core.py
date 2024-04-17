@@ -1891,6 +1891,9 @@ class _RenderContext:
                                         context.needs_render = True
                                 effect = child_context.effects[effect_index] = effect.next
                                 try:
+                                    if child_context.exceptions_self or child_context.exceptions_children:
+                                        # we had an exception, so we skip the effect (not the cleanup)
+                                        continue
                                     effect()
                                 except BaseException as e:
                                     context.exceptions_self.append(e)
@@ -1899,6 +1902,9 @@ class _RenderContext:
                                     context.needs_render = True
                         else:
                             try:
+                                if child_context.exceptions_self or child_context.exceptions_children:
+                                    # we had an exception, so we skip the effect (not the cleanup)
+                                    continue
                                 effect()
                             except BaseException as e:
                                 context.exceptions_self.append(e)
