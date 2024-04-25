@@ -1795,8 +1795,6 @@ class _RenderContext:
         kwargs = el.kwargs.copy()
         key = el._key
         if key is None:
-            if default_key == "/":
-                default_key = "/"
             key = default_key
         assert key is not None
         logger.debug("Reconsolidate: (%s,%s) %r", parent_key, key, el)
@@ -2088,8 +2086,6 @@ class _RenderContext:
     def _remove_element(self, el: Element, default_key: str, parent_key):
         key = el._key
         if key is None:
-            if default_key == "/":
-                default_key = "/"
             key = default_key
         assert key is not None
         assert self.context is not None
