@@ -230,6 +230,7 @@ class Element(Generic[W]):
         self._meta = {}
         # for debugging/testing only
         self._render_count = 0
+        self._key_frozen: bool = False
 
         rc = _get_render_context(required=False)
         if rc is not None and rc.container_adders:
@@ -269,6 +270,8 @@ class Element(Generic[W]):
 
         This can help render performance. See documentation for details.
         """
+        if self._key_frozen:
+            raise RuntimeError("Element keys should not be mutated after rendering")
         self._key = value
         return self
 
@@ -1588,6 +1591,7 @@ class _RenderContext:
         key = el._key
         if key is None:
             key = default_key
+        el._key_frozen = True
 
         logger.debug("Render: (%s,%s)  - %r", parent_key, key, element)
 

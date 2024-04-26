@@ -3186,3 +3186,25 @@ def test_fragment():
     assert vbox.children[0].description == "1"
     assert vbox.children[1].description == "2"
     rc.close()
+
+
+def test_key_mutate_protection(Container):
+    button = ButtonComponentFunction(description="Hi")
+    set_state = lambda value: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_state
+        state, set_state = react.use_state(0)
+        if state == 0:
+            return Container(children=[button])
+        else:
+            return Container(children=[button.key("i_should_not_be_mutated")]).key("bla")
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "Hi"
+    assert button._key is None
+    with pytest.raises(RuntimeError, match="Element keys should not be mutated after rendering"):
+        set_state(1)
+    rc.render(w.HTML(value="recover").key("HTML"))
+    rc.close()
