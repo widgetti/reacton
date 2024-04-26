@@ -2125,6 +2125,17 @@ class _RenderContext:
                 new_parent_key = join_key(parent_key, key)
                 self._remove_element(self.context.root_element, "/", parent_key=new_parent_key)
             finally:
+                try:
+                    assert not child_context.elements, f"left over elements {child_context.elements}"
+                    assert not child_context.element_to_widget, f"left over element_to_widget {child_context.element_to_widget}"
+                    assert not child_context.widgets, f"left over widgets {child_context.widgets}"
+                    assert not child_context.children, f"left over children {child_context.children}"
+                    assert not child_context.owns, f"left over owns {child_context.owns}"
+                    # TODO: this is not the case when an exception occurs
+                    # assert not child_context.children_next, f"left over children {child_context.children_next}"
+                except Exception as e:
+                    child_context.exceptions_self.append(e)
+
                 # restore context
                 self.context = context
             if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
@@ -2159,14 +2170,6 @@ class _RenderContext:
         if el in context.element_to_widget:
             del context.element_to_widget[el]
         del context.elements[key]
-        if isinstance(el.component, ComponentFunction):
-            assert not child_context.elements, f"left over elements {child_context.elements}"
-            assert not child_context.element_to_widget, f"left over element_to_widget {child_context.element_to_widget}"
-            assert not child_context.widgets, f"left over widgets {child_context.widgets}"
-            assert not child_context.children, f"left over children {child_context.children}"
-            assert not child_context.owns, f"left over owns {child_context.owns}"
-            # TODO: this is not the case when an exception occurs
-            # assert not child_context.children_next, f"left over children {child_context.children_next}"
 
     def _visit_children(self, el: Element, default_key: str, parent_key: str, f: Callable):
         assert self.context is not None
