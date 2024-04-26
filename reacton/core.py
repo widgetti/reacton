@@ -2048,12 +2048,12 @@ class _RenderContext:
             raise
         finally:
             # this marks the work as 'done'
+            # move from _elemens_next to _elements
             context.elements[key] = context.elements_next.pop(key)
 
             if el_prev in self._shared_elements:
                 self._shared_elements.remove(el_prev)
 
-            # move from _elemens_next to _elements
             if el.is_shared:
                 assert el not in self._shared_elements
                 self._shared_elements.add(el)
