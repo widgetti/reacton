@@ -3188,7 +3188,7 @@ def test_fragment():
     rc.close()
 
 
-def test_key_mutate_and_reuse(Container):
+def test_key_mutate_protection(Container):
     button = ButtonComponentFunction(description="Hi")
     set_state = lambda value: None  # noqa
 
