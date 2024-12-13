@@ -1,16 +1,11 @@
 name: Test installation
 
 on:
-  push:
-    branches:
-      - master
-    tags:
-      - v*
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
 jobs:
-  build:
+  test-installation:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,3 +22,7 @@ jobs:
         run: pip install dist/*.whl
       - name: Test import
         run: python -c "import react_ipywidgets; import reacton"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reacton-build-${{ github.run_number }}
+          path: ./dist
