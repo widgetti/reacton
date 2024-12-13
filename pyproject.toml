@@ -47,7 +47,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "bqplot",
-    "numpy",
+    "numpy<2",
     "ipyvuetify",
     "bump2version",
     "jinja2",
