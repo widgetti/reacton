@@ -40,7 +40,6 @@ packages = ["react_ipywidgets", "reacton"]
 [project.optional-dependencies]
 dev = [
     "ruff; python_version > '3.6'",
-    "black",
     "mypy",
     "pre-commit",
     "coverage",

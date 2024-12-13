@@ -34,6 +34,6 @@ jobs:
           path: ./dist
       - name: Install
         run: |
-          pip install `echo dist/*.whl`[dev] "black<23"
+          pip install `echo dist/*.whl`[dev]
       - name: test
         run: pytest --cov=reacton reacton
