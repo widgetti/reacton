@@ -1,26 +1,19 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
         args: [--unsafe]
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.3
     hooks:
-      - id: black
-  - repo: https://github.com/PyCQA/flake8
-    rev: 3.9.2
-    hooks:
-      - id: flake8
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.11.5
-    hooks:
-      - id: isort
-        files: \.py$
-        args: [--profile=black]
+      - id: ruff
+        stages: [pre-commit]
+      - id: ruff-format
+        stages: [pre-commit]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v0.942" # Use the sha / tag you want to point at
+    rev: "v1.13.0" # Use the sha / tag you want to point at
     hooks:
       - id: mypy

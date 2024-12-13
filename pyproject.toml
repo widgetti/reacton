@@ -39,7 +39,7 @@ packages = ["react_ipywidgets", "reacton"]
 
 [project.optional-dependencies]
 dev = [
-    "flake8",
+    "ruff; python_version > '3.6'",
     "black",
     "mypy",
     "pre-commit",
@@ -67,11 +67,6 @@ Home = "https://www.github.com/widgetti/reacton"
 Documentation = "https://reacton.solara.dev"
 "Source code" = "https://www.github.com/widgetti/reacton"
 
-[tool.black]
-line-length = 160
-
 [tool.ruff]
 line-length = 160
-
-[tool.isort]
-profile = "black"
+target-version = "py37"
