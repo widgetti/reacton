@@ -19,8 +19,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Downgrade pip
-        run: pip install "pip<22"
       - name: Install dependencies
         run: |
           pip install ".[dev]"

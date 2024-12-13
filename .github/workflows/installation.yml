@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: 3.7
       - name: Install hatch
-        run: pip install hatch "pip<22"
+        run: pip install hatch
       - name: Build
         run: hatch build
       - name: Install
