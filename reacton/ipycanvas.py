@@ -11,7 +11,6 @@ from . import ipywidgets as w
 from .utils import implements
 
 if __name__ == "__main__":
-
     from .generate import generate
 
     generate(__file__, [ipycanvas])
@@ -176,7 +175,6 @@ def _Path2D(value: str = "", on_value: typing.Callable[[str], Any] = None) -> El
 
 @implements(_Path2D)
 def Path2D(**kwargs):
-
     widget_cls = ipycanvas.canvas.Path2D
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)

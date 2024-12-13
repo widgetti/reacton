@@ -6,6 +6,7 @@ ReactJS - ipywidgets relation:
  * Component -- function
 
 """
+
 import contextlib
 import copy
 import functools
@@ -336,7 +337,7 @@ class Element(Generic[W]):
 
     def __enter__(self):
         rc = _get_render_context()
-        ca = ContainerAdder[T](self, "children")
+        ca = ContainerAdder[W](self, "children")
         assert rc.context is not None
         rc.container_adders.append(ca)
         return self
@@ -478,11 +479,9 @@ class Element(Generic[W]):
 
 
 class Value(Generic[V], Protocol):
-    def get(self) -> V:
-        ...
+    def get(self) -> V: ...
 
-    def set(self, value: V):
-        ...
+    def set(self, value: V): ...
 
 
 class ValueElement(Generic[W, V], Element[W]):
@@ -680,18 +679,15 @@ class ComponentFunction(Component):
 
 
 @overload
-def component(obj: None = None, mime_bundle=...) -> Callable[[FuncT], FuncT]:
-    ...
+def component(obj: None = None, mime_bundle=...) -> Callable[[FuncT], FuncT]: ...
 
 
 @overload
-def component(obj: FuncT, mime_bundle=...) -> FuncT:
-    ...
+def component(obj: FuncT, mime_bundle=...) -> FuncT: ...
 
 
 @overload
-def component(obj: Callable[P, None], mime_bundle=...) -> Callable[P, Element]:
-    ...
+def component(obj: Callable[P, None], mime_bundle=...) -> Callable[P, Element]: ...
 
 
 # it is actually this...
@@ -715,15 +711,13 @@ def component(obj: Union[Callable[P, None], FuncT] = None, mime_bundle: Dict[str
 @overload
 def value_component(
     value_type: None, value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default
-) -> Callable[[Callable[P, ValueElement[W, V]]], Callable[P, ValueElement[W, V]]]:
-    ...
+) -> Callable[[Callable[P, ValueElement[W, V]]], Callable[P, ValueElement[W, V]]]: ...
 
 
 @overload
 def value_component(
     value_type: Type[V], value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default
-) -> Callable[[Callable[P, Element[W]]], Callable[P, ValueElement[W, V]]]:
-    ...
+) -> Callable[[Callable[P, Element[W]]], Callable[P, ValueElement[W, V]]]: ...
 
 
 def value_component(value_type: Union[Type[V], None], value_name="value", mime_bundle: Dict[str, Any] = mime_bundle_default):
@@ -838,13 +832,11 @@ def use_state_widget(widget: widgets.Widget, prop_name, key=None):
 
 
 @overload
-def get_render_context(required: Literal[True] = ...) -> "_RenderContext":
-    ...
+def get_render_context(required: Literal[True] = ...) -> "_RenderContext": ...
 
 
 @overload
-def get_render_context(required: Literal[False] = ...) -> Optional["_RenderContext"]:
-    ...
+def get_render_context(required: Literal[False] = ...) -> Optional["_RenderContext"]: ...
 
 
 def get_render_context(required=True):
@@ -1701,7 +1693,6 @@ class _RenderContext:
                     # back the root element
                     root_element: Optional[Element] = None
                     try:
-                        stack = contextlib.ExitStack()
                         with contextlib.ExitStack() as stack:
                             for cm in context.context_managers:
                                 stack.enter_context(cm)
@@ -1809,7 +1800,6 @@ class _RenderContext:
 
         already_reconsolidated = el in self._shared_elements
         if already_reconsolidated and el is not self.element and el.is_shared:
-
             logger.debug("Reconsolidate: Using existing widget (prev = %r)", el_prev)
             # keeping this for debugging
             # logger.debug("Current:")
@@ -2208,15 +2198,13 @@ class _RenderContext:
 @overload
 def render(
     element: Element[T], container: None = None, children_trait="children", handle_error: bool = True, initial_state=None
-) -> Tuple[widgets.HBox, _RenderContext]:
-    ...
+) -> Tuple[widgets.HBox, _RenderContext]: ...
 
 
 @overload
 def render(
     element: Element[T], container: None = None, children_trait="children", handle_error: bool = True, initial_state=None
-) -> Tuple[widgets.Widget, _RenderContext]:
-    ...
+) -> Tuple[widgets.Widget, _RenderContext]: ...
 
 
 def render(element: Element[T], container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
