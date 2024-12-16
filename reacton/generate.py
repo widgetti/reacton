@@ -5,7 +5,6 @@ from inspect import isclass
 from textwrap import indent
 from typing import Any, Dict, Generic, Type, TypeVar
 
-import black
 import bqplot
 import ipywidgets
 import ipywidgets as widgets  # type: ignore
@@ -106,9 +105,28 @@ class CodeGen(Generic[W]):
     def get_ignore_props(self, cls):
         return self.ignore_props
 
+    # Replicated from https://gist.github.com/shner-elmo/b2639a4d1e04ceafaad120acfb31213c
+    def ruff_format(self, code: str) -> str:
+        import subprocess
+        from ruff.__main__ import find_ruff_bin
+
+        ruff_args = [
+            find_ruff_bin(),
+            "format",
+            "--stdin-filename",
+            "foo.py",  # you can pass any random string, it wont use it...
+            # these two lines are optional, but this is how you can pass the config for ruff
+            "--line-length",
+            f"{MAX_LINE_LENGTH}",
+        ]
+        proc = subprocess.run(ruff_args, input=code, text=True, capture_output=True)
+        proc.check_returncode()  # raise an Exception if return code is not 0
+        return proc.stdout
+
     def generate_component(self, cls: Type[widgets.Widget], blacken=True):
         element_class_name = self.get_element_class(cls).__name__
         ignore = self.get_ignore_props(cls)
+
         traits = {key: value for key, value in cls.class_traits().items() if "output" not in value.metadata and not key.startswith("_") and key not in ignore}
 
         def has_default(trait):
@@ -293,9 +311,8 @@ del _{{ method_name }}
         )
 
         if blacken:
-            mode = black.Mode(line_length=MAX_LINE_LENGTH)
             try:
-                code = black.format_file_contents(code, fast=False, mode=mode)
+                code = self.ruff_format(code)
             except Exception:
                 print("code:\n", code)
                 raise
@@ -325,10 +342,7 @@ del _{{ method_name }}
             raise ValueError(f"Could not find new line after marker: {marker!r}")
         code_total = current_code[: start + 1] + "\n" + code
         if blacken:
-            import black
-
-            mode = black.Mode(line_length=MAX_LINE_LENGTH)
-            code_total = black.format_file_contents(code_total, fast=False, mode=mode)
+            code_total = self.ruff_format(code_total)
         only_valid = True
         if only_valid:
             try:

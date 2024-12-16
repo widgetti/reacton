@@ -1,9 +1,12 @@
+import sys
 import ipywidgets as widgets
 import traitlets
+import pytest
 
 from .generate import CodeGen
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="Ruff does not support Python < 3.7")
 def test_basic():
     class MyTest(traitlets.HasTraits):
         a = traitlets.traitlets.Int(1)
@@ -22,7 +25,6 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -33,6 +35,7 @@ del _MyTest
     assert code.strip() == code_expected.strip()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="Ruff does not support Python < 3.7")
 def test_value():
     class MyTest(traitlets.HasTraits):
         a = traitlets.traitlets.Int(1)
@@ -51,7 +54,6 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return ValueElement("value", comp, kwargs=kwargs)
@@ -62,6 +64,7 @@ del _MyTest
     assert code.strip() == code_expected.strip()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="Ruff does not support Python < 3.7")
 def test_instance_non_widget():
     class NonWidget:
         def __init__(self, *args) -> None:
@@ -85,7 +88,6 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -95,6 +97,7 @@ del _MyTest'''
     assert code.strip() == code_expected.strip()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="Ruff does not support Python < 3.7")
 def test_instance_widget():
     class SomeWidget(widgets.Widget):
         def __init__(self, *args) -> None:
@@ -116,7 +119,6 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-
     widget_cls = reacton.generate_test.MyTest
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
