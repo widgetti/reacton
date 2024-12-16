@@ -1,7 +1,7 @@
 
 # fully automated
 
-    $ ./release.sh 1.8.3
+    $ ./release.sh patch
 
 # semi automated
 To make a new release
