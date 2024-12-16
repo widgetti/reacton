@@ -41,7 +41,6 @@ from warnings import warn
 import ipywidgets
 import ipywidgets as widgets
 import traitlets
-import typing_extensions
 from typing_extensions import Literal, Protocol
 
 import reacton.logging  # noqa: F401  # has sidefx
@@ -88,7 +87,12 @@ W = TypeVar("W")  # used for widgets
 V = TypeVar("V")  # used for value type of widget
 V2 = TypeVar("V2")  # used for value type of widget
 E = TypeVar("E")  # used for elements
-P = typing_extensions.ParamSpec("P")
+
+try:
+    from typing_extensions import ParamSpec
+    P = ParamSpec("P")
+except ImportError:
+    P = ...
 
 WidgetOrList = Union[widgets.Widget, List[widgets.Widget]]
 EffectCleanupCallable = Callable[[], None]
