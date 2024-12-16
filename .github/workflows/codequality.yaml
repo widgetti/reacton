@@ -1,33 +1,26 @@
 name: Code quality
-
 on:
-  - push
-  - pull_request
-  - workflow_dispatch
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
-  build:
+  code-quality:
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.7, 3.8, 3.9, "3.10", "3.11"]
+        python-version: [3.8, 3.9, "3.10", "3.11"] # pre-commit does not support Python < 3.8
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Downgrade pip
-        run: pip install "pip<22"
       - name: Install dependencies
         run: |
-          pip install ".[dev]" "mypy<1" "black<23"
-          mypy --install-types --non-interactive reacton
-      - name: Run black
-        run: black reacton
-      - name: Run flake
-        run: flake8 reacton
-      - name: mypy
-        run: mypy reacton
+          pip install ".[dev]"
+      - name: Install pre-commit
+        run: pre-commit install
+      - name: Run pre-commit
+        run: pre-commit run --all-files

@@ -1,25 +1,28 @@
 name: Test installation
 
 on:
-  - push
-  - pull_request
-  - workflow_dispatch
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
-  build:
+  test-installation:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.7
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.7
       - name: Install hatch
-        run: pip install hatch "pip<22"
+        run: pip install hatch
       - name: Build
         run: hatch build
       - name: Install
         run: pip install dist/*.whl
       - name: Test import
         run: python -c "import react_ipywidgets; import reacton"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reacton-build-${{ github.run_number }}
+          path: ./dist

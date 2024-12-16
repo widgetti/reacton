@@ -545,7 +545,6 @@ def _ButtonStyle(
 
 @implements(_ButtonStyle)
 def ButtonStyle(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_button.ButtonStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -746,7 +745,6 @@ def _CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
 
 @implements(_CoreWidget)
 def CoreWidget(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_core.CoreWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2016,7 +2014,6 @@ def _Layout(
 
 @implements(_Layout)
 def Layout(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_layout.Layout
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2670,7 +2667,6 @@ def _SliderStyle(
 
 @implements(_SliderStyle)
 def SliderStyle(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_int.SliderStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2686,7 +2682,6 @@ def _Style() -> Element[ipywidgets.widgets.widget_style.Style]:
 
 @implements(_Style)
 def Style(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_style.Style
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3011,7 +3006,6 @@ def _ToggleButtonsStyle(
 
 @implements(_ToggleButtonsStyle)
 def ToggleButtonsStyle(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_selection.ToggleButtonsStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3210,7 +3204,6 @@ def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None
 
 @implements(_ValueWidget)
 def ValueWidget(**kwargs):
-
     widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return ValueElement("value", comp, kwargs=kwargs)
@@ -3327,7 +3320,6 @@ def _DescriptionStyle(
 
 @implements(_DescriptionStyle)
 def DescriptionStyle(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_description.DescriptionStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3383,7 +3375,6 @@ def _ProgressStyle(
 
 @implements(_ProgressStyle)
 def ProgressStyle(**kwargs):
-
     widget_cls = ipywidgets.widgets.widget_int.ProgressStyle
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)

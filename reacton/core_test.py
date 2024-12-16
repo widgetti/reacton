@@ -378,7 +378,6 @@ def test_render_replace():
 
 
 def test_render_conditional_child():
-
     set_value = lambda x: None  # noqa
 
     @react.component
@@ -404,7 +403,6 @@ def test_render_conditional_child():
 
 
 def test_render_conditional_replace_component_with_element():
-
     set_value = lambda x: None  # noqa
 
     def Container():
@@ -1383,7 +1381,6 @@ def test_container_context_bqplot():
 
 
 def test_get_widget(Container):
-
     button1 = None
     button2 = None
 
@@ -2967,7 +2964,6 @@ def test_close_when_overridden():
 
 
 def test_render_perf_child_only():
-
     render_child = unittest.mock.Mock()
     render_main = unittest.mock.Mock()
     set_text = lambda x: None  # noqa
