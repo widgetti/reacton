@@ -3,7 +3,7 @@ from typing import Any, Callable, cast
 import ipyvue
 
 import reacton as react
-from reacton.core import get_render_context
+from reacton.core import _event_handler_exception_wrapper_and_batch
 
 
 def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], Any]):
@@ -13,26 +13,14 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
 
     def add_event_handler():
         vue_widget = cast(ipyvue.VueWidget, react.core.get_widget(el))
-        # we are basically copying the logic from reacton.core._event_handler_exception_wrapper
-        rc = get_render_context()
-        context = rc.context
-        assert context is not None
 
-        def handler(*args):
-            try:
-                callback_ref.current(*args)
-            except Exception as e:
-                assert context is not None
-                # because widgets don't have a context, but are a child of a component
-                # we add it to exceptions_children, not exception_self
-                # this allows a component to catch the exception of a direct child
-                context.exceptions_children.append(e)
-                rc.force_update()
+        def wrapper(*args):
+            callback_ref.current(*args)
 
-        vue_widget.on_event(event_and_modifiers, handler)
+        vue_widget.on_event(event_and_modifiers, _event_handler_exception_wrapper_and_batch(wrapper))
 
         def cleanup():
-            vue_widget.on_event(event_and_modifiers, handler, remove=True)
+            vue_widget.on_event(event_and_modifiers, wrapper, remove=True)
 
         return cleanup
 

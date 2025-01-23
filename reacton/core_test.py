@@ -3108,6 +3108,47 @@ def test_batch_update_from_render():
     rc.close()
 
 
+def test_batch_update_from_event():
+    @reacton.component
+    def Test():
+        state, set_state = reacton.use_state(0)
+
+        def increment_twice():
+            set_state(2)
+            set_state(3)
+
+        w.Button(description=str(state), on_click=increment_twice)
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(widgets.Button).widget.description == "0"
+    assert rc.render_count == 1
+    rc.find(widgets.Button).widget.click()
+    assert rc.render_count == 2
+    assert rc.find(widgets.Button).widget.description == "3"
+    rc.close()
+
+
+def test_batch_update_from_event_vue():
+    @reacton.component
+    def Test():
+        state, set_state = reacton.use_state(0)
+
+        def increment_twice():
+            set_state(2)
+            set_state(3)
+
+        btn = v.Btn(children=[str(state)], on_click=increment_twice)
+        v.use_event(btn, "click", lambda *_ignore: increment_twice())
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert rc.find(ipyvuetify.Btn).widget.children[0] == "0"
+    assert rc.render_count == 1
+    rc.find(ipyvuetify.Btn).widget.fire_event("click", {})
+    assert rc.render_count == 2
+    assert rc.find(ipyvuetify.Btn).widget.children[0] == "3"
+    rc.close()
+
+
 def test_event_multiple():
     @reacton.component
     def Test():
