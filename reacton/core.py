@@ -139,7 +139,7 @@ def close_widget(widget: widgets.Widget):
         logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
 
 
-def _event_handler_exception_wrapper(f):
+def _event_handler_exception_wrapper_and_batch(f):
     """Wrap an event handler to catch exceptions and put them in a reacton context.
 
     This allows a component to catch the exception of a direct child"""
@@ -149,7 +149,8 @@ def _event_handler_exception_wrapper(f):
 
     def wrapper(*args, **kwargs):
         try:
-            f(*args, **kwargs)
+            with rc:
+                f(*args, **kwargs)
         except Exception as e:
             assert context is not None
             # because widgets don't have a context, but are a child of a component
@@ -159,6 +160,10 @@ def _event_handler_exception_wrapper(f):
             rc.force_update()
 
     return wrapper
+
+
+# for backwards compatibility
+_event_handler_exception_wrapper = _event_handler_exception_wrapper_and_batch
 
 
 def join_key(parent_key, key):
