@@ -57,6 +57,7 @@ dev = [
 ]
 
 generate = [
+    "ruff; python_version > '3.6'",
     "black",
     "bqplot",
     "jinja2",
