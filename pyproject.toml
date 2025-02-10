@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Framework :: Jupyter",
     "Topic :: Software Development :: User Interfaces",
     "Environment :: Web Environment",
@@ -39,15 +41,14 @@ packages = ["react_ipywidgets", "reacton"]
 
 [project.optional-dependencies]
 dev = [
-    "flake8",
-    "black",
+    "ruff; python_version > '3.6'",
     "mypy",
     "pre-commit",
     "coverage",
     "pytest",
     "pytest-cov",
     "bqplot",
-    "numpy",
+    "numpy<2",
     "ipyvuetify",
     "bump2version",
     "jinja2",
@@ -67,11 +68,6 @@ Home = "https://www.github.com/widgetti/reacton"
 Documentation = "https://reacton.solara.dev"
 "Source code" = "https://www.github.com/widgetti/reacton"
 
-[tool.black]
-line-length = 160
-
 [tool.ruff]
 line-length = 160
-
-[tool.isort]
-profile = "black"
+target-version = "py37"

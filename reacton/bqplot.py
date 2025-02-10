@@ -24,7 +24,6 @@ class FigureElement(Element[bqplot.Figure]):
 
 
 if __name__ == "__main__":
-
     from . import generate
 
     class CodeGen(generate.CodeGen):
@@ -90,7 +89,6 @@ def _Albers(
 
 @implements(_Albers)
 def Albers(**kwargs):
-
     widget_cls = bqplot.scales.Albers
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -130,7 +128,6 @@ def _AlbersUSA(
 
 @implements(_AlbersUSA)
 def AlbersUSA(**kwargs):
-
     widget_cls = bqplot.scales.AlbersUSA
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -235,7 +232,6 @@ def _Axis(
 
 @implements(_Axis)
 def Axis(**kwargs):
-
     widget_cls = bqplot.axes.Axis
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -402,7 +398,6 @@ def _Bars(
 
 @implements(_Bars)
 def Bars(**kwargs):
-
     widget_cls = bqplot.marks.Bars
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -418,7 +413,6 @@ def _BaseAxis() -> Element[bqplot.axes.BaseAxis]:
 
 @implements(_BaseAxis)
 def BaseAxis(**kwargs):
-
     widget_cls = bqplot.axes.BaseAxis
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -569,7 +563,6 @@ def _Bins(
 
 @implements(_Bins)
 def Bins(**kwargs):
-
     widget_cls = bqplot.marks.Bins
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -659,7 +652,6 @@ def _Boxplot(
 
 @implements(_Boxplot)
 def Boxplot(**kwargs):
-
     widget_cls = bqplot.marks.Boxplot
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -720,7 +712,6 @@ def _ColorAxis(
 
 @implements(_ColorAxis)
 def ColorAxis(**kwargs):
-
     widget_cls = bqplot.axes.ColorAxis
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -781,7 +772,6 @@ def _ColorScale(
 
 @implements(_ColorScale)
 def ColorScale(**kwargs):
-
     widget_cls = bqplot.scales.ColorScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -855,7 +845,6 @@ def _DateColorScale(
 
 @implements(_DateColorScale)
 def DateColorScale(**kwargs):
-
     widget_cls = bqplot.scales.DateColorScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -899,7 +888,6 @@ def _DateScale(
 
 @implements(_DateScale)
 def DateScale(**kwargs):
-
     widget_cls = bqplot.scales.DateScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -936,7 +924,6 @@ def _EquiRectangular(
 
 @implements(_EquiRectangular)
 def EquiRectangular(**kwargs):
-
     widget_cls = bqplot.scales.EquiRectangular
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1168,7 +1155,6 @@ def _FlexLine(
 
 @implements(_FlexLine)
 def FlexLine(**kwargs):
-
     widget_cls = bqplot.marks.FlexLine
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1195,7 +1181,6 @@ def _GeoScale(
 
 @implements(_GeoScale)
 def GeoScale(**kwargs):
-
     widget_cls = bqplot.scales.GeoScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1241,7 +1226,6 @@ def _Gnomonic(
 
 @implements(_Gnomonic)
 def Gnomonic(**kwargs):
-
     widget_cls = bqplot.scales.Gnomonic
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1366,7 +1350,6 @@ def _Graph(
 
 @implements(_Graph)
 def Graph(**kwargs):
-
     widget_cls = bqplot.marks.Graph
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1500,7 +1483,6 @@ def _GridHeatMap(
 
 @implements(_GridHeatMap)
 def GridHeatMap(**kwargs):
-
     widget_cls = bqplot.marks.GridHeatMap
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1579,7 +1561,6 @@ def _HeatMap(
 
 @implements(_HeatMap)
 def HeatMap(**kwargs):
-
     widget_cls = bqplot.marks.HeatMap
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1687,7 +1668,6 @@ def _Hist(
 
 @implements(_Hist)
 def Hist(**kwargs):
-
     widget_cls = bqplot.marks.Hist
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1761,7 +1741,6 @@ def _Image(
 
 @implements(_Image)
 def Image(**kwargs):
-
     widget_cls = bqplot.marks.Image
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1794,7 +1773,6 @@ def _Interaction() -> Element[bqplot.interacts.Interaction]:
 
 @implements(_Interaction)
 def Interaction(**kwargs):
-
     widget_cls = bqplot.interacts.Interaction
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -1948,7 +1926,6 @@ def _Label(
 
 @implements(_Label)
 def Label(**kwargs):
-
     widget_cls = bqplot.marks.Label
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2014,7 +1991,6 @@ def _LinearScale(
 
 @implements(_LinearScale)
 def LinearScale(**kwargs):
-
     widget_cls = bqplot.scales.LinearScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2166,7 +2142,6 @@ def _Lines(
 
 @implements(_Lines)
 def Lines(**kwargs):
-
     widget_cls = bqplot.marks.Lines
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2208,7 +2183,6 @@ def _LogScale(
 
 @implements(_LogScale)
 def LogScale(**kwargs):
-
     widget_cls = bqplot.scales.LogScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2298,7 +2272,6 @@ def _Map(
 
 @implements(_Map)
 def Map(**kwargs):
-
     widget_cls = bqplot.marks.Map
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2423,7 +2396,6 @@ def _Mark(
 
 @implements(_Mark)
 def Mark(**kwargs):
-
     widget_cls = bqplot.marks.Mark
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2470,7 +2442,6 @@ def _Mercator(
 
 @implements(_Mercator)
 def Mercator(**kwargs):
-
     widget_cls = bqplot.scales.Mercator
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2574,7 +2545,6 @@ def _OHLC(
 
 @implements(_OHLC)
 def OHLC(**kwargs):
-
     widget_cls = bqplot.marks.OHLC
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2626,7 +2596,6 @@ def _OrdinalColorScale(
 
 @implements(_OrdinalColorScale)
 def OrdinalColorScale(**kwargs):
-
     widget_cls = bqplot.scales.OrdinalColorScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2664,7 +2633,6 @@ def _OrdinalScale(
 
 @implements(_OrdinalScale)
 def OrdinalScale(**kwargs):
-
     widget_cls = bqplot.scales.OrdinalScale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2715,7 +2683,6 @@ def _Orthographic(
 
 @implements(_Orthographic)
 def Orthographic(**kwargs):
-
     widget_cls = bqplot.scales.Orthographic
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2752,7 +2719,6 @@ def _PanZoom(
 
 @implements(_PanZoom)
 def PanZoom(**kwargs):
-
     widget_cls = bqplot.interacts.PanZoom
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2893,7 +2859,6 @@ def _Pie(
 
 @implements(_Pie)
 def Pie(**kwargs):
-
     widget_cls = bqplot.marks.Pie
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -2935,7 +2900,6 @@ def _Scale(
 
 @implements(_Scale)
 def Scale(**kwargs):
-
     widget_cls = bqplot.scales.Scale
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3149,7 +3113,6 @@ def _Scatter(
 
 @implements(_Scatter)
 def Scatter(**kwargs):
-
     widget_cls = bqplot.marks.Scatter
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3264,7 +3227,6 @@ def _ScatterGL(
 
 @implements(_ScatterGL)
 def ScatterGL(**kwargs):
-
     widget_cls = bqplot.marks.ScatterGL
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)
@@ -3315,7 +3277,6 @@ def _Stereographic(
 
 @implements(_Stereographic)
 def Stereographic(**kwargs):
-
     widget_cls = bqplot.scales.Stereographic
     comp = reacton.core.ComponentWidget(widget=widget_cls)
     return Element(comp, kwargs=kwargs)

@@ -145,7 +145,6 @@ def test_isinstance_lazy():
     assert isinstance_lazy(1, int)
     assert isinstance_lazy(1, (int, "does.not.exist"))
     assert not isinstance_lazy(1, "does.not.exist")
-    import pandas
 
     sys.modules.pop("pandas", None)
     assert not isinstance_lazy(1, "pandas.DataFrame")

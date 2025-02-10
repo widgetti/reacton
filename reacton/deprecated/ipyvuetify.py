@@ -3300,7 +3300,7 @@ def _Flex(
     py_1: bool = None,
     py_2: bool = None,
     py_3: bool = None,
-    **kwargs
+    **kwargs,
 ) -> ValueElement[ipyvuetify.generated.Flex, Any]:
     """ """
     ...
