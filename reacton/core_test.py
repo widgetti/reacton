@@ -3204,3 +3204,61 @@ def test_key_mutate_protection(Container):
         set_state(1)
     rc.render(w.HTML(value="recover").key("HTML"))
     rc.close()
+
+
+def test_widget_out_of_sync_no_state_change():
+    @react.component
+    def Test():
+        value, set_value = react.use_state("AA")
+
+        def on_value(new_value):
+            # breakpoint()
+            set_value(new_value.upper())
+
+        # add layout to make sure kwargs are transformed from elements to widgets
+        return w.Text(value=value, on_value=on_value, layout=w.Layout(width="100%"))
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    assert text.value == "AA"
+    text.value = "bb"
+    assert text.value == "BB"
+    text.value = "Bb"
+    assert text.value == "BB"
+    rc.close()
+
+
+def test_widget_out_of_sync_no_state_change_in_child():
+    # similar to above, but make sure we also test the case where we do
+    # re-render the parent only, since this might skip the child reconciliation
+    # in the future if we optimize that part.
+
+    @react.component
+    def UpperCaseText(on_value):
+        value, set_value = react.use_state("AA")
+
+        def on_value_self(new_value):
+            # breakpoint()
+            set_value(new_value.upper())
+            on_value(new_value)
+
+        # add layout to make sure kwargs are transformed from elements to widgets
+        return w.Text(value=value, on_value=on_value_self, layout=w.Layout(width="100%"))
+
+    @react.component
+    def Test():
+        count, set_count = react.use_state(0)
+
+        def force_rerender():
+            set_count(count + 1)
+
+        UpperCaseText(on_value=lambda x: force_rerender())
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    assert text.value == "AA"
+    text.value = "bb"
+    assert text.value == "BB"
+    text.value = "Bb"
+    assert text.value == "BB"
+    rc.close()

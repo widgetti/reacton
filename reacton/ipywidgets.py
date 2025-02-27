@@ -88,7 +88,7 @@ def dropdown(value="foo", options=["foo", "bar"], description="", key=None, **kw
 
 
 class ButtonElement(reacton.core.Element):
-    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable, kwargs):
         if name == "on_click":
             callback_exception_safe = _event_handler_exception_wrapper(callback)
 
@@ -100,7 +100,7 @@ class ButtonElement(reacton.core.Element):
             widget.on_click(on_click)
 
         else:
-            super()._add_widget_event_listener(widget, name, callback)
+            super()._add_widget_event_listener(widget, name, callback, kwargs)
 
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         if name == "on_click":

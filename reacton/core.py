@@ -405,7 +405,7 @@ class Element(Generic[W]):
                 raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
             for name, callback in listeners.items():
                 if callback is not None:
-                    self._add_widget_event_listener(widget, name, callback)
+                    self._add_widget_event_listener(widget, name, callback, kwargs=kwargs)
             after = set(_get_widgets_dict())
         orphans = (after - before) - {widget.model_id}
         return widget, orphans
@@ -420,7 +420,7 @@ class Element(Generic[W]):
             # update values
             for name, value in kwargs.items():
                 if name.startswith("on_") and name not in args:
-                    self._update_widget_event_listener(widget, name, value, el_prev.kwargs.get(name))
+                    self._update_widget_event_listener(widget, name, value, el_prev.kwargs.get(name), kwargs=kwargs)
                 else:
                     self._update_widget_prop(widget, name, value)
 
@@ -440,22 +440,31 @@ class Element(Generic[W]):
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
 
-    def _update_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Optional[Callable], callback_prev: Optional[Callable]):
+    def _update_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Optional[Callable], callback_prev: Optional[Callable], kwargs):
         # it's an event listener
         if callback != callback_prev and callback_prev is not None:
             self._remove_widget_event_listener(widget, name, callback_prev)
         if callback is not None and callback != callback_prev:
-            self._add_widget_event_listener(widget, name, callback)
+            self._add_widget_event_listener(widget, name, callback, kwargs=kwargs)
 
-    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
+    def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable, kwargs):
         target_name = name[3:]
         callback_exception_safe = _event_handler_exception_wrapper(callback)
+        rc = get_render_context()
 
         def on_change(change):
             if are_events_supressed():
                 return
             logger.info("event %r on %r with %r", name, widget, change)
+            render_count = rc.render_count
             callback_exception_safe(change["new"])
+            if render_count == rc.render_count:
+                # we got an event from a child, but we did not rerender
+                # this means that the widget can be in a state that is not consistent
+                # with the element. Note that this similar to how react does things.
+                # Also note that SolidJS and VueJS have the same problem, and can show
+                # and inconsistent state.
+                self._update_widget(widget, self, kwargs)
 
         key = (widget.model_id, name, callback)
         self._callback_wrappers[key] = on_change
