@@ -1620,6 +1620,32 @@ def test_use_state_with_function():
     rc.close()
 
 
+def test_use_state_initial_function():
+    initial_func = unittest.mock.Mock()
+    initial_func.return_value = 10
+
+    @react.component
+    def ButtonClick(label="Hi"):
+        clicks, set_clicks = react.use_state(initial_func)
+
+        def update_click(click):
+            return click + 1
+
+        return w.Button(description=f"{label}: Clicked {clicks} times", on_click=lambda: set_clicks(update_click))
+
+    clicker, rc = react.render_fixed(ButtonClick())
+
+    initial_func.assert_called_once()
+    assert clicker.description == "Hi: Clicked 10 times"
+
+    clicker.click()
+
+    initial_func.assert_called_once()
+    assert clicker.description == "Hi: Clicked 11 times"
+
+    rc.close()
+
+
 def test_use_ref():
     last = None
 

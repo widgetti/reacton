@@ -766,7 +766,9 @@ def get_widget(el: Element):
     raise KeyError(f"Element {el} not found in all known widgets")  # for the component {context.widgets}")
 
 
-def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
+def use_state(
+    initial: Union[T, Callable[[], T]], key: str = None, eq: Callable[[Any, Any], bool] = None
+) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
     """Returns a `(value, setter)` tuple that is used to manage state in a component.
 
     This function can only be called from a component function.
@@ -1261,6 +1263,9 @@ class _RenderContext:
             key = str(self.context.state_index)
             self.context.state_index += 1
         if key not in self.context.state:
+            if callable(initial):
+                initial = initial()
+
             self.context.state[key] = initial
             if isinstance(initial, (list, dict, set)):
                 self.context.state_metadata[key] = len(initial)
