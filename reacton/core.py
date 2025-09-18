@@ -1428,7 +1428,7 @@ class _RenderContext:
 
                 try:
                     self._shared_elements_next = set()
-                    self._render(self.element, "/", parent_key=ROOT_KEY)
+                    self._render(self.element, "/", parent_key=ROOT_KEY, old_to_new={})
                     self.first_render = False
                 except BaseException:
                     self._is_rendering = False
@@ -1463,7 +1463,7 @@ class _RenderContext:
                             self.context.exceptions_children = []
                             self.context.exceptions_self = []
 
-                            self._render(self.element, "/", parent_key=ROOT_KEY)
+                            self._render(self.element, "/", parent_key=ROOT_KEY, old_to_new={})
                             logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
                             assert self.context is self.context_root
                             render_counts += 1
@@ -1565,7 +1565,7 @@ class _RenderContext:
                 raise exc
         return widget
 
-    def _render(self, element: Element, default_key: str, parent_key: str):
+    def _render(self, element: Element, default_key: str, parent_key: str, old_to_new: Dict[Element, Element] = {}):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
         # for tracking stale data/elements when using get_widget
@@ -1729,12 +1729,43 @@ class _RenderContext:
                 else:
                     root_element = context.root_element_next or context.root_element
 
+                    # We don't rerender the component, but that mean that the root_element
+                    # refers to elements from a previous render pass. We need to update those so
+                    # that we have a working get_widget()
+                    # We first store a map of key->element for the invoked element of previous
+                    # render pass
+                    key_to_element: Dict[str, Element] = {}
+
+                    def _store_key_to_element(el, key, parent_key):
+                        key_to_element[key] = el
+
+                    self._visit_children_values(el.kwargs, "/", "/", _store_key_to_element)
+                    self._visit_children_values(el.args, "/", "/", _store_key_to_element)
+                    # Next, we go over all children in the new element, and we then build up
+                    # A mapping of element->element from old to new
+                    # we will mutate, so make a copy
+                    old_to_new = old_to_new.copy()
+
+                    def _store_old_to_new(el, key, parent_key):
+                        old_to_new[el] = key_to_element[key]
+
+                    assert el_prev is not None
+                    self._visit_children_values(el_prev.kwargs, "/", "/", _store_old_to_new)
+                    self._visit_children_values(el_prev.args, "/", "/", _store_old_to_new)
+
+                    def map_old_to_new(el, key, parent_key):
+                        return old_to_new.get(el, el)
+
+                    assert root_element is not None
+                    root_element.kwargs = self._visit_children_values(root_element.kwargs, "/", "/", map_old_to_new)
+                    root_element.args = self._visit_children_values(root_element.args, "/", "/", map_old_to_new)
+
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 if root_element is not None:
                     logger.debug("root element: %r %x", root_element, id(root_element))
                     new_parent_key = join_key(parent_key, key)
-                    self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                    self._render(root_element, "/", parent_key=new_parent_key, old_to_new=old_to_new)  # depth first
                     context.root_element_next = root_element
                 else:
                     if el.is_shared:

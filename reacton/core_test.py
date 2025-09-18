@@ -3204,3 +3204,87 @@ def test_key_mutate_protection(Container):
         set_state(1)
     rc.render(w.HTML(value="recover").key("HTML"))
     rc.close()
+
+
+def test_get_widget_fail_on_rerender_use_event():
+    @reacton.component
+    def Test():
+        force_rerender, set_force_rerender = react.use_state(0, key="force_rerender")
+        click_works, set_click_works = react.use_state(False, key="click_works")
+
+        with ContainerFunction():
+            el = v.Btn(children=["Works"] if click_works else ["Does not work"])
+
+        v.use_event(el, "click", lambda *_ignore: set_click_works(True))
+
+        if force_rerender == 0:
+            set_force_rerender(1)
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc.find(ipyvuetify.Btn).widget.click()
+    assert rc.find(ipyvuetify.Btn).widget.children[0] == "Works"
+    rc.close()
+
+
+@pytest.mark.parametrize("on_use_effect", [True, False])
+def test_get_widget_fail_on_rerender_simple(on_use_effect):
+    @reacton.component
+    def Test():
+        force_rerender, set_force_rerender = react.use_state(0, key="force_rerender")
+
+        def effect():
+            widget = react.get_widget(el)
+
+            assert widget is not None
+
+        use_effect(effect, [])
+        with ContainerFunction():
+            el = w.Button(description="Hi")
+
+        react.use_effect(effect, None)
+
+        if force_rerender == 0 and not on_use_effect:
+            set_force_rerender(1)
+
+        def possibly_rerender():
+            if force_rerender == 0 and on_use_effect:
+                set_force_rerender(1)
+
+        use_effect(possibly_rerender, None)
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc.close()
+
+
+def test_get_widget_fail_on_rerender_complex(Container1, Container2):
+    @reacton.component
+    def MakeMoreComplex(arg, children=[]):
+        return Container1(children=[*children, arg])
+
+    @reacton.component
+    def Test():
+        force_rerender, set_force_rerender = react.use_state(0, key="force_rerender")
+
+        def effect():
+            widget1 = react.get_widget(el1)
+            widget2 = react.get_widget(el2)
+
+            assert widget1 is not None
+            assert widget2 is not None
+
+        use_effect(effect, [])
+        el1 = w.Button(description="Foo")
+        with MakeMoreComplex(el1):
+            with Container2():
+                el2 = w.Button(description="Bar")
+
+        react.use_effect(effect, None)
+
+        def rerender():
+            if force_rerender == 0:
+                set_force_rerender(1)
+
+        react.use_effect(rerender, [])
+
+    box, rc = react.render(Test(), handle_error=False)
+    rc.close()
