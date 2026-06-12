@@ -46,6 +46,11 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
         vue_widget.on_event(event_and_modifiers, handler)
 
         def cleanup():
+            if rc._closing:
+                # the whole tree is going away: removing the handler would sync
+                # the _events trait to the frontend (one message per widget)
+                # right before the comm is closed anyway
+                return
             vue_widget.on_event(event_and_modifiers, handler, remove=True)
 
         return cleanup
