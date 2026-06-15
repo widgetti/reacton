@@ -80,6 +80,37 @@ def _widgets_dict_getter() -> Callable[[], Dict[str, widgets.Widget]]:
 
 _get_widgets_dict = _widgets_dict_getter()
 
+
+# Tracking widgets created as a side effect (like Layout and Style) is done
+# via the widget constructed hook: diffing the global widgets dict per widget
+# creation is O(total widgets), and solara replaces that dict with a context
+# aware mapping we should not depend on.
+_construction_recording: Optional[List["widgets.Widget"]] = None
+_chained_construction_callback: Optional[Callable] = None
+
+
+def _record_constructed_widget(widget: "widgets.Widget"):
+    if _construction_recording is not None:
+        _construction_recording.append(widget)
+    if _chained_construction_callback is not None:
+        _chained_construction_callback(widget)
+
+
+def _start_recording_constructed(recording: List["widgets.Widget"]):
+    global _construction_recording, _chained_construction_callback
+    current = getattr(widgets.Widget, "_widget_construction_callback", None)
+    if current is not _record_constructed_widget:
+        # first time, or someone else registered a callback after us: chain it
+        _chained_construction_callback = current
+        widgets.Widget.on_widget_constructed(_record_constructed_widget)
+    _construction_recording = recording
+
+
+def _stop_recording_constructed():
+    global _construction_recording
+    _construction_recording = None
+
+
 _last_rc = None  # used for testing
 local = threading.local()
 T = TypeVar("T")
@@ -176,6 +207,32 @@ def pp(o):
 def same_component(c1, c2):
     # return (c1.f.__name__ == c2.f.__name__) and (c1.f.__module__ == c2.f.__module__)
     return c1 == c2
+
+
+def _mark_needs_render_ancestors(context: "ComponentContext"):
+    """Let the render phase find its way down to a context that needs work, without walking subtrees that do not."""
+    parent = context.parent
+    while parent is not None and not parent.needs_render_descendant:
+        parent.needs_render_descendant = True
+        parent = parent.parent
+
+
+def _values_identical(a, b):
+    """Are two (possibly nested in containers) values the same objects?
+
+    Used to detect that reconciliation of an identical element resolved to the
+    same widgets, meaning the widget cannot need an update.
+    """
+    if a is b:
+        return True
+    type_a = type(a)
+    if type_a is not type(b):
+        return False
+    if type_a is list or type_a is tuple:
+        return len(a) == len(b) and all(x is y or _values_identical(x, y) for x, y in zip(a, b))
+    if type_a is dict:
+        return len(a) == len(b) and all(k in b and (v is b[k] or _values_identical(v, b[k])) for k, v in a.items())
+    return False
 
 
 def _with_tracebacks(e, tracebacks):
@@ -383,31 +440,34 @@ class Element(Generic[W]):
         # we can't use our own kwarg, since that contains elements, not widgets
         kwargs, listeners = self._split_kwargs(kwargs)
         assert isinstance(self.component, ComponentWidget)
-        # Because we look before and after, we need a lock.
-        # A different implementation might avoid this.
+        # The recording is global state, so we need a lock.
         with self.create_lock:
             rc = get_render_context(required=True)
-            before = set(_get_widgets_dict())
+            recorded: List[widgets.Widget] = []
+            _start_recording_constructed(recorded)
             try:
-                widget = self.component.widget(**kwargs)
-                hold_trait_notifications = widget.hold_trait_notifications
+                try:
+                    widget = self.component.widget(**kwargs)
+                    hold_trait_notifications = widget.hold_trait_notifications
 
-                @contextlib.contextmanager
-                def hold_trait_notifications_extra(*args, **kwargs):
-                    with rc, hold_trait_notifications(*args, **kwargs):
-                        yield
+                    @contextlib.contextmanager
+                    def hold_trait_notifications_extra(*args, **kwargs):
+                        with rc, hold_trait_notifications(*args, **kwargs):
+                            yield
 
-                widget.hold_trait_notifications = hold_trait_notifications_extra
+                    widget.hold_trait_notifications = hold_trait_notifications_extra
 
-                if self._meta:
-                    widget._react_meta = dict(self._meta)
-            except Exception as e:
-                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
-            for name, callback in listeners.items():
-                if callback is not None:
-                    self._add_widget_event_listener(widget, name, callback)
-            after = set(_get_widgets_dict())
-        orphans = (after - before) - {widget.model_id}
+                    if self._meta:
+                        widget._react_meta = dict(self._meta)
+                except Exception as e:
+                    raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
+                for name, callback in listeners.items():
+                    if callback is not None:
+                        self._add_widget_event_listener(widget, name, callback)
+            finally:
+                _stop_recording_constructed()
+        widgets_dict = _get_widgets_dict()
+        orphans = {w.model_id for w in recorded if w is not widget and w.comm is not None and w.model_id in widgets_dict}
         return widget, orphans
 
     def _update_widget(self, widget: widgets.Widget, el_prev: "Element", kwargs):
@@ -632,7 +692,7 @@ class ComponentFunction(Component):
                 for name in normal_kwargs:
                     self.observe(self._rerender, name)
                 el = self._create_el()
-                self.rc = _RenderContext(el, self)
+                self.rc = _render_context_class()(el, self)
                 self.rc.render(el, self)
 
             def _create_el(self):
@@ -1080,6 +1140,12 @@ class ComponentContext:
     used_keys: Set[str] = field(default_factory=set)
     # if a child component's state if changed, it needs a rerender
     needs_render: bool = True
+    # some context in this subtree may need a render (set by setters walking up,
+    # cleared when the render phase walks this context)
+    needs_render_descendant: bool = True
+    # the render phase skipped this whole subtree (nothing changed), so the
+    # reconciliation phase can reuse the previous result without walking
+    clean_subtree: bool = False
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
@@ -1155,6 +1221,9 @@ class _RenderContext:
         self.handle_error = handle_error
         self.reconsolidating = False
         self._batch_counter = utils.ThreadSafeCounter()
+        # when set, the next render phase walks the whole tree instead of
+        # skipping subtrees in which no state changed (see _render)
+        self._walk_all = True
         if initial_state:
             self.state_set(self.context_root, initial_state)
 
@@ -1330,6 +1399,7 @@ class _RenderContext:
                 context.state_metadata[key] = new_metadata
                 # TODO: enable
                 context.needs_render = True
+                _mark_needs_render_ancestors(context)
                 if self._rerender_needed is False:
                     if DEBUG:
                         trigger_stack = traceback.format_stack()
@@ -1351,6 +1421,8 @@ class _RenderContext:
         return set_
 
     def force_update(self):
+        # a forced update re-walks the whole tree, no subtree skipping
+        self._walk_all = True
         if not self._is_rendering:
             self.render(self.element, self.container)
 
@@ -1374,6 +1446,7 @@ class _RenderContext:
             self.context.effect_index += 1
 
     def update(self, element: Element):
+        self._walk_all = True
         if self._is_rendering:
             self.element = element
             self._rerender_needed_reasons.append(RerenderReason(reason="root element changed"))
@@ -1430,6 +1503,7 @@ class _RenderContext:
                     self._shared_elements_next = set()
                     self._render(self.element, "/", parent_key=ROOT_KEY)
                     self.first_render = False
+                    self._walk_all = False
                 except BaseException:
                     self._is_rendering = False
                     raise
@@ -1464,6 +1538,7 @@ class _RenderContext:
                             self.context.exceptions_self = []
 
                             self._render(self.element, "/", parent_key=ROOT_KEY)
+                            self._walk_all = False
                             logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
                             assert self.context is self.context_root
                             render_counts += 1
@@ -1487,6 +1562,10 @@ class _RenderContext:
                         logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
+
+                        # remove stale elements of the root context itself
+                        # (child contexts are swept during their reconciliation)
+                        self._remove_stale_root_elements(ROOT_KEY)
 
                         if self._shared_elements_next:
                             raise RuntimeError(f"Element not reconsolidated: {self._shared_elements_next}")
@@ -2194,6 +2273,600 @@ class _RenderContext:
         else:
             return value
 
+    def _remove_stale_root_elements(self, parent_key):
+        # The original _reconsolidate already removes stale elements itself,
+        # so for the base (original) render context this is a no-op.
+        pass
+
+
+class _RenderContextFast(_RenderContext):
+    # Opt-in fast reimplementation of the tree-walking, selectable via the
+    # REACTON_FAST=1 environment variable.
+    #
+    # ------------------------------------------------------------------
+    # The tree walking: one render() call alternates two kinds of phases.
+    #
+    #  * render phase (_render): execute component functions depth first
+    #    and build the next element tree (elements_next/children_next).
+    #  * reconciliation phase (_reconsolidate): walk the new element tree,
+    #    create/update/close widgets, run effects, and move the *_next
+    #    bookkeeping to current.
+    #
+    # A component subtree in which no state changed, no exception is
+    # pending, and whose element is identical to the previous render is
+    # skipped in both phases: setters mark the path from their context up
+    # to the root (ComponentContext.needs_render_descendant), so the walk
+    # only descends where work can exist. _render marks skipped contexts
+    # (clean_subtree) so _reconsolidate can reuse the previous widget
+    # without walking either.
+    # ------------------------------------------------------------------
+
+    def _set_rerender_needed(self, reason: str):
+        self._rerender_needed_reasons.append(RerenderReason(reason=reason))
+        self._rerender_needed = True
+
+    def _render(self, element: Element, default_key: str, parent_key: str):
+        if not isinstance(element, Element):
+            raise TypeError(f"Expected element, not {element}")
+        # for tracking stale elements when using get_widget
+        self._old_element_ids.add(id(element))
+        context = self.context
+        assert context is not None
+
+        if default_key == "/":
+            # the root element of a component determines which keys are in use,
+            # everything else is stale and gets removed during reconciliation
+            context.used_keys.clear()
+
+        el = element
+        key = el._key
+        if key is None:
+            key = default_key
+        el._key_frozen = True
+
+        if key in context.used_keys:
+            if DEBUG:
+                self.tracebacks.append(el.traceback)
+            raise KeyError(f"Duplicate key {key!r}")
+        context.used_keys.add(key)
+
+        if el.is_shared:
+            # a shared element renders a single widget, process it once per phase
+            if el in self._shared_elements_next:
+                return
+            self._shared_elements_next.add(el)
+
+        el_prev = context.elements_next.get(key)
+        if el_prev is None:
+            el_prev = context.elements.get(key)
+        context.elements_next[key] = el
+        el._render_count += 1  # for testing only
+
+        if isinstance(el.component, ComponentWidget):
+            assert not el.args, "no positional args supported for widgets"
+            if key in context.children_next:
+                # a function component lived at this key before
+                del context.children_next[key]
+            # the element arguments are part of this component's element tree
+            if el.kwargs:
+                self._visit_children(el, key, parent_key, self._render)
+            return
+
+        assert isinstance(el.component, ComponentFunction)
+        if el.is_shared and (el.args or el.kwargs):
+            # arguments of a shared element belong to the context it is rendered in;
+            # for non-shared component elements the component function decides
+            # what ends up in the tree
+            self._visit_children(el, key, parent_key, self._render)
+
+        context_previous = context.children_next.get(key)
+        if context_previous is None:
+            context_previous = context.children.get(key)
+
+        if (
+            not self._walk_all
+            and el is el_prev
+            and not el.is_shared
+            and context_previous is not None
+            and context.children.get(key) is context_previous
+            and not context_previous.needs_render
+            and not context_previous.needs_render_descendant
+            and not context_previous.exceptions_self
+            and not context_previous.exceptions_children
+            and context_previous.root_element is not None
+            and context_previous.root_element_next is None
+        ):
+            # fast path: same element, no state changes or pending exceptions
+            # anywhere in this subtree, and fully reconciled: the previous
+            # result stands, skip the subtree in both phases
+            context_previous.clean_subtree = True
+            context.children_next[key] = context_previous
+            return
+
+        parent_context = context
+        del context
+        if context_previous is None:
+            context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
+            el_prev = None  # do not compare against an element of a different component
+        elif context_previous.root_element is None and context_previous.root_element_next is None:
+            # pre-created, carrying initial state (state_set), but never rendered
+            context = context_previous
+            context.context_managers = [cm(el) for cm in _component_context_manager_classes]
+        else:
+            assert context_previous.invoke_element is not None
+            if not same_component(context_previous.invoke_element.component, el.component):
+                # a different component took this key, start fresh
+                # (the old context is cleaned up during reconciliation)
+                context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
+                el_prev = None
+            else:
+                context = context_previous
+                context.parent = parent_context
+        context.clean_subtree = False
+        context.invoke_element = el
+
+        needs_render = context.needs_render
+        if not needs_render and el_prev is not None and context_previous is context:
+            assert not isinstance(el_prev.component, ComponentWidget)
+            needs_render = el._arguments_changed(el_prev)
+        if not needs_render and context.exceptions_children:
+            # we have exceptions, so we need to render
+            needs_render = True
+        if not needs_render:
+            assert el_prev is not None
+
+        self.container_adders = []
+        self.context = context
+        render_count_check = self.render_count
+        try:
+            context.exceptions_self = []
+            root_element: Optional[Element] = None
+            if needs_render:
+                context.state_index = 0
+                context.effect_index = 0
+                context.memo_index = 0
+                context.user_contexts = {}
+                context.exception_handler = False
+                # we reset it before calling the component function,
+                # which might set it to true again
+                context.needs_render = False
+                try:
+                    with contextlib.ExitStack() as stack:
+                        for cm in context.context_managers:
+                            stack.enter_context(cm)
+                        if _default_container is not None:
+                            with _default_container() as container:
+                                el.component.render_count += 1
+                                root_element = el.component.f(*el.args, **el.kwargs)
+                            if root_element is None:
+                                if len(container.kwargs["children"]) == 1:
+                                    root_element = container.kwargs["children"][0]
+                                else:
+                                    root_element = container
+                        else:
+                            el.component.render_count += 1
+                            root_element = el.component.f(*el.args, **el.kwargs)
+                        assert root_element is not None
+                except BaseException as e:
+                    if DEBUG:
+                        # we might be interested in the traceback inside the call...
+                        if len(self.tracebacks) == 0:
+                            assert e.__traceback__ is not None
+                            traceback = cast(TracebackType, e.__traceback__)
+                            if traceback.tb_next:  # is there an error inside the call
+                                self.tracebacks.append(traceback.tb_next)
+                        self.tracebacks.append(el.traceback)
+                    logger.exception("Component %r raised exception %r", el.component, e)
+                    context.exceptions_self.append(e)
+                    self._set_rerender_needed("Exception ocurred during render")
+                    context.needs_render = True
+                if root_element is None and not context.exceptions_self:
+                    raise ValueError(f"Component {el.component} returned None")
+            else:
+                root_element = context.root_element_next or context.root_element
+
+            if self.render_count != render_count_check:
+                raise RuntimeError("Recursive render detected, possible a bug in react")
+
+            # the subtree walk below will mark this again when state changes
+            context.needs_render_descendant = False
+            if root_element is not None:
+                self._render(root_element, "/", parent_key=join_key(parent_key, key))  # depth first
+                context.root_element_next = root_element
+            elif el.is_shared:
+                self._shared_elements_next.remove(el)
+
+            try:
+                # when an exception interrupted the component function, fewer hook calls are allowed
+                if not ((context.effect_index == len(context.effects)) or (context.exceptions_self and context.effect_index <= len(context.effects))):
+                    raise RuntimeError(
+                        f"Previously render had {len(context.effects)} effects, this run {context.effect_index} "
+                        f"(in element/component: {el}/{el.component}). "
+                        "Are you using conditional hooks?"
+                    )
+                if not ((context.memo_index == len(context.memo)) or (context.exceptions_self and context.memo_index <= len(context.memo))):
+                    raise RuntimeError(
+                        f"Previously render had {len(context.memo)} calls to use_memo, this run {context.memo_index} "
+                        f"(in element/component: {el}/{el.component}). "
+                        "Are you using conditional hooks?"
+                    )
+            except RuntimeError as e:
+                logger.exception("Exception in hook count check")
+                context.exceptions_self.append(e)
+                self._set_rerender_needed("Exception ocurred during render (hook count check)")
+                context.needs_render = True
+
+            # only expose to the parent when we get this far
+            parent_context.children_next[key] = context
+            # drop children/elements from a previous render pass that are no longer used
+            used_keys = context.used_keys
+            for unused in [k for k in context.children_next if k not in used_keys]:
+                del context.children_next[unused]
+            for unused in [k for k in context.elements_next if k not in used_keys]:
+                del context.elements_next[unused]
+            context.user_contexts_prev = context.user_contexts
+        finally:
+            assert context.parent is parent_context
+            self.context = parent_context
+            if context.exceptions_self or context.exceptions_children and not context.exception_handler:
+                # this component does not handle the exceptions, bubble up
+                parent_context.exceptions_children.extend(context.exceptions_self)
+                parent_context.exceptions_children.extend(context.exceptions_children)
+            if context.exceptions_self or context.exceptions_children:
+                # make sure the next render pass walks down to this context
+                # (e.g. so a parent with use_exception gets a chance to handle it)
+                _mark_needs_render_ancestors(context)
+            if parent_context.exceptions_self or parent_context.exceptions_children:
+                if not self._rerender_needed:
+                    # this happens when an exception was added from an event handler:
+                    # no exception was raised during this render phase, but we still
+                    # need to rerender until a component catches the exception
+                    self._set_rerender_needed("Exception ocurred during render")
+                    parent_context.needs_render = True
+
+    def _reconsolidate(self, el: Element, default_key: str, parent_key: str):
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
+        context = self.context
+        assert context is not None
+
+        if el.is_shared and el in self._shared_elements and el is not self.element:
+            # shared elements reconcile once, all other uses share the widget
+            return self._shared_widgets[el]
+
+        el_prev = context.elements.get(key)
+        try:
+            if isinstance(el.component, ComponentFunction):
+                child_context_next = context.children_next.get(key)
+                if child_context_next is not None and child_context_next.clean_subtree:
+                    # subtree was skipped during the render phase: the previous
+                    # reconciliation result stands
+                    child_context_next.clean_subtree = False
+                    context.children[key] = context.children_next.pop(key)
+                    return context.widgets[key]
+
+                if el_prev and isinstance(el_prev.component, ComponentWidget):
+                    # a widget element was replaced by a component element at this key
+                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+                new_parent_key = join_key(parent_key, key)
+                try:
+                    if el.is_shared and (el.args or el.kwargs):
+                        self._visit_children(el, key, parent_key, self._reconsolidate)
+                        assert self.context is context
+
+                    child_context_prev = context.children.get(key)
+                    child_context = context.children_next[key]
+                    if child_context_prev is not None and child_context_prev is not child_context:
+                        # the component type changed, remove the old subtree
+                        assert el_prev is not None, "prev child is not None, but element is"
+                        self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+
+                    self.context = child_context
+                    assert child_context.root_element_next
+                    widget = self._reconsolidate(child_context.root_element_next, "/", new_parent_key)
+                    child_context.root_element = child_context.root_element_next
+                    child_context.root_element_next = None
+                    # merge the meta of the component element onto the root widget,
+                    # e.g. SomeComponent().meta(name="a") should appear on the widget
+                    if el._meta or getattr(widget, "_react_meta", {}):
+                        widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
+
+                    if el.is_shared:
+                        self._shared_widgets[el] = widget
+                    else:
+                        context.widgets[key] = widget
+
+                    # remove elements that are no longer part of this component's tree
+                    # NOTE: sorted for reproducibility
+                    stale_keys = sorted(set(child_context.elements) - child_context.used_keys)
+                    if stale_keys:
+                        logger.info("elements to be removed: %r", stale_keys)
+                        for stale_key in stale_keys:
+                            if stale_key in child_context.elements:
+                                self._remove_element(child_context.elements[stale_key], stale_key, new_parent_key)
+
+                    self._process_effects(child_context, context)
+
+                    if child_context.children_next:
+                        # if we had two render phases, we can have old contexts left over
+                        child_context.children_next.clear()
+                    if child_context.elements_next:
+                        # we can still have elements that are not used as a 'widget' in this
+                        # context, but are passed down as an element (when shared)
+                        unreferenced = []
+                        for child_key, child_el in list(child_context.elements_next.items()):
+                            if child_el not in self._shared_elements:
+                                unreferenced.append(child_el)
+                            else:
+                                child_context.elements[child_key] = child_context.elements_next.pop(child_key)
+                        if unreferenced:
+                            raise RuntimeError(f"Unused elements and unreferenced elements {unreferenced}")
+                    if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                        # child does not handle exceptions, so bubble up
+                        context.exceptions_children.extend(child_context.exceptions_self)
+                        context.exceptions_children.extend(child_context.exceptions_children)
+                finally:
+                    # restore context
+                    self.context = context
+                context.children[key] = context.children_next.pop(key)
+            else:
+                assert isinstance(el.component, ComponentWidget)
+                if el.args:
+                    raise TypeError("Widget element only take keyword arguments")
+
+                widget_previous = None
+                if el_prev is not None:
+                    if el_prev.is_shared:
+                        widget_previous = self._shared_widgets[el_prev]
+                    else:
+                        widget_previous = context.widgets[key]
+
+                orphan_ids: Set[str] = set()
+                if widget_previous is None:
+                    # initial create
+                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    if el.is_shared and el in self._shared_widgets:
+                        raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
+                    widget = None
+                    if not context.exceptions_children:
+                        try:
+                            widget, orphan_ids = el._create_widget(kwargs)
+                        except BaseException as e:
+                            context.exceptions_self.append(e)
+                            self._set_rerender_needed("Exception ocurred during reconciliation (creating widget)")
+                            _mark_needs_render_ancestors(context)
+                    self._store_widget(context, el, key, widget)
+                elif el_prev is not None and el_prev.component == el.component:
+                    # update the existing widget in place
+                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    if not context.exceptions_children:
+                        if el is not el_prev or not _values_identical(kwargs, el.kwargs):
+                            try:
+                                el._update_widget(widget_previous, el_prev, kwargs)
+                            except BaseException as e:
+                                context.exceptions_self.append(e)
+                                self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
+                                _mark_needs_render_ancestors(context)
+                        # else: identical element and all children reconciled to the
+                        # same widgets, nothing can have changed
+                    self._store_widget(context, el, key, widget_previous)
+                else:
+                    assert el_prev is not None, "widget_previous is not None, but el_prev is"
+                    # a different widget type at the same key: replace
+                    self._remove_element(el_prev, key, parent_key=parent_key)
+                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    widget = None
+                    if not context.exceptions_children:
+                        try:
+                            widget, orphan_ids = el._create_widget(kwargs)
+                        except BaseException as e:
+                            context.exceptions_self.append(e)
+                            self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
+                            _mark_needs_render_ancestors(context)
+                    self._store_widget(context, el, key, widget)
+                if orphan_ids:
+                    # widgets created as a side effect (like Layout and Style); we track
+                    # them by model id (not all widgets are hashable) for cleanup
+                    orphan_widgets = set([_get_widgets_dict()[k] for k in orphan_ids])
+                    for orphan_widget in orphan_widgets:
+                        # these are shared between widgets
+                        if orphan_widget.__class__.__name__ == "Template" and orphan_widget.__class__.__module__ == "ipyvue.Template":
+                            orphan_ids -= {orphan_widget.model_id}
+                    widget = self._shared_widgets[el] if el.is_shared else context.widgets[key]
+                    if widget.model_id not in self._orphans:
+                        self._orphans[widget.model_id] = set()
+                    self._orphans[widget.model_id].update(orphan_ids)
+
+            if el.is_shared:
+                widget = self._shared_widgets[el]
+            else:
+                widget = context.widgets[key]
+            # used in get_widget
+            if el_prev in context.element_to_widget:
+                del context.element_to_widget[el_prev]
+            context.element_to_widget[el] = widget
+            return widget
+        except Exception as e:
+            if DEBUG:
+                # we don't care about the traceback of the root element
+                if self.element is not el:
+                    # we might be interested in the traceback inside the call...
+                    if len(self.tracebacks) == 0:
+                        assert e.__traceback__ is not None
+                        traceback = cast(TracebackType, e.__traceback__)
+                        if traceback.tb_next:  # is there an error inside the call
+                            self.tracebacks.append(traceback.tb_next)
+                    self.tracebacks.append(el.traceback)
+            raise
+        finally:
+            # this marks the work as 'done'
+            context.elements[key] = context.elements_next.pop(key)
+            if el_prev in self._shared_elements:
+                self._shared_elements.remove(el_prev)
+            if el.is_shared:
+                assert el not in self._shared_elements
+                self._shared_elements.add(el)
+                assert el in self._shared_elements_next
+                self._shared_elements_next.remove(el)
+
+    def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):
+        # NOTE: effect/cleanup exceptions are recorded on the context of the
+        # component's *parent* (`context`), unlike render exceptions: this is
+        # historical behavior (see notes.md)
+        for effect_index, effect in enumerate(child_context.effects):
+            if effect.next:
+                # if we have a next, the effect itself already executed
+                # TODO: custom equals
+                if effect.next.dependencies is not None and utils.equals(effect.dependencies, effect.next.dependencies):
+                    # dependencies are the same, just remove the reference
+                    effect.next = None
+                    continue
+                # dependencies changed: cleanup and execute next
+                if not effect._cleaned_up:
+                    try:
+                        effect.cleanup()
+                    except BaseException as e:
+                        context.exceptions_self.append(e)
+                        self._set_rerender_needed("Exception ocurred during effect")
+                        _mark_needs_render_ancestors(context)
+                        context.needs_render = True
+                effect = child_context.effects[effect_index] = effect.next
+            if child_context.exceptions_self or child_context.exceptions_children:
+                # we had an exception, so we skip the effect (not the cleanup)
+                continue
+            try:
+                effect()
+            except BaseException as e:
+                context.exceptions_self.append(e)
+                self._set_rerender_needed("Exception ocurred during effect")
+                _mark_needs_render_ancestors(context)
+                context.needs_render = True
+
+    def _store_widget(self, context: "ComponentContext", el: Element, key: str, widget: Optional[widgets.Widget]):
+        if el.is_shared:
+            self._shared_widgets[el] = widget
+        else:
+            context.widgets[key] = widget
+
+    def _remove_element(self, el: Element, default_key: str, parent_key):
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
+        context = self.context
+        assert context is not None
+
+        if el.is_shared:
+            if el not in self._shared_elements:
+                # another use of this element keeps it alive, or it was already removed
+                return
+            self._shared_elements.remove(el)
+
+        if key not in context.elements:
+            # already removed, e.g. as part of the removal of a parent element
+            return
+
+        if isinstance(el.component, ComponentFunction):
+            if el.is_shared:
+                self._visit_children(el, key, parent_key, self._remove_element)
+            child_context = context.children[key]
+            try:
+                self.context = child_context
+                # the element is going away, pending exceptions only matter if cleanup fails
+                child_context.exceptions_self = []
+                child_context.exceptions_children = []
+                for effect in child_context.effects:
+                    try:
+                        if not effect._cleaned_up:
+                            effect.cleanup()
+                    except BaseException as e:
+                        child_context.exceptions_self.append(e)
+                        self._set_rerender_needed("Exception ocurred during effect")
+                        _mark_needs_render_ancestors(child_context)
+                assert child_context.root_element is not None
+                self._remove_element(child_context.root_element, "/", parent_key=join_key(parent_key, key))
+            finally:
+                try:
+                    assert not child_context.elements, f"left over elements {child_context.elements}"
+                    assert not child_context.element_to_widget, f"left over element_to_widget {child_context.element_to_widget}"
+                    assert not child_context.widgets, f"left over widgets {child_context.widgets}"
+                    assert not child_context.children, f"left over children {child_context.children}"
+                    assert not child_context.owns, f"left over owns {child_context.owns}"
+                except Exception as e:
+                    child_context.exceptions_self.append(e)
+                # restore context
+                self.context = context
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                # child does not handle exceptions, so bubble up
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
+            del context.children[key]
+        else:
+            self._visit_children(el, key, parent_key, self._remove_element)
+            widget = self._shared_widgets[el] if el.is_shared else context.widgets[key]
+            if widget is not None:
+                assert widget.comm is not None
+                assert widget.model_id in _get_widgets_dict()
+                for orphan in self._orphans.get(widget.model_id, set()):
+                    orphan_widget = _get_widgets_dict().get(orphan)
+                    if orphan_widget:
+                        close_widget(orphan_widget)
+                self._orphans.pop(widget.model_id, None)
+                el._cleanup_callbacks(widget)
+                el._close_widget(widget)
+        if el.is_shared:
+            del self._shared_widgets[el]
+        else:
+            del context.widgets[key]
+        # elements can be removed multiple times, since they can be added multiple times
+        # (even non-shared elements can)
+        if el in context.element_to_widget:
+            del context.element_to_widget[el]
+        del context.elements[key]
+
+    def _visit_children(self, el: Element, default_key: str, parent_key: str, f: Callable):
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
+        self._visit_children_values(el.kwargs, key, parent_key, f)
+        self._visit_children_values(el.args, key, parent_key, f)
+
+    def _visit_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
+        if isinstance(value, Element):
+            return f(value, key, parent_key)
+        elif isinstance(value, (list, tuple)):
+            values = []
+            for index, v in enumerate(value):
+                new_value = self._visit_children_values(v, f"{key}{index}/", parent_key, f)
+                if isinstance(new_value, FragmentWidget):
+                    values.extend(new_value.children)
+                else:
+                    values.append(new_value)
+            if isinstance(value, tuple):
+                return tuple(values)
+            return values
+        elif isinstance(value, dict):
+            return {k: self._visit_children_values(v, f"{key}{k}/", parent_key, f) for k, v in value.items()}
+        else:
+            return value
+
+    def _remove_stale_root_elements(self, parent_key):
+        # remove stale elements of the root context itself
+        # (child contexts are swept during their reconciliation)
+        stale_keys = sorted(set(self.context_root.elements) - self.context_root.used_keys)
+        for stale_key in stale_keys:
+            if stale_key in self.context_root.elements:
+                self._remove_element(self.context_root.elements[stale_key], stale_key, parent_key)
+
+
+def _render_context_class():
+    import os
+
+    return _RenderContextFast if os.environ.get("REACTON_FAST") == "1" else _RenderContext
+
 
 @overload
 def render(
@@ -2209,14 +2882,14 @@ def render(
 
 def render(element: Element[T], container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
     container = container or widgets.VBox()
-    _rc = _RenderContext(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
+    _rc = _render_context_class()(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
     _rc.render(element, _rc.container)
     local.last_rc = weakref.ref(_rc)
     return container, _rc
 
 
 def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _RenderContext]:
-    _rc = _RenderContext(element, handle_error=handle_error)
+    _rc = _render_context_class()(element, handle_error=handle_error)
     widget = _rc.render(element)
     local.last_rc = weakref.ref(_rc)
     return widget, _rc
