@@ -22,7 +22,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13"]
+        # run the suite against both the default renderer and the opt-in fast
+        # one (REACTON_FAST=1), so both stay green
+        reacton-fast: ["0", "1"]
 
+    name: unit-test (py${{ matrix.python-version }}, REACTON_FAST=${{ matrix.reacton-fast }})
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -37,4 +41,6 @@ jobs:
         run: |
           pip install `echo dist/*.whl`[dev] "bqplot<0.13" "pandas<3" "ruff==0.8.3"
       - name: test
+        env:
+          REACTON_FAST: ${{ matrix.reacton-fast }}
         run: pytest --cov=reacton reacton
