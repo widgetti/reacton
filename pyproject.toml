@@ -11,7 +11,7 @@ license = {file = "LICENSE"}
 dynamic = ["version", "description"]
 dependencies = [
     "ipywidgets",
-    "typing_extensions >= 4.1.1",
+    "typing_extensions >= 3.7.0",
 ]
 
 classifiers = [
