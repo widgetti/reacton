@@ -3162,6 +3162,30 @@ def test_memory_leak(component):
     assert weak_rc() is None
 
 
+@reacton.component
+def UseStateComponent():
+    value, set_value = reacton.use_state(0)
+    return w.Button(description=str(value), on_click=lambda: set_value(value + 1))
+
+
+@pytest.mark.parametrize("component", [w.Button, ButtonComponentFunction, UseMemoComponent, UseStateComponent])
+def test_no_reference_cycles_after_close(component):
+    # Stricter than test_memory_leak: the closed render tree must be freed by plain
+    # reference counting, without a garbage collection. If this fails, a closure (a
+    # use_state setter or an event handler) holds the render context strongly and the
+    # tree became one big reference cycle that only a gen-2 gc can free - on a server
+    # that shows up as a memory sawtooth that scales with per-kernel state.
+    box, rc = react.render(component(), handle_error=False)
+    rc.close()
+    weak_rc = weakref.ref(rc)
+    gc.disable()
+    try:
+        del rc
+        assert weak_rc() is None
+    finally:
+        gc.enable()
+
+
 def test_fragment():
     @reacton.component
     def Children():

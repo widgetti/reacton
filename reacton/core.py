@@ -1166,6 +1166,46 @@ class ComponentContext:
 TEffect = TypeVar("TEffect", bound="Effect")
 
 
+def _teardown_component_context(context: ComponentContext):
+    """Empty a component context so a closed render context can be freed by refcounting.
+
+    Closures created during rendering (use_state setters, event handlers) capture their
+    component context and the render context strongly - they must, a setter can be the
+    only reference keeping its component context alive (cf61378). Since those closures
+    are also stored in the hook state and on widget callback dispatchers, a closed tree
+    is one big reference cycle that refcounting cannot free: it waits for a gen-2
+    garbage collection, which on a server shows up as a memory sawtooth scaling with
+    per-kernel state. Emptying the contexts breaks the cycles: whoever still holds a
+    setter or handler keeps only a small hollow context alive, and set_/force_update
+    are no-ops once the render context is closing.
+    """
+    # replace the containers instead of clearing them: state_get() hands out the live
+    # state dicts (test_state_get closes and re-renders with them), and in general we
+    # only want to drop OUR references, not destroy objects someone else captured
+    context.parent = None
+    context.invoke_element = None
+    context.root_element = None
+    context.root_element_next = None
+    context.elements = {}
+    context.elements_next = {}
+    context.children = {}
+    context.children_next = {}
+    context.widgets = {}
+    context.element_to_widget = {}
+    context.state = {}
+    context.state_metadata = {}
+    context.effects = []
+    context.memo = []
+    context.user_contexts = {}
+    context.user_contexts_prev = {}
+    context.context_listeners = defaultdict(set)
+    context.used_keys = set()
+    context.owns = set()
+    context.exceptions_self = []
+    context.exceptions_children = []
+    context.context_managers = []
+
+
 @dataclass
 class RerenderReason:
     reason: str
@@ -1267,6 +1307,17 @@ class _RenderContext:
     def close(self):
         with self.thread_lock:
             self._closing = True
+            # snapshot the component contexts before _remove_element detaches them from
+            # their parents: detached contexts would escape the teardown below while the
+            # setter/handler closures in their state still reference them and us
+            all_contexts: List[ComponentContext] = []
+
+            def collect(context: ComponentContext):
+                all_contexts.append(context)
+                for child in list(context.children.values()) + list(context.children_next.values()):
+                    collect(child)
+
+            collect(self.context_root)
             logger.info("Removing elements...")
             self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
             logger.info("Removing elements done.")
@@ -1281,6 +1332,19 @@ class _RenderContext:
             orphan_widgets = set([_get_widgets_dict()[k] for k in self._orphans])
             raise RuntimeError(f"Orphan widgets not cleaned up for widgets: {orphan_widgets}")
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
+        # break the reference cycles through the tree (see _teardown_component_context);
+        # _closing stays True, making stray setters and event handlers no-ops
+        for context in all_contexts:
+            _teardown_component_context(context)
+        self.context = None
+        self.context_root = None  # type: ignore
+        # the root element, container and root widget keep the widget tree alive, and
+        # widgets reference their elements, whose kwargs hold user callbacks - which
+        # capture use_state setters and therefore this render context
+        self.element = None  # type: ignore
+        self.container = None
+        self.last_root_widget = None
+        self._old_element_ids.clear()
         if exceptions:
             raise exceptions[0]
 
@@ -1346,12 +1410,18 @@ class _RenderContext:
         if DEBUG:
             created_stack = traceback.format_stack()
 
-        # if we do not use a weakref, the memory test fails
-        # I am not sure exactly why, but this will at least make
-        # it easier for Python to garbage collect, since it will
-        # avoid circular references
+        # NOTE: set_ captures self and context strongly, and that is a requirement:
+        # a setter may be the ONLY reference keeping its component context alive
+        # (see cf61378, where weak references lost live state). The resulting
+        # reference cycles through the closed tree are broken by close() emptying
+        # the component contexts instead.
 
         def set_(value):
+            if self._closing:
+                # the render context is closed (or closing) and the tree is (being)
+                # torn down: there is nothing to update. This check must come first:
+                # after close, context.state is empty and reading it would fail.
+                return
             if callable(value):
                 value = value(context.state[key])
             logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
@@ -1383,11 +1453,6 @@ class _RenderContext:
                         should_update = True
             equals = eq or utils.equals
             should_update = not equals(context.state[key], value) or should_update
-
-            # if a cleanup during close trigger a state update in a different component, we want to ignore that
-            # otherwise we get a deadlock
-            if self._closing:
-                should_update = False
 
             if should_update:
                 prev_value = context.state[key]
@@ -1421,6 +1486,9 @@ class _RenderContext:
         return set_
 
     def force_update(self):
+        if self._closing:
+            # e.g. an event handler on a closed tree routing an exception to us
+            return
         # a forced update re-walks the whole tree, no subtree skipping
         self._walk_all = True
         if not self._is_rendering:
