@@ -5,7 +5,7 @@ mkdocs:
   configuration: mkdocs.yml
   fail_on_warning: false
 build:
-  os: "ubuntu-20.04"
+  os: "ubuntu-22.04"
   tools:
     python: "mambaforge-4.10"
   jobs:
