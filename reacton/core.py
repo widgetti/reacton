@@ -1322,29 +1322,33 @@ class _RenderContext:
             self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
             logger.info("Removing elements done.")
             assert self.context is self.context_root
-        if self.container:
-            self.container.close()
-            if isinstance(self.container, widgets.DOMWidget) and self.container.layout is not None:
-                self.container.layout.close()
-        if self._shared_elements:
-            raise RuntimeError(f"Element not cleaned up: {self._shared_elements}")
-        if self._orphans:
-            orphan_widgets = set([_get_widgets_dict()[k] for k in self._orphans])
-            raise RuntimeError(f"Orphan widgets not cleaned up for widgets: {orphan_widgets}")
-        exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
-        # break the reference cycles through the tree (see _teardown_component_context);
-        # _closing stays True, making stray setters and event handlers no-ops
-        for context in all_contexts:
-            _teardown_component_context(context)
-        self.context = None
-        self.context_root = None  # type: ignore
-        # the root element, container and root widget keep the widget tree alive, and
-        # widgets reference their elements, whose kwargs hold user callbacks - which
-        # capture use_state setters and therefore this render context
-        self.element = None  # type: ignore
-        self.container = None
-        self.last_root_widget = None
-        self._old_element_ids.clear()
+            # everything below used to run outside the lock: a render() that was
+            # blocked on the lock could then interleave with this teardown and
+            # find self.context None mid-render (AssertionError in
+            # Element.__exit__, seen in production behind a prompt kernel close)
+            if self.container:
+                self.container.close()
+                if isinstance(self.container, widgets.DOMWidget) and self.container.layout is not None:
+                    self.container.layout.close()
+            if self._shared_elements:
+                raise RuntimeError(f"Element not cleaned up: {self._shared_elements}")
+            if self._orphans:
+                orphan_widgets = set([_get_widgets_dict()[k] for k in self._orphans])
+                raise RuntimeError(f"Orphan widgets not cleaned up for widgets: {orphan_widgets}")
+            exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
+            # break the reference cycles through the tree (see _teardown_component_context);
+            # _closing stays True, making stray setters and event handlers no-ops
+            for context in all_contexts:
+                _teardown_component_context(context)
+            self.context = None
+            self.context_root = None  # type: ignore
+            # the root element, container and root widget keep the widget tree alive, and
+            # widgets reference their elements, whose kwargs hold user callbacks - which
+            # capture use_state setters and therefore this render context
+            self.element = None  # type: ignore
+            self.container = None
+            self.last_root_widget = None
+            self._old_element_ids.clear()
         if exceptions:
             raise exceptions[0]
 
@@ -1547,6 +1551,12 @@ class _RenderContext:
             self._lock_thread = threading.current_thread()
             if was_locked:
                 logger.info("Mutex released, continuing render phase")
+            if self._closing or self.context is None:
+                # close() won the race for the lock (a disconnect can close the
+                # kernel while an update was waiting to render): the tree is
+                # torn down, there is nothing to render into anymore
+                logger.info("Render requested on a closing/closed render context, ignoring")
+                return container
             prev_rc = getattr(local, "rc", None)
             try:
                 local.rc = self

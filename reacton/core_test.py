@@ -2963,6 +2963,66 @@ def test_close_when_overridden():
     rc.close()
 
 
+def test_render_after_close_is_noop():
+    # A disconnect can close the kernel while an update is waiting on the render
+    # lock: the late render used to proceed into the torn-down tree and hit
+    # "assert rc.context is not None" in Element.__exit__ (seen in production).
+    # A render on a closed/closing context must be a no-op instead.
+    @react.component
+    def App():
+        value, _set_value = react.use_state(1)
+        return w.Label(value=str(value))
+
+    box, rc = react.render(App(), handle_error=False)
+    rc.close()
+    rc.render(App(), box)  # must not raise, must not render
+
+
+def test_close_render_race():
+    # close() in one thread while renders queue behind the lock in another:
+    # neither thread may raise (the close teardown must not interleave with a
+    # render that was blocked on the lock).
+    import threading
+
+    for _ in range(20):
+
+        @react.component
+        def App():
+            value, _set_value = react.use_state(1)
+            return w.Label(value=str(value))
+
+        box, rc = react.render(App(), handle_error=False)
+        el = App()
+        errors: List[BaseException] = []
+        barrier = threading.Barrier(2)
+
+        def do_render(rc=rc, el=el, box=box, errors=errors, barrier=barrier):
+            try:
+                barrier.wait()
+                rc.render(el, box)
+            except BaseException as e:  # noqa
+                errors.append(e)
+
+        def do_close(rc=rc, errors=errors, barrier=barrier):
+            try:
+                barrier.wait()
+                rc.close()
+            except BaseException as e:  # noqa
+                errors.append(e)
+
+        t1 = threading.Thread(target=do_render)
+        t2 = threading.Thread(target=do_close)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        # whichever won the lock, the loser must not blow up; if render won,
+        # close ran after and the context must still close cleanly
+        if not rc._closing:
+            rc.close()
+        assert not errors, errors
+
+
 def test_render_perf_child_only():
     render_child = unittest.mock.Mock()
     render_main = unittest.mock.Mock()
