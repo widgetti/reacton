@@ -19,7 +19,7 @@ def without_default(func: Callable, kwargs):
     return non_default_kwargs
 
 
-def implements(f: Callable[P, T]):
+def implements(f: Callable[P, T]) -> Callable[[Callable], Callable[P, T]]:
     def caster(fimpl: Callable) -> Callable[P, T]:
         # wraps gives us the right signature at runtime (such as Jupyter)
         return cast(Callable[P, T], functools.wraps(f)(fimpl))

@@ -1,10 +1,22 @@
 import sys
 
+from mypy import api as mypy_api
 import pytest
 
 import reacton.ipywidgets as w
 
 from .utils import equals, import_item, isinstance_lazy
+
+
+def test_implements_preserves_signature_for_mypy(tmp_path):
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text("from reacton import ipywidgets\n\nipywidgets.Button(description=1)\n")
+
+    stdout, stderr, exit_status = mypy_api.run([str(consumer), "--no-error-summary", "--no-pretty"])
+
+    assert exit_status == 1
+    assert 'Argument "description" to "Button" has incompatible type "int"; expected "str"' in stdout
+    assert stderr == ""
 
 
 class NeverEquals:
@@ -118,7 +130,7 @@ def test_equals():
         def on_click():
             pass
 
-        return w.Button(on_click=on_click, label=f"{a}")
+        return w.Button(on_click=on_click, description=f"{a}")
 
     el1 = make_el(1)
     el2 = make_el(1)
