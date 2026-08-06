@@ -6,9 +6,13 @@ import types
 from typing import Callable, TypeVar, cast
 
 import ipywidgets as widgets
-import typing_extensions
 
-P = typing_extensions.ParamSpec("P")
+try:
+    from typing_extensions import ParamSpec
+    P = ParamSpec("P")
+except ImportError:
+    P = ...
+
 T = TypeVar("T")
 
 
