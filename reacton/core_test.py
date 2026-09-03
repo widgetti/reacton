@@ -1,5 +1,6 @@
 import gc
 import sys
+import threading
 import time
 import traceback
 import unittest.mock
@@ -3447,3 +3448,89 @@ def test_render_escaped_exception_strands_chained_effect(abort_in):
     set_other(1)
     assert root.children[0].description == "other 1"
     rc.close()
+
+
+def test_effect_exception_is_logged(caplog):
+    @react.component
+    def Test():
+        def effect():
+            raise RuntimeError("boom")
+
+        react.use_effect(effect, [])
+        return w.Button()
+
+    with caplog.at_level("ERROR", logger="reacton"):
+        # handle_error=True: the exception is turned into an error page, which is
+        # exactly why it used to be invisible in the logs
+        box, rc = react.render(Test(), handle_error=True)
+        assert "Traceback" in rc.find(ipywidgets.HTML).widget.value
+        records = [r for r in caplog.records if r.name == "reacton" and r.levelname == "ERROR"]
+        assert len(records) == 1, records
+        assert "Effect" in records[0].getMessage()
+        assert records[0].exc_info is not None
+    rc.close()
+
+
+def test_effect_cleanup_exception_is_logged(caplog):
+    set_value = None
+    failed: List[bool] = []
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+
+        def effect():
+            def cleanup():
+                # only the first cleanup fails, so the error page can tear down cleanly
+                if not failed:
+                    failed.append(True)
+                    raise RuntimeError("cleanup boom")
+
+            return cleanup
+
+        react.use_effect(effect, [value])
+        return w.Button()
+
+    box, rc = react.render(Test(), handle_error=True)
+    assert set_value is not None
+    with caplog.at_level("ERROR", logger="reacton"):
+        set_value(1)
+        records = [r for r in caplog.records if r.name == "reacton" and r.levelname == "ERROR"]
+        assert len(records) == 1, records
+        assert "Effect cleanup" in records[0].getMessage()
+        assert records[0].exc_info is not None
+    rc.close()
+
+
+def test_render_lock_no_false_recursive_render():
+    # close() takes the render lock without touching _lock_thread. With a stale
+    # _lock_thread the recursion guard fires for the thread that merely rendered
+    # last, while a *different* thread holds the lock.
+    holding = threading.Event()
+
+    @react.component
+    def Test():
+        def effect():
+            def cleanup():
+                holding.set()
+                # hold the render lock long enough for the main thread to hit the guard
+                time.sleep(0.5)
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return w.Button()
+
+    box, rc = react.render(Test(), handle_error=False)
+    # the main thread rendered last, so rc._lock_thread pointed at it
+
+    thread = threading.Thread(target=rc.close)
+    thread.start()
+    try:
+        assert holding.wait(5)
+        # the other thread holds the render lock: this must wait for it, not raise
+        rc.render(Test(), box)
+    finally:
+        thread.join(5)
+    assert not thread.is_alive()
