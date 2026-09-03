@@ -170,6 +170,26 @@ def close_widget(widget: widgets.Widget):
         logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
 
 
+def _is_shared_ipyvue_template(widget: widgets.Widget) -> bool:
+    """Is this widget an ipyvue Template that is shared between VueTemplate instances?
+
+    ipyvue keeps a per-file registry of Template widgets (ipyvue/Template.py), so several
+    VueTemplate widgets can point at the same Template. Such a Template outlives the
+    VueTemplate that created it, and we must not close it as an orphan.
+    ipyvue 3 only puts a Template in that registry when there is a real comm, so an
+    unregistered Template belongs to a single VueTemplate and is a normal orphan.
+    """
+    cls = widget.__class__
+    if cls.__name__ != "Template" or cls.__module__ != "ipyvue.Template":
+        return False
+    module = sys.modules.get(cls.__module__)
+    registry = getattr(module, "template_registry", None)
+    if registry is None:
+        # unknown ipyvue version: keep the old, conservative behaviour
+        return True
+    return any(template is widget for template in registry.values())
+
+
 def _event_handler_exception_wrapper(f):
     """Wrap an event handler to catch exceptions and put them in a reacton context.
 
@@ -2166,7 +2186,7 @@ class _RenderContext:
                 if orphan_ids:
                     for orphan_widget in orphan_widgets:
                         # these are shared widgets
-                        if orphan_widget.__class__.__name__ == "Template" and orphan_widget.__class__.__module__ == "ipyvue.Template":
+                        if _is_shared_ipyvue_template(orphan_widget):
                             orphan_ids -= {orphan_widget.model_id}
                     if el.is_shared:
                         widget = self._shared_widgets[el]
@@ -2750,7 +2770,7 @@ class _RenderContextFast(_RenderContext):
                     orphan_widgets = set([_get_widgets_dict()[k] for k in orphan_ids])
                     for orphan_widget in orphan_widgets:
                         # these are shared between widgets
-                        if orphan_widget.__class__.__name__ == "Template" and orphan_widget.__class__.__module__ == "ipyvue.Template":
+                        if _is_shared_ipyvue_template(orphan_widget):
                             orphan_ids -= {orphan_widget.model_id}
                     widget = self._shared_widgets[el] if el.is_shared else context.widgets[key]
                     if widget.model_id not in self._orphans:
