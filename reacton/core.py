@@ -1552,6 +1552,35 @@ class _RenderContext:
         else:
             logger.info("No render phase triggered, already rendering")
 
+    def _discard_aborted_pass(self):
+        """Forget everything a render pass staged when it raised before reconciliation.
+
+        The *_next bookkeeping and the chained effects (previous_effect.next) of every
+        context belong to that pass. Mark every context dirty, so the next render()
+        re-executes the components and re-queues their effects from a consistent state.
+        Only for aborts in the render phase: a reconciliation that raised halfway already
+        created widgets, and those need the normal removal path.
+        """
+        # children_next is kept: it also holds contexts pre-created by state_set() (restored
+        # state), and a context created by the aborted pass owns no widgets yet, it is simply
+        # reused or pruned by the next render
+        contexts: List[ComponentContext] = [self.context_root]
+        while contexts:
+            context = contexts.pop()
+            for effect in context.effects:
+                effect.next = None
+            context.root_element_next = None
+            context.elements_next = {}
+            context.exceptions_self = []
+            context.exceptions_children = []
+            context.needs_render = True
+            context.needs_render_descendant = True
+            context.clean_subtree = False
+            contexts.extend(context.children.values())
+            contexts.extend(context.children_next.values())
+        self._shared_elements_next = set()
+        self.context = self.context_root
+
     def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
         widget = None
@@ -1578,6 +1607,8 @@ class _RenderContext:
                 logger.info("Render requested on a closing/closed render context, ignoring")
                 return container
             prev_rc = getattr(local, "rc", None)
+            # an exception that escapes while this is True aborted a render pass (see the except below)
+            in_render_phase = True
             try:
                 local.rc = self
                 self.element = element
@@ -1653,10 +1684,12 @@ class _RenderContext:
 
                         logger.info("Render reconsolidate...")
                         self.reconsolidating = True
+                        in_render_phase = False
                         try:
                             widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
                         finally:
                             self.reconsolidating = False
+                        in_render_phase = True
                         logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
@@ -1705,7 +1738,16 @@ class _RenderContext:
                     self._is_rendering = False
                 self.context = context_prev
                 logger.info("Done with render phase: %r", render_count)
-            except Exception as e:
+            except BaseException as e:
+                # Exceptions raised by components are collected in exceptions_self, so an
+                # exception here comes from the render machinery itself (duplicate key,
+                # hook misuse, ...) or is a cancellation, and aborted a pass halfway. Drop
+                # what that pass staged: otherwise the next render reconciles the last
+                # committed elements, but runs the effects the aborted pass chained, closed
+                # over elements that were never reconciled (get_widget then fails with
+                # "found in a previous render").
+                if in_render_phase:
+                    self._discard_aborted_pass()
                 if DEBUG:
                     # construct a fake traceback (showing how the elements were constructed)
                     if not self.tracebacks:
@@ -1845,8 +1887,13 @@ class _RenderContext:
             needs_render = context.needs_render
             if not needs_render:
                 if el_prev is not None and context_previous is context:
-                    assert not isinstance(el_prev.component, ComponentWidget)
-                    needs_render = el._arguments_changed(el_prev)
+                    if isinstance(el_prev.component, ComponentWidget):
+                        # an earlier pass of this render() call put a widget element at this
+                        # slot (elements_next), while the context is from the last reconciled
+                        # render: nothing to compare the arguments against, so render
+                        needs_render = True
+                    else:
+                        needs_render = el._arguments_changed(el_prev)
                 if context.exceptions_children:
                     # we have exceptions, so we need to render
                     needs_render = True
@@ -2505,8 +2552,11 @@ class _RenderContextFast(_RenderContext):
 
         needs_render = context.needs_render
         if not needs_render and el_prev is not None and context_previous is context:
-            assert not isinstance(el_prev.component, ComponentWidget)
-            needs_render = el._arguments_changed(el_prev)
+            if isinstance(el_prev.component, ComponentWidget):
+                # see the classic renderer: a widget element from an earlier pass of this call
+                needs_render = True
+            else:
+                needs_render = el._arguments_changed(el_prev)
         if not needs_render and context.exceptions_children:
             # we have exceptions, so we need to render
             needs_render = True
