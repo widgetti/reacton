@@ -25,8 +25,19 @@ jobs:
         # run the suite against both the default renderer and the opt-in fast
         # one (REACTON_FAST=1), so both stay green
         reacton-fast: ["0", "1"]
+        # ipyvue/ipyvuetify 3 are the Vue 3 port. Pin the 1.x line by default and
+        # add one python version that runs against the 3.x line, so reacton keeps
+        # working with both.
+        ipyvue: ["<3"]
+        include:
+          - python-version: "3.12"
+            reacton-fast: "0"
+            ipyvue: ">=3"
+          - python-version: "3.12"
+            reacton-fast: "1"
+            ipyvue: ">=3"
 
-    name: unit-test (py${{ matrix.python-version }}, REACTON_FAST=${{ matrix.reacton-fast }})
+    name: unit-test${{ matrix.ipyvue == '>=3' && '-vue3' || '' }} (py${{ matrix.python-version }}, REACTON_FAST=${{ matrix.reacton-fast }})
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -39,7 +50,7 @@ jobs:
           path: ./dist
       - name: Install
         run: |
-          pip install `echo dist/*.whl`[dev] "bqplot<0.13" "pandas<3" "ruff==0.8.3"
+          pip install `echo dist/*.whl`[dev] "bqplot<0.13" "pandas<3" "ruff==0.8.3" "ipyvue${{ matrix.ipyvue }}" "ipyvuetify${{ matrix.ipyvue }}"
       - name: test
         env:
           REACTON_FAST: ${{ matrix.reacton-fast }}
