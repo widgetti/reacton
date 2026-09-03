@@ -3288,3 +3288,162 @@ def test_key_mutate_protection(Container):
         set_state(1)
     rc.render(w.HTML(value="recover").key("HTML"))
     rc.close()
+
+
+def test_render_nested_pass_widget_to_component_flip():
+    # One render() call, two passes: the first pass puts a widget element at a
+    # slot, a state write during that pass opens a nested pass, and the nested
+    # pass puts back the function component that held the slot in the last
+    # committed render. _render then compares the component element against
+    # the widget element left in elements_next by the first pass and trips
+    # `assert not isinstance(el_prev.component, ComponentWidget)`.
+    set_mode = cast(Callable[[str], None], None)
+
+    set_clicks = cast(Callable[[int], None], None)
+
+    @react.component
+    def Child():
+        nonlocal set_clicks
+        clicks, set_clicks = react.use_state(0)
+        return w.Button(description=f"child {clicks}")
+
+    @react.component
+    def Parent():
+        nonlocal set_mode
+        mode, set_mode = react.use_state("component")
+        if mode == "widget":
+            # a set during render opens a nested pass in the same render() call
+            set_mode("component")
+            return w.Label(description="loading")
+        return Child()
+
+    box, rc = react.render(Parent(), handle_error=False)
+    set_clicks(3)
+    assert box.children[0].description == "child 3"
+    set_mode("widget")
+    assert isinstance(box.children[0], widgets.Button)
+    # nothing was committed in between, so Child was never unmounted and keeps its state
+    assert box.children[0].description == "child 3"
+    rc.close()
+
+
+def test_render_nested_pass_flip_strands_get_widget_effect():
+    # The production chain behind the flip above (Grotto PENG-1257, through
+    # solara's RoutingProvider): the AssertionError escapes render(), and a
+    # parent that re-executed in the aborted nested pass already chained a new
+    # effect closure (previous_effect.next) over its new root element, while
+    # its root_element_next was never set. The next render that does not
+    # re-execute the parent runs that closure, and get_widget on the never
+    # reconciled root raises "was found to be in a previous render".
+    set_mode = cast(Callable[[str], None], None)
+    set_counter = cast(Callable[[int], None], None)
+    set_other = cast(Callable[[int], None], None)
+
+    @react.component
+    def Child():
+        return w.Button(description="child")
+
+    @react.component
+    def Flipper():
+        nonlocal set_mode
+        mode, set_mode = react.use_state("component")
+        if mode == "widget":
+            # a set during render opens a nested pass, and the parent's state
+            # changes too, so the parent re-executes in that nested pass
+            # (in production: a router.push from a subscriber)
+            set_counter(1)
+            set_mode("component")
+            return w.Label(description="loading")
+        return Child()
+
+    @react.component
+    def Other():
+        nonlocal set_other
+        value, set_other = react.use_state(0)
+        return w.Label(description=f"other {value}")
+
+    @react.component
+    def Parent():
+        nonlocal set_counter
+        _counter, set_counter = react.use_state(0)
+
+        def effect():
+            react.get_widget(root)
+
+        react.use_effect(effect)
+        root = w.VBox(children=[Flipper(), Other()])
+        return root
+
+    box, rc = react.render(Parent(), handle_error=False)
+    root = box.children[0]
+    assert root.children[1].description == "other 0"
+    try:
+        set_mode("widget")
+    except AssertionError:
+        # the first stage, covered by test_render_nested_pass_widget_to_component_flip
+        pass
+    # an unrelated state change must not run a stale effect closure
+    set_other(1)
+    assert root.children[1].description == "other 1"
+    rc.close()
+
+
+@pytest.mark.parametrize("abort_in", ["first_pass", "nested_pass"])
+def test_render_escaped_exception_strands_chained_effect(abort_in):
+    # An exception raised by reacton's own bookkeeping inside _render (here a
+    # duplicate key) escapes render() and leaves the tree half updated: a
+    # component that re-executed in the aborted pass already chained a new
+    # effect closure (previous_effect.next) over the elements of that pass, but
+    # its root_element_next was never set. The next render that does not
+    # re-execute that component runs the chained effect against elements that
+    # were never reconciled; with get_widget that is the
+    # "was found to be in a previous render" KeyError.
+    # (Seen in production through solara's RoutingProvider, which calls
+    # get_widget(main) from an effect without dependencies.)
+    set_dup = cast(Callable[[bool], None], None)
+    set_other = cast(Callable[[int], None], None)
+    set_counter = cast(Callable[[int], None], None)
+
+    @react.component
+    def Other():
+        nonlocal set_other
+        value, set_other = react.use_state(0)
+        return w.Label(description=f"other {value}")
+
+    @react.component
+    def Dup(dup: bool, counter: int):
+        aborted = react.use_ref(False)
+        if dup and counter == 0 and abort_in == "nested_pass":
+            # make the parent re-execute in a nested pass of this render() call
+            set_counter(1)
+        abort_now = counter == (1 if abort_in == "nested_pass" else 0)
+        if dup and abort_now and not aborted.current:
+            # abort this pass with an exception from reacton's bookkeeping
+            aborted.current = True
+            return w.VBox(children=[w.Label(description="a").key("dup"), w.Label(description="b").key("dup")])
+        return w.Label(description="no dup")
+
+    @react.component
+    def Parent():
+        nonlocal set_dup, set_counter
+        dup, set_dup = react.use_state(False)
+        counter, set_counter = react.use_state(0)
+
+        def effect():
+            react.get_widget(root)
+
+        react.use_effect(effect)
+        root = w.VBox(children=[Other(), Dup(dup, counter)])
+        return root
+
+    box, rc = react.render(Parent(), handle_error=False)
+    root = box.children[0]
+    assert root.children[0].description == "other 0"
+    # pass 1: Dup bumps the counter, nested pass: Parent re-executes and chains
+    # a new effect closure over its new root, then Dup aborts the pass
+    with pytest.raises(KeyError, match="Duplicate key"):
+        set_dup(True)
+    # an unrelated state change must not run a stale effect closure
+    set_other(1)
+    assert root.children[0].description == "other 1"
+    rc.close()
