@@ -1784,7 +1784,7 @@ class _RenderContext:
                 raise exc
         return widget
 
-    def _render(self, element: Element, default_key: str, parent_key: str):
+    def _render(self, element: Element, default_key: str, parent_key: str, old_to_new: Optional[Dict[Element, Element]] = None):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
         # for tracking stale data/elements when using get_widget
@@ -1837,7 +1837,11 @@ class _RenderContext:
             logger.debug("Render: arguments... (children of %s,%s)", parent_key, key)
             # only when we landed at a widget leaf, or a shared element, we need to render the children
             if isinstance(el.component, ComponentWidget) or el.is_shared:
-                self._visit_children(el, key, parent_key, self._render)
+                if old_to_new:
+                    self._substitute_old_elements(el, old_to_new)
+                    self._visit_children(el, key, parent_key, functools.partial(self._render, old_to_new=old_to_new))
+                else:
+                    self._visit_children(el, key, parent_key, self._render)
             assert self.context is context
             logger.debug("Render: arguments done (children of %s,%s)", parent_key, key)
 
@@ -1913,6 +1917,9 @@ class _RenderContext:
                     # we reset if before calling the component
                     # which might set it to true again
                     context.needs_render = False
+                    # the component function runs with the arguments of the new invoke
+                    # element, so everything it returns is fresh: nothing left to substitute
+                    old_to_new = None
                     # Now, we actually execute the render function, and get
                     # back the root element
                     root_element: Optional[Element] = None
@@ -1953,12 +1960,16 @@ class _RenderContext:
                 else:
                     root_element = context.root_element_next or context.root_element
 
+                    assert el_prev is not None
+                    assert root_element is not None
+                    old_to_new = self._refresh_reused_root_element(el, el_prev, root_element, old_to_new)
+
                 if self.render_count != render_count:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 if root_element is not None:
                     logger.debug("root element: %r %x", root_element, id(root_element))
                     new_parent_key = join_key(parent_key, key)
-                    self._render(root_element, "/", parent_key=new_parent_key)  # depth first
+                    self._render(root_element, "/", parent_key=new_parent_key, old_to_new=old_to_new)  # depth first
                     context.root_element_next = root_element
                 else:
                     if el.is_shared:
@@ -2398,6 +2409,57 @@ class _RenderContext:
         self._visit_children_values(el.kwargs, key, parent_key, f)
         self._visit_children_values(el.args, key, parent_key, f)
 
+    def _substitute_old_elements(self, el: Element, old_to_new: Dict[Element, Element]) -> None:
+        # el sits inside a reused root element, so its arguments can still refer to child
+        # elements of a previous render pass. _refresh_reused_root_element does not reach
+        # them, because the traversal stops at every element boundary.
+        def map_old_to_new(child: Element, key: str, parent_key: str):
+            return old_to_new.get(child, child)
+
+        el.kwargs = self._visit_children_values(el.kwargs, "/", "/", map_old_to_new)
+        el.args = self._visit_children_values(el.args, "/", "/", map_old_to_new)
+
+    def _refresh_reused_root_element(
+        self,
+        el: Element,
+        el_prev: Element,
+        root_element: Element,
+        old_to_new: Optional[Dict[Element, Element]],
+    ) -> Dict[Element, Element]:
+        # We reuse the root element of a component we did not re-execute. That root element
+        # refers to child elements of a previous render pass, while the caller (which did
+        # re-execute) holds new, equal-by-value element objects. Without a fixup, the widget
+        # ends up registered under the old element and get_widget(new element) fails.
+        # We build a map from old to new child element, and substitute them in the reused
+        # root element. The map is passed down, because a component deeper in the tree can
+        # reuse its root element as well.
+        substitutions: Dict[Element, Element] = {}
+        if el is not el_prev:
+            key_to_element: Dict[str, Element] = {}
+
+            def store_key_to_element(child: Element, key: str, parent_key: str):
+                key_to_element[key] = child
+
+            self._visit_children_values(el.kwargs, "/", "/", store_key_to_element)
+            self._visit_children_values(el.args, "/", "/", store_key_to_element)
+
+            if key_to_element:
+                # the arguments compare equal by value, so the traversal keys of the
+                # previous invoke element match those of the new one
+                def store_old_to_new(child: Element, key: str, parent_key: str):
+                    replacement = key_to_element[key]
+                    if replacement is not child:
+                        substitutions[child] = replacement
+
+                self._visit_children_values(el_prev.kwargs, "/", "/", store_old_to_new)
+                self._visit_children_values(el_prev.args, "/", "/", store_old_to_new)
+
+        if old_to_new:
+            substitutions = {**old_to_new, **substitutions}
+        if substitutions:
+            self._substitute_old_elements(root_element, substitutions)
+        return substitutions
+
     def _visit_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
         if isinstance(value, Element):
             return f(value, key, parent_key)
@@ -2450,7 +2512,7 @@ class _RenderContextFast(_RenderContext):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
 
-    def _render(self, element: Element, default_key: str, parent_key: str):
+    def _render(self, element: Element, default_key: str, parent_key: str, old_to_new: Optional[Dict[Element, Element]] = None):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
         # for tracking stale elements when using get_widget
@@ -2494,7 +2556,11 @@ class _RenderContextFast(_RenderContext):
                 del context.children_next[key]
             # the element arguments are part of this component's element tree
             if el.kwargs:
-                self._visit_children(el, key, parent_key, self._render)
+                if old_to_new:
+                    self._substitute_old_elements(el, old_to_new)
+                    self._visit_children(el, key, parent_key, functools.partial(self._render, old_to_new=old_to_new))
+                else:
+                    self._visit_children(el, key, parent_key, self._render)
             return
 
         assert isinstance(el.component, ComponentFunction)
@@ -2502,7 +2568,11 @@ class _RenderContextFast(_RenderContext):
             # arguments of a shared element belong to the context it is rendered in;
             # for non-shared component elements the component function decides
             # what ends up in the tree
-            self._visit_children(el, key, parent_key, self._render)
+            if old_to_new:
+                self._substitute_old_elements(el, old_to_new)
+                self._visit_children(el, key, parent_key, functools.partial(self._render, old_to_new=old_to_new))
+            else:
+                self._visit_children(el, key, parent_key, self._render)
 
         context_previous = context.children_next.get(key)
         if context_previous is None:
@@ -2510,6 +2580,7 @@ class _RenderContextFast(_RenderContext):
 
         if (
             not self._walk_all
+            and not old_to_new
             and el is el_prev
             and not el.is_shared
             and context_previous is not None
@@ -2578,6 +2649,8 @@ class _RenderContextFast(_RenderContext):
                 # we reset it before calling the component function,
                 # which might set it to true again
                 context.needs_render = False
+                # everything the component function returns is fresh, see the classic renderer
+                old_to_new = None
                 try:
                     with contextlib.ExitStack() as stack:
                         for cm in context.context_managers:
@@ -2612,6 +2685,9 @@ class _RenderContextFast(_RenderContext):
                     raise ValueError(f"Component {el.component} returned None")
             else:
                 root_element = context.root_element_next or context.root_element
+                assert el_prev is not None
+                assert root_element is not None
+                old_to_new = self._refresh_reused_root_element(el, el_prev, root_element, old_to_new)
 
             if self.render_count != render_count_check:
                 raise RuntimeError("Recursive render detected, possible a bug in react")
@@ -2619,7 +2695,7 @@ class _RenderContextFast(_RenderContext):
             # the subtree walk below will mark this again when state changes
             context.needs_render_descendant = False
             if root_element is not None:
-                self._render(root_element, "/", parent_key=join_key(parent_key, key))  # depth first
+                self._render(root_element, "/", parent_key=join_key(parent_key, key), old_to_new=old_to_new)  # depth first
                 context.root_element_next = root_element
             elif el.is_shared:
                 self._shared_elements_next.remove(el)
