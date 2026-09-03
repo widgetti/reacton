@@ -1760,6 +1760,10 @@ class _RenderContext:
             finally:
                 local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
+                # clear before the lock is released: a stale _lock_thread makes the
+                # recursion guard above fire for a thread that merely rendered last,
+                # while a *different* thread holds the lock (false "Recursive render")
+                self._lock_thread = None
                 assert self.context is self.context_root
 
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
@@ -2101,6 +2105,7 @@ class _RenderContext:
                                     try:
                                         effect.cleanup()
                                     except BaseException as e:
+                                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                                         context.exceptions_self.append(e)
                                         self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                         self._rerender_needed = True
@@ -2112,6 +2117,7 @@ class _RenderContext:
                                         continue
                                     effect()
                                 except BaseException as e:
+                                    logger.exception("Effect %r raised exception %r", effect.callable, e)
                                     context.exceptions_self.append(e)
                                     self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                     self._rerender_needed = True
@@ -2123,6 +2129,7 @@ class _RenderContext:
                                     continue
                                 effect()
                             except BaseException as e:
+                                logger.exception("Effect %r raised exception %r", effect.callable, e)
                                 context.exceptions_self.append(e)
                                 self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                 self._rerender_needed = True
@@ -2336,6 +2343,7 @@ class _RenderContext:
                         if not effect._cleaned_up:
                             effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
                         self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                         self._rerender_needed = True
@@ -2876,6 +2884,7 @@ class _RenderContextFast(_RenderContext):
                     try:
                         effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
                         _mark_needs_render_ancestors(context)
@@ -2887,6 +2896,7 @@ class _RenderContextFast(_RenderContext):
             try:
                 effect()
             except BaseException as e:
+                logger.exception("Effect %r raised exception %r", effect.callable, e)
                 context.exceptions_self.append(e)
                 self._set_rerender_needed("Exception ocurred during effect")
                 _mark_needs_render_ancestors(context)
@@ -2930,6 +2940,7 @@ class _RenderContextFast(_RenderContext):
                         if not effect._cleaned_up:
                             effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
                         _mark_needs_render_ancestors(child_context)
