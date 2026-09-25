@@ -2464,6 +2464,10 @@ class _RenderContextFast(_RenderContext):
     # without walking either.
     # ------------------------------------------------------------------
 
+    # > 0 while the render phase walks the new children of a widget that replaces a
+    # widget of another type (see _render)
+    _replacing = 0
+
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
@@ -2512,7 +2516,18 @@ class _RenderContextFast(_RenderContext):
                 del context.children_next[key]
             # the element arguments are part of this component's element tree
             if el.kwargs:
-                self._visit_children(el, key, parent_key, self._render)
+                el_reconciled = context.elements.get(key)
+                if el_reconciled is not None and el_reconciled.component != el.component:
+                    # reconciliation replaces the widget at this key, and first removes the
+                    # old subtree, including the component contexts in it: the walk below
+                    # must not keep one of those as it is (see the fast path further down)
+                    self._replacing += 1
+                    try:
+                        self._visit_children(el, key, parent_key, self._render)
+                    finally:
+                        self._replacing -= 1
+                else:
+                    self._visit_children(el, key, parent_key, self._render)
             return
 
         assert isinstance(el.component, ComponentFunction)
@@ -2528,8 +2543,8 @@ class _RenderContextFast(_RenderContext):
 
         if (
             not self._walk_all
-            and el is el_prev
             and not el.is_shared
+            and not self._replacing
             and context_previous is not None
             and context.children.get(key) is context_previous
             and not context_previous.needs_render
@@ -2538,11 +2553,25 @@ class _RenderContextFast(_RenderContext):
             and not context_previous.exceptions_children
             and context_previous.root_element is not None
             and context_previous.root_element_next is None
+            and (
+                el is el_prev
+                or (
+                    # a new element for the same component with equal arguments (the parent
+                    # re-rendered): the component would not re-render, so it would only walk
+                    # an unchanged subtree
+                    el_prev is not None
+                    and el_prev is context_previous.invoke_element
+                    and not el._meta
+                    and same_component(el_prev.component, el.component)
+                    and not el._arguments_changed(el_prev)
+                )
+            )
         ):
-            # fast path: same element, no state changes or pending exceptions
-            # anywhere in this subtree, and fully reconciled: the previous
-            # result stands, skip the subtree in both phases
+            # fast path: no state changes or pending exceptions anywhere in this
+            # subtree, and fully reconciled: the previous result stands, skip the
+            # subtree in both phases
             context_previous.clean_subtree = True
+            context_previous.invoke_element = el
             context.children_next[key] = context_previous
             return
 
@@ -2711,7 +2740,13 @@ class _RenderContextFast(_RenderContext):
                     # reconciliation result stands
                     child_context_next.clean_subtree = False
                     context.children[key] = context.children_next.pop(key)
-                    return context.widgets[key]
+                    widget = context.widgets[key]
+                    if el is not el_prev:
+                        # a new element with equal arguments, used by get_widget
+                        if el_prev is not None:
+                            context.element_to_widget.pop(el_prev, None)
+                        context.element_to_widget[el] = widget
+                    return widget
 
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
                     # a widget element was replaced by a component element at this key

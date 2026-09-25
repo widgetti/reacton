@@ -3699,3 +3699,92 @@ def test_container_updates_when_fragment_child_changes():
     set_count(2)
     assert describe(vbox) == ["first", "0", "1", "last"]
     rc.close()
+
+
+def test_replace_parent_same_child_element():
+    # like test_replace_parent, but the child element is the same object in every render
+    # (it comes from outside): replacing its parent widget removes the child's subtree,
+    # so the child cannot keep its previous widget
+    set_vertical = lambda x: None  # noqa
+    child = ButtonComponentFunction(description="Hi")
+
+    @react.component
+    def Test(child):
+        nonlocal set_vertical
+        vertical, set_vertical = react.use_state(True)
+        Container = w.VBox if vertical else w.HBox
+        with w.VBox() as main:
+            Container(children=[child])
+        return main
+
+    box, rc = react.render(Test(child), handle_error=False)
+    assert len(rc.find(widgets.Button)) == 1
+    set_vertical(False)
+    assert len(rc.find(widgets.HBox).find(widgets.Button)) == 1
+    set_vertical(True)
+    assert len(rc.find(widgets.Button)) == 1
+    rc.close()
+
+
+def test_equal_args_child_get_widget():
+    # the parent re-renders and makes a new element for a child with equal arguments:
+    # get_widget must find the widget for the new element
+    set_value = lambda x: None  # noqa
+    found = []
+
+    @react.component
+    def Child(label):
+        return w.HBox(children=[w.Button(description=label)])
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        child = Child("child")
+
+        def effect():
+            found.append(react.get_widget(child))
+
+        react.use_effect(effect, [value])
+        return w.VBox(children=[w.Label(value=str(value)), child])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    hbox = vbox.children[1]
+    set_value(1)
+    set_value(2)
+    assert found == [hbox, hbox, hbox]
+    assert vbox.children[1] is hbox
+    rc.close()
+
+
+@fast_renderer_only
+def test_equal_args_child_is_not_walked():
+    set_value = lambda x: None  # noqa
+    button = None
+
+    @react.component
+    def Child(label):
+        nonlocal button
+        button = w.Button(description=label)
+        return w.HBox(children=[button])
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.VBox(children=[w.Label(value=str(value)), Child("child")])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert button is not None
+    first_button = button
+    assert first_button._render_count == 1
+    child_render_count = Child.render_count  # type: ignore
+    with UpdateSpy() as spy:
+        set_value(1)
+    assert vbox.children[0].value == "1"
+    # the child did not re-render, and its subtree was not walked or updated
+    assert Child.render_count == child_render_count  # type: ignore
+    assert button is first_button
+    assert first_button._render_count == 1
+    assert spy.types() == ["Label", "VBox"]
+    rc.close()
