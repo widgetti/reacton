@@ -7,6 +7,7 @@ ReactJS - ipywidgets relation:
 
 """
 
+import collections
 import contextlib
 import copy
 import functools
@@ -24,6 +25,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Deque,
     Dict,
     Generic,
     List,
@@ -1274,7 +1276,10 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
-        self._rerender_needed_reasons: List[RerenderReason] = []
+        # only the last two reasons are ever read (the "too many renders" error message),
+        # and a reason holds the previous and next state value: keeping all of them kept
+        # every old state value alive until close()
+        self._rerender_needed_reasons: Deque[RerenderReason] = collections.deque(maxlen=2)
         self.thread_lock = threading.Lock()
         self._closing = False
         self.tracebacks: List[TracebackType] = []

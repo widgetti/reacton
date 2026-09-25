@@ -3110,7 +3110,9 @@ def test_debug_infinite_loop():
         rc.render(rc.element)
 
     assert "Too many renders triggered" in str(e)
-    assert len(rc._rerender_needed_reasons) >= 50
+    assert "Last reason: Reason: state changed" in str(e)
+    assert "Previous reasons: Reason: state changed" in str(e)
+    assert Infinite.render_count >= 50  # type: ignore
 
     rc.close()
 
@@ -3245,6 +3247,36 @@ def test_no_reference_cycles_after_close(component):
         assert weak_rc() is None
     finally:
         gc.enable()
+
+
+def test_state_changes_do_not_keep_old_values_alive():
+    # every state change used to append a RerenderReason with the previous and next
+    # value to the render context, so a long-lived page kept every old state value
+    # alive until it was closed
+    class Big:
+        pass
+
+    set_value: Callable[[Big], None] = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(Big())
+        return w.Button(description=str(id(value)))
+
+    box, rc = react.render(Test(), handle_error=False)
+    refs = []
+    for i in range(20):
+        big = Big()
+        refs.append(weakref.ref(big))
+        set_value(big)
+        del big
+    gc.collect()
+    alive = sum(ref() is not None for ref in refs)
+    # the current value, and the values of the last two rerender reasons
+    assert alive <= 3
+    assert len(rc._rerender_needed_reasons) <= 2
+    rc.close()
 
 
 def test_fragment():
