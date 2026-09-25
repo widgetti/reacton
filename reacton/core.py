@@ -399,7 +399,11 @@ class Element(Generic[W]):
         if rc is not None:
             container_adders = rc.container_adders
             if container_adders:
-                container_adders[-1].add(self)
+                adder = container_adders[-1]
+                if type(adder) is ContainerAdder:
+                    adder.created.append(self)
+                else:
+                    adder.add(self)
         if DEBUG:
             # since we construct widgets or components from a different code path
             # we want to preserve the original call stack, by manually tracking frames
@@ -420,22 +424,28 @@ class Element(Generic[W]):
         # (small ints, interned strings, the same callbacks) need no utils.equals call
         args = self.args
         other_args = other.args
-        if len(args) != len(other_args):
-            return True
         kwargs = self.kwargs
         other_kwargs = other.kwargs
-        if len(kwargs) != len(other_kwargs):
+        if args:
+            if len(args) != len(other_args):
+                return True
+        elif other_args:
             return True
-        equals = utils.equals
-        for k, v in kwargs.items():
-            if k not in other_kwargs:
+        if kwargs:
+            if len(kwargs) != len(other_kwargs):
                 return True
-            other_v = other_kwargs[k]
-            if v is not other_v and not equals(v, other_v):
-                return True
-        for a, b in zip(args, other_args):
-            if a is not b and not equals(a, b):
-                return True
+            for k, v in kwargs.items():
+                if k not in other_kwargs:
+                    return True
+                other_v = other_kwargs[k]
+                if v is not other_v and not utils.equals(v, other_v):
+                    return True
+        elif other_kwargs:
+            return True
+        if args:
+            for a, b in zip(args, other_args):
+                if a is not b and not utils.equals(a, b):
+                    return True
         return False
 
     def key(self, value: str):
