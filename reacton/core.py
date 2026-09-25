@@ -1844,7 +1844,7 @@ class _RenderContext:
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
             self.render(self.element, self.container)
-        else:
+        elif logger.isEnabledFor(logging.INFO):
             logger.info("No render phase triggered, already rendering")
 
     def _discard_aborted_pass(self):
@@ -3006,11 +3006,11 @@ class _RenderContextFast(_RenderContext):
                     # must not keep one of those as it is (see the fast path further down)
                     self._replacing += 1
                     try:
-                        self._visit_children(el, key, parent_key, self._render)
+                        self._render_children(el.kwargs, key, parent_key)
                     finally:
                         self._replacing -= 1
                 else:
-                    self._visit_children(el, key, parent_key, self._render)
+                    self._render_children(el.kwargs, key, parent_key)
             return
 
         order = context.child_order_counter
@@ -3586,7 +3586,7 @@ class _RenderContextFast(_RenderContext):
                 elements_seen = self._elements_seen
                 if widget_previous is None:
                     # initial create
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._reconsolidate_children(el.kwargs, key, parent_key)
                     el._leaf = self._elements_seen == elements_seen
                     if el.is_shared and el in self._shared_widgets:
                         raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
@@ -3604,7 +3604,7 @@ class _RenderContextFast(_RenderContext):
                     self._store_widget(context, el, key, widget)
                 elif el_prev is not None and el_prev.component == el.component:
                     # update the existing widget in place
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._reconsolidate_children(el.kwargs, key, parent_key)
                     has_elements = self._elements_seen != elements_seen
                     el._leaf = not has_elements
                     if not context.exceptions_children:
@@ -3636,7 +3636,7 @@ class _RenderContextFast(_RenderContext):
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     # a different widget type at the same key: replace
                     self._remove_element(el_prev, key, parent_key=parent_key)
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._reconsolidate_children(el.kwargs, key, parent_key)
                     el._leaf = self._elements_seen == elements_seen
                     widget = None
                     if not context.exceptions_children:
@@ -3902,6 +3902,154 @@ class _RenderContextFast(_RenderContext):
         self._walk_children_values(el.kwargs, key, parent_key, f)
         if el.args:
             self._walk_children_values(el.args, key, parent_key, f)
+
+    # The two visitors below are _walk_children_values(value, key, parent_key, self._render)
+    # and _visit_children_values(value, key, parent_key, self._reconsolidate), with the
+    # common case of a component that renders again handled inline: a child component
+    # with equal arguments and nothing dirty is skipped without a call per child (keep the
+    # inline code in sync with _render and _reconsolidate).
+
+    def _render_children(self, value: Any, key: str, parent_key: str):
+        t = type(value)
+        if t is dict:
+            items: Any = value.items()
+        elif t is list or t is tuple:
+            items = enumerate(value)
+        elif t in _SCALAR_TYPES:
+            return
+        elif isinstance(value, Element):
+            self._render(value, key, parent_key)
+            return
+        elif isinstance(value, dict):
+            items = value.items()
+        elif isinstance(value, (list, tuple)):
+            items = enumerate(value)
+        else:
+            return
+        context = self.context
+        assert context is not None
+        skip_possible = not self._walk_all and not self._replacing
+        for k, v in items:
+            tv = type(v)
+            if tv in _SCALAR_TYPES:
+                continue
+            if not isinstance(v, Element):
+                if isinstance(v, (list, tuple, dict)):
+                    self._render_children(v, f"{key}{k}/", parent_key)
+                continue
+            if not skip_possible or v.is_shared or not isinstance(v.component, ComponentFunction):
+                self._render(v, f"{key}{k}/", parent_key)
+                continue
+            # _render for a component element, inline up to the skip
+            self._old_element_ids.add(id(v))
+            child_key = v._key
+            if child_key is None:
+                child_key = f"{key}{k}/"
+            v._key_frozen = True
+            used_keys = context.used_keys
+            if child_key in used_keys:
+                if DEBUG:
+                    self.tracebacks.append(v.traceback)
+                raise KeyError(f"Duplicate key {child_key!r}")
+            used_keys.add(child_key)
+            elements_next = context.elements_next
+            el_prev = elements_next.get(child_key)
+            if el_prev is None:
+                el_prev = context.elements.get(child_key)
+            elements_next[child_key] = v
+            v._render_count += 1  # for testing only
+            order = context.child_order_counter
+            context.child_order_counter = order + 1
+            child = context.children.get(child_key)
+            if (
+                child is not None
+                and not child.needs_render
+                and not child.needs_render_descendant
+                and child.root_element_next is None
+                and child.root_element is not None
+                and not child.exceptions_self
+                and not child.exceptions_children
+                and (
+                    v is el_prev
+                    or (
+                        el_prev is not None
+                        and el_prev is child.invoke_element
+                        and not v._meta
+                        and (el_prev.component is v.component or same_component(el_prev.component, v.component))
+                        and not v._arguments_changed(el_prev)
+                    )
+                )
+            ):
+                children_next = context.children_next
+                child_next = children_next.get(child_key)
+                if child_next is None or child_next is child:
+                    child.clean_subtree = True
+                    child.invoke_element = v
+                    child.order_in_parent = order
+                    children_next[child_key] = child
+                    continue
+            self._render_component(v, child_key, parent_key, el_prev, order)
+
+    def _reconsolidate_children(self, value: Any, key: str, parent_key: str):
+        t = type(value)
+        if t is not dict and t is not list and t is not tuple:
+            return self._visit_children_values(value, key, parent_key, self._reconsolidate)
+        context = self.context
+        assert context is not None
+        if t is dict:
+            new_dict = {}
+            for k, v in value.items():
+                if type(v) in _SCALAR_TYPES:
+                    new_dict[k] = v
+                elif isinstance(v, Element):
+                    self._elements_seen += 1
+                    new_dict[k] = self._reconsolidate(v, f"{key}{k}/", parent_key)
+                else:
+                    new_dict[k] = self._reconsolidate_children(v, f"{key}{k}/", parent_key)
+            return new_dict
+        values: List[Any] = []
+        append = values.append
+        children_next = context.children_next
+        for index, v in enumerate(value):
+            tv = type(v)
+            if tv in _SCALAR_TYPES:
+                append(v)
+                continue
+            if isinstance(v, Element):
+                self._elements_seen += 1
+                child_key = v._key
+                if child_key is None:
+                    child_key = f"{key}{index}/"
+                child = children_next.get(child_key)
+                if child is not None and child.clean_subtree and not v.is_shared:
+                    el_prev = context.elements.get(child_key)
+                    if el_prev is None or not el_prev.is_shared:
+                        # the skipped child of _reconsolidate, inline
+                        child.clean_subtree = False
+                        context.children[child_key] = child
+                        del children_next[child_key]
+                        new_value = context.widgets[child_key]
+                        if v is not el_prev:
+                            element_to_widget = context.element_to_widget
+                            if el_prev is not None:
+                                element_to_widget.pop(el_prev, None)
+                            element_to_widget[v] = new_value
+                        elements_next = context.elements_next
+                        context.elements[child_key] = elements_next[child_key]
+                        del elements_next[child_key]
+                    else:
+                        new_value = self._reconsolidate(v, f"{key}{index}/", parent_key)
+                else:
+                    new_value = self._reconsolidate(v, f"{key}{index}/", parent_key)
+            else:
+                new_value = self._reconsolidate_children(v, f"{key}{index}/", parent_key)
+            if isinstance(new_value, FragmentWidget):
+                values.extend(new_value.children)
+            else:
+                append(new_value)
+        if t is tuple:
+            return tuple(values)
+        return values
 
     def _walk_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
         t = type(value)
