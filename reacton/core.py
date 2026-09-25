@@ -2710,11 +2710,22 @@ class _RenderContextFast(_RenderContext):
                 # which might set it to true again
                 context.needs_render = False
                 try:
-                    with contextlib.ExitStack() as stack:
-                        for cm in context.context_managers:
-                            stack.enter_context(cm)
+                    # an ExitStack costs more than most component bodies; solara registers
+                    # a single context manager, and plain reacton none
+                    context_managers = context.context_managers
+                    if not context_managers:
                         root_element = self._call_component(el)
                         assert root_element is not None
+                    elif len(context_managers) == 1:
+                        with context_managers[0]:
+                            root_element = self._call_component(el)
+                            assert root_element is not None
+                    else:
+                        with contextlib.ExitStack() as stack:
+                            for cm in context_managers:
+                                stack.enter_context(cm)
+                            root_element = self._call_component(el)
+                            assert root_element is not None
                 except BaseException as e:
                     if DEBUG:
                         # we might be interested in the traceback inside the call...

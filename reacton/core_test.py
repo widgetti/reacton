@@ -3952,3 +3952,52 @@ def test_orphans_are_recorded_per_thread():
     for box, rc in results:
         rc.close()
         assert box._extra.comm is None
+
+
+@pytest.mark.parametrize("n_managers", [0, 1, 2])
+def test_component_context_managers_count(n_managers):
+    # plain reacton has no component context managers, solara one (this test module
+    # registers one for all other tests)
+    seen: List[tuple] = []
+
+    class Manager:
+        def __init__(self, el):
+            self.name = el.component.name
+
+        def __enter__(self):
+            seen.append(("enter", self.name))
+
+        def __exit__(self, exc_type, *args):
+            seen.append(("exit", self.name, exc_type))
+
+    @react.component
+    def Fail():
+        raise ValueError("fail")
+
+    @react.component
+    def App():
+        value, set_value = react.use_state(0)
+        exception, clear = react.use_exception()
+        if exception:
+            return w.Label(value=str(exception))
+        return Fail()
+
+    saved = list(core._component_context_manager_classes)
+    core._component_context_manager_classes[:] = [Manager] * n_managers
+    try:
+        label, rc = react.render_fixed(App(), handle_error=False)
+        assert label.value == "fail"
+        if n_managers:
+            # every manager is entered and exited, and sees the exception of the component body
+            fail_exits = [entry for entry in seen if entry[:2] == ("exit", "Fail")]
+            assert fail_exits and all(entry[2] is ValueError for entry in fail_exits)
+            assert len(fail_exits) % n_managers == 0
+            assert seen.count(("enter", "Fail")) == len(fail_exits)
+            app_enters = seen.count(("enter", "App"))
+            assert app_enters > 0 and app_enters % n_managers == 0
+            assert seen.count(("exit", "App", None)) == app_enters
+        else:
+            assert seen == []
+        rc.close()
+    finally:
+        core._component_context_manager_classes[:] = saved
