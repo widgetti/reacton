@@ -368,22 +368,25 @@ class Element(Generic[W]):
     create_lock: ContextManager = threading.Lock()
     # a plain attribute (not a property): it is read for every element in every walk
     is_shared: bool = False
+    # Defaults as class attributes: every component body makes elements, most of them
+    # never change these. (_meta is never changed in place, meta() makes a new dict.)
+    mime_bundle: Dict[str, Any] = mime_bundle_default
+    _key: Optional[str] = None
+    _meta: Dict[str, Any] = {}
+    # for debugging/testing only
+    _render_count = 0
+    _key_frozen: bool = False
 
     def __init__(self, component, args=None, kwargs=None):
         self.component = component
-        self.mime_bundle = mime_bundle_default
-        self._key: Optional[str] = None
         self.args = args or []
         self.kwargs = kwargs or {}
-        self.handlers = []
-        self._meta = {}
-        # for debugging/testing only
-        self._render_count = 0
-        self._key_frozen: bool = False
 
-        rc = _get_render_context(required=False)
-        if rc is not None and rc.container_adders:
-            rc.container_adders[-1].add(self)
+        rc = getattr(local, "rc", None)
+        if rc is not None:
+            container_adders = rc.container_adders
+            if container_adders:
+                container_adders[-1].add(self)
         if DEBUG:
             # since we construct widgets or components from a different code path
             # we want to preserve the original call stack, by manually tracking frames
@@ -400,17 +403,25 @@ class Element(Generic[W]):
             self.traceback = TracebackType(tb_frame=frame_py, tb_lasti=self.traceback.tb_lasti, tb_lineno=frame_py.f_lineno, tb_next=None)
 
     def _arguments_changed(self, other: "Element"):
-        if len(self.args) != len(other.args):
+        # called for every child of a component that renders again: the same objects
+        # (small ints, interned strings, the same callbacks) need no utils.equals call
+        args = self.args
+        other_args = other.args
+        if len(args) != len(other_args):
             return True
-        if len(self.kwargs) != len(other.kwargs):
+        kwargs = self.kwargs
+        other_kwargs = other.kwargs
+        if len(kwargs) != len(other_kwargs):
             return True
-        for k, v in self.kwargs.items():
-            if k not in other.kwargs:
+        equals = utils.equals
+        for k, v in kwargs.items():
+            if k not in other_kwargs:
                 return True
-            if not utils.equals(v, other.kwargs[k]):
+            other_v = other_kwargs[k]
+            if v is not other_v and not equals(v, other_v):
                 return True
-        for a, b in zip(self.args, other.args):
-            if not utils.equals(a, b):
+        for a, b in zip(args, other_args):
+            if a is not b and not equals(a, b):
                 return True
         return False
 
@@ -480,6 +491,13 @@ class Element(Generic[W]):
             return f"{name}({args_formatted})"
         else:
             raise RuntimeError(f"No repr for {type(self)}")
+
+    @property
+    def handlers(self) -> List[Tuple[str, Callable]]:
+        handlers = self.__dict__.get("_handlers")
+        if handlers is None:
+            handlers = self.__dict__["_handlers"] = []
+        return handlers
 
     def on(self, name, callback):
         self.handlers.append((name, callback))
@@ -653,7 +671,7 @@ class Value(Generic[V], Protocol):
 class ValueElement(Generic[W, V], Element[W]):
     def __init__(self, value_property, component, args=None, kwargs=None):
         self.value_property = value_property
-        super().__init__(component, args, kwargs)
+        Element.__init__(self, component, args, kwargs)  # type: ignore[arg-type]  # (faster than super())
 
     # TODO: we want to enable something like this, but requires a good hash function
     # for the key
@@ -728,8 +746,12 @@ class ContainerAdder(Generic[W]):
 
 
 class ComponentWidget(Component):
+    # the generated element factories make one per element
+    mime_bundle: Dict[str, Any] = mime_bundle_default
+
     def __init__(self, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
-        self.mime_bundle = mime_bundle
+        if mime_bundle is not mime_bundle_default:
+            self.mime_bundle = mime_bundle
         self.widget = widget
         self.name = widget.__name__
 
@@ -744,10 +766,11 @@ class ComponentWidget(Component):
         return f"Component[{self.widget!r}]"
 
     def __call__(self, *args, **kwargs):
-        el: Element = Element(self, args=args, kwargs=kwargs)
+        el: Element = Element(self, args, kwargs)
         # TODO: temporary, we cannot change the constructor
         # otherwise we need to generate the wrapper code again for all libraries
-        el.mime_bundle = self.mime_bundle
+        if self.mime_bundle is not mime_bundle_default:
+            el.mime_bundle = self.mime_bundle
         return el
 
 
@@ -837,10 +860,11 @@ class ComponentFunction(Component):
 
     def __call__(self, *args, **kwargs):
         if self.value_name is not None:
-            el: Element = ValueElement(self.value_name, self, args=args, kwargs=kwargs)
+            el: Element = ValueElement(self.value_name, self, args, kwargs)
         else:
-            el = Element(self, args=args, kwargs=kwargs)
-        el.mime_bundle = self.mime_bundle
+            el = Element(self, args, kwargs)
+        if self.mime_bundle is not mime_bundle_default:
+            el.mime_bundle = self.mime_bundle
         return el
 
 
@@ -914,8 +938,14 @@ def get_widget(el: Element):
     element will be returned.
     """
     rc = get_render_context()
+    context = rc.context
+    if context is not None and not el.is_shared:
+        # the common case: an element of the component whose effect runs
+        element_to_widget = context.element_to_widget
+        if el in element_to_widget:
+            return element_to_widget[el]
     # breadth first search
-    contexts = [rc.context]
+    contexts = [context]
     while contexts:
         context = contexts.pop()
         if context is None:
@@ -970,13 +1000,17 @@ def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None
     The last one avoid issues with stale data, which means you have a reference to the value of an old render pass (not present in this simple example).
 
     """
-    rc = _get_render_context()
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
     return rc.use_state(initial, key, eq)
 
 
 def use_effect(effect: EffectCallable, dependencies=None):
-    rc = _get_render_context()
-    return rc.use_effect(effect, dependencies=dependencies)
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    return rc.use_effect(effect, dependencies)
 
 
 def use_side_effect(effect: EffectCallable, dependencies=None):
@@ -1029,9 +1063,11 @@ def use_reducer(reduce: Callable[[T, U], T], initial_state: T) -> Tuple[T, Calla
 
 
 def use_memo(f: Callable[[], T], dependencies=None, debug_name: str = None) -> T:
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
     if debug_name is None:
         debug_name = f.__name__
-    rc = _get_render_context()
     if dependencies is None:
         dependencies = inspect.getclosurevars(f).nonlocals
         dependencies = {k: v for k, v in dependencies.items() if not k.startswith("__")}
@@ -1076,11 +1112,10 @@ class Ref(Generic[T]):
 
 
 def use_ref(initial_value: T) -> Ref[T]:
-    def make_ref():
-        return Ref(initial_value)
-
-    ref = use_memo(make_ref, [])
-    return ref
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    return rc.use_ref(initial_value)
 
 
 class UserContext(Generic[T]):
@@ -1326,6 +1361,10 @@ class ComponentContext:
         self.used_keys = set()
         self.exceptions_self = []
         self.exceptions_children = []
+        # most components use state (solara: every component), and have a container widget:
+        # making these on first use (see __getattr__) costs more than an empty dict
+        self.state = {}
+        self.resolved_kwargs = {}
         # the dataclass constructor took every field as a keyword argument
         for name, value in fields.items():
             if name not in _COMPONENT_CONTEXT_FIELDS:
@@ -1355,6 +1394,8 @@ _COMPONENT_CONTEXT_LAZY: Dict[str, Callable[[], Any]] = {
     "context_managers": list,
 }
 _COMPONENT_CONTEXT_FIELDS = set(ComponentContext.__annotations__)
+# use_state keys of the first 64 hooks of a component (str(index))
+_STATE_KEYS = [str(i) for i in range(64)]
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -1423,13 +1464,17 @@ class RerenderReason:
 
 
 class Effect:
+    # defaults as class attributes: one Effect is made per use_effect call per render
+    _cleanup: Optional[EffectCleanupCallable] = None
+    next: Optional["Effect"] = None
+    executed = False
+    _cleaned_up = False
+
     def __init__(self, callable: EffectCallable, dependencies: Optional[List[Any]] = None, next: Optional["Effect"] = None) -> None:
         self.callable = callable
         self.dependencies = dependencies
-        self._cleanup: Optional[EffectCleanupCallable] = None
-        self.next = next
-        self.executed = False
-        self._cleaned_up = False
+        if next is not None:
+            self.next = next
 
     def cleanup(self):
         if self._cleaned_up:
@@ -1612,11 +1657,31 @@ class _RenderContext:
             self.context.memo_index += 1
             return value
 
+    def use_ref(self, initial_value):
+        # use_memo(lambda: Ref(initial_value), []), without the closure and the extra calls
+        context = self.context
+        assert context is not None
+        memo = context.memo
+        index = context.memo_index
+        if index < len(memo):
+            value, dependencies_previous = memo[index]
+            if type(dependencies_previous) is not list or dependencies_previous:
+                # not the memo of a use_ref (e.g. conditional hooks): what use_memo would do
+                if not utils.equals(dependencies_previous, []):
+                    value = Ref(initial_value)
+                    memo[index] = (value, [])
+        else:
+            value = Ref(initial_value)
+            memo.append((value, []))
+        context.memo_index = index + 1
+        return value
+
     def use_state(self, initial, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
         assert self.context is not None
         if key is None:
-            key = str(self.context.state_index)
-            self.context.state_index += 1
+            index = self.context.state_index
+            key = _STATE_KEYS[index] if index < 64 else str(index)
+            self.context.state_index = index + 1
         if key not in self.context.state:
             self.context.state[key] = initial
             if isinstance(initial, (list, dict, set)):
