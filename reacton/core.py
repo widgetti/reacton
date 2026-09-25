@@ -816,8 +816,10 @@ class ComponentWidget(Component):
         return el
 
 
-# ComponentWidget per widget class (see ComponentWidget.__new__)
-_component_widgets: Dict[type, ComponentWidget] = {}
+# ComponentWidget per widget class (see ComponentWidget.__new__). Weak values: an entry goes
+# away when no element uses it any more, so widget classes made at runtime (e.g. by a hot
+# reload) can be freed.
+_component_widgets: "weakref.WeakValueDictionary[type, ComponentWidget]" = weakref.WeakValueDictionary()
 
 
 class ComponentFunction(Component):

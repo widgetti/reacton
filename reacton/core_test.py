@@ -4647,3 +4647,27 @@ def test_get_widget_stale_element_message():
     assert len(errors) == 1
     assert "was found to be in a previous render" in errors[0]
     rc.close()
+
+
+def test_dynamic_widget_class_is_freed():
+    # one ComponentWidget is shared per widget class: it must not keep a widget class that
+    # was made at runtime (like a hot reload does) alive after its elements are gone
+    def render_and_close():
+        class Dynamic(widgets.Button):
+            pass
+
+        component = react.core.ComponentWidget(widget=Dynamic)
+        assert react.core.ComponentWidget(widget=Dynamic) is component
+
+        @react.component
+        def Test():
+            return component(description="dynamic")
+
+        widget, rc = react.render_fixed(Test(), handle_error=False)
+        assert isinstance(widget, Dynamic)
+        rc.close()
+        return weakref.ref(Dynamic)
+
+    class_ref = render_and_close()
+    gc.collect()
+    assert class_ref() is None
