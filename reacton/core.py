@@ -614,7 +614,7 @@ class Element(Generic[W]):
     def _update_widget(self, widget: widgets.Widget, el_prev: "Element", kwargs):
         assert isinstance(self.component, ComponentWidget)
         assert isinstance(el_prev.component, ComponentWidget)
-        assert same_component(self.component, el_prev.component)
+        assert self.component is el_prev.component or same_component(self.component, el_prev.component)
         # used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
         # the trait names are only needed for on_* names (listener or trait?)
         args = None
@@ -633,7 +633,8 @@ class Element(Generic[W]):
 
             # if we previously gave an argument, but now we don't
             # we have to restore the default values, and remove listeners
-            dropped_arguments = set(el_prev.kwargs) - set(self.kwargs)
+            new_kwargs = self.kwargs
+            dropped_arguments = [name for name in el_prev.kwargs if name not in new_kwargs]
             if dropped_arguments:
                 cls = widget.__class__
                 traits = cls.class_traits()
@@ -776,14 +777,25 @@ class ContainerAdder(Generic[W]):
 
 
 class ComponentWidget(Component):
-    # the generated element factories make one per element
     mime_bundle: Dict[str, Any] = mime_bundle_default
+    widget: Type[widgets.Widget]
 
-    def __init__(self, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
+    def __new__(cls, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
+        # The generated element factories make one per element. One instance per widget
+        # class is cheaper, and makes the component compares of the render walks identity
+        # checks (__eq__ compares the widget classes).
+        if cls is ComponentWidget and mime_bundle is mime_bundle_default:
+            self = _component_widgets.get(widget)
+            if self is not None:
+                return self
+        self = super().__new__(cls)
         if mime_bundle is not mime_bundle_default:
             self.mime_bundle = mime_bundle
         self.widget = widget
         self.name = widget.__name__
+        if cls is ComponentWidget and mime_bundle is mime_bundle_default:
+            _component_widgets[widget] = self
+        return self
 
     def __eq__(self, rhs):
         if self is rhs:
@@ -802,6 +814,10 @@ class ComponentWidget(Component):
         if self.mime_bundle is not mime_bundle_default:
             el.mime_bundle = self.mime_bundle
         return el
+
+
+# ComponentWidget per widget class (see ComponentWidget.__new__)
+_component_widgets: Dict[type, ComponentWidget] = {}
 
 
 class ComponentFunction(Component):
@@ -2521,7 +2537,7 @@ class _RenderContext:
                             self._shared_widgets[el] = widget
                         else:
                             context.widgets[key] = widget
-                elif el_prev is not None and el_prev.component == el.component:
+                elif el_prev is not None and (el_prev.component is el.component or el_prev.component == el.component):
                     logger.debug("Updating widget: %r  → %r %r", el_prev, el, key)
                     assert el_prev is not None
                     # TODO: remove event listeners while doing so
@@ -3010,7 +3026,7 @@ class _RenderContextFast(_RenderContext):
             # the element arguments are part of this component's element tree
             if el.kwargs:
                 el_reconciled = context.elements.get(key)
-                if el_reconciled is not None and el_reconciled.component != el.component:
+                if el_reconciled is not None and el_reconciled.component is not el.component and el_reconciled.component != el.component:
                     # reconciliation replaces the widget at this key, and first removes the
                     # old subtree, including the component contexts in it: the walk below
                     # must not keep one of those as it is (see the fast path further down)
@@ -3618,7 +3634,7 @@ class _RenderContextFast(_RenderContext):
                             if self._elements_seen != elements_seen and not el.is_shared:
                                 context.resolved_kwargs[key] = kwargs
                     self._store_widget(context, el, key, widget)
-                elif el_prev is not None and el_prev.component == el.component:
+                elif el_prev is not None and (el_prev.component is el.component or el_prev.component == el.component):
                     # update the existing widget in place
                     kwargs = self._reconsolidate_children(el.kwargs, key, parent_key)
                     has_elements = self._elements_seen != elements_seen

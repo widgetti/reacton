@@ -37,14 +37,38 @@ def wrap(mod, globals):
 
 
 _core = None
+# types whose == gives a plain bool and never raises
+_SIMPLE_TYPES = frozenset([str, int, float, bool, bytes, complex, type(None)])
 
 
 def equals(a, b):
     if a is b:
         return True
     # ignore E721 for now
-    if type(a) != type(b):  # noqa: E721 # is this always true? after a == b failed?
+    type_a = type(a)
+    if type_a != type(b):  # noqa: E721 # is this always true? after a == b failed?
         return False
+    # the common cases first (arguments and hook dependencies), with the same result as
+    # the general code below
+    if type_a in _SIMPLE_TYPES:
+        return a == b
+    if type_a is list or type_a is tuple:
+        if len(a) != len(b):
+            return False
+        for x, y in zip(a, b):
+            if x is not y and not equals(x, y):
+                return False
+        return True
+    if type_a is dict:
+        if len(a) != len(b):
+            return False
+        for key, value in a.items():
+            if key not in b:
+                return False
+            other = b[key]
+            if value is not other and not equals(value, other):
+                return False
+        return True
     # an import statement costs more than the rest of a typical call (this is called for
     # every argument of every re-rendered child, and every hook dependency)
     global _core
@@ -111,11 +135,20 @@ def import_item(name: str):
         return getattr(module, parts[-1])
 
 
+_lazy_types: dict = {}
+
+
 def isinstance_lazy(value, types):
     if isinstance(types, str):
         # the common case (e.g. "pandas.DataFrame" in every state change)
-        cls = import_item(types)
-        return cls is not None and isinstance(value, cls)
+        cls = _lazy_types.get(types)
+        if cls is None:
+            cls = import_item(types)
+            if cls is None:
+                # not imported (yet)
+                return False
+            _lazy_types[types] = cls
+        return isinstance(value, cls)
     if not isinstance(types, (list, tuple)):
         types = [types]
     types = [import_item(t) if isinstance(t, str) else t for t in types]
