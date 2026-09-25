@@ -1278,6 +1278,23 @@ class ComponentContext:
 
     context_managers: List[ContextManager]  # lazy
 
+    # For the fast renderer, which walks the context tree (not the element tree) of a
+    # component that does not render again:
+    # the key of this context in parent.children
+    key_in_parent: Optional[str] = None
+    # the position of the component element in the element tree of the parent
+    order_in_parent: int = 0
+    # counts the component elements while the render phase walks the element tree
+    child_order_counter: int = 0
+    # the child contexts that need a render, or have a descendant that does (set by
+    # setters walking up, taken by the render phase)
+    dirty_children: Optional[Dict["ComponentContext", None]] = None
+    # the render phase only walked the dirty children of this component: its element tree
+    # is the one of the last reconciliation, so reconciliation only needs those children
+    partial: bool = False
+    # the element tree of this component holds shared elements (they need the full walk)
+    has_shared: bool = False
+
     def __init__(
         self,
         parent: Optional["ComponentContext"] = None,
@@ -1367,6 +1384,7 @@ def _teardown_component_context(context: ComponentContext):
     context.used_keys = set()
     context.exceptions_self = []
     context.exceptions_children = []
+    context.dirty_children = None
     # the rarely used containers are made again (empty) when used
     for name in _COMPONENT_CONTEXT_LAZY:
         context.__dict__.pop(name, None)
@@ -1659,7 +1677,7 @@ class _RenderContext:
                 context.state_metadata[key] = new_metadata
                 # TODO: enable
                 context.needs_render = True
-                _mark_needs_render_ancestors(context)
+                self._mark_dirty(context)
                 if self._rerender_needed is False:
                     if DEBUG:
                         trigger_stack = traceback.format_stack()
@@ -1679,6 +1697,10 @@ class _RenderContext:
                 self._possible_rerender()
 
         return set_
+
+    def _mark_dirty(self, context: ComponentContext):
+        """Let the render phase find its way down to a context that needs a render."""
+        _mark_needs_render_ancestors(context)
 
     def force_update(self):
         if self._closing:
@@ -2631,12 +2653,20 @@ class _RenderContextFast(_RenderContext):
     #    bookkeeping to current.
     #
     # A component subtree in which no state changed, no exception is
-    # pending, and whose element is identical to the previous render is
-    # skipped in both phases: setters mark the path from their context up
-    # to the root (ComponentContext.needs_render_descendant), so the walk
-    # only descends where work can exist. _render marks skipped contexts
-    # (clean_subtree) so _reconsolidate can reuse the previous widget
-    # without walking either.
+    # pending, and whose element is identical to the previous render (or
+    # a new element with equal arguments) is skipped in both phases:
+    # setters mark the path from their context up to the root
+    # (ComponentContext.needs_render_descendant and dirty_children), so the
+    # walk only descends where work can exist. _render marks skipped
+    # contexts (clean_subtree) so _reconsolidate can reuse the previous
+    # widget without walking either.
+    #
+    # A component that does not render again, but has a dirty descendant,
+    # has the same element tree as at the last reconciliation. Its element
+    # tree is not walked: only the dirty child contexts are (partial), in
+    # both phases, so an update costs work proportional to the depth, not
+    # to the number of siblings. When the root widget of such a child
+    # changes, the widgets holding it are updated (_rewire).
     # ------------------------------------------------------------------
 
     # > 0 while the render phase walks the new children of a widget that replaces a
@@ -2646,6 +2676,36 @@ class _RenderContextFast(_RenderContext):
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
+
+    def _mark_dirty(self, context: ComponentContext):
+        # like _mark_needs_render_ancestors, and also record which children are dirty, so the
+        # render phase can go to them without walking the element trees on the way
+        child = context
+        parent = context.parent
+        while parent is not None:
+            dirty = parent.dirty_children
+            if dirty is None:
+                parent.dirty_children = {child: None}
+            elif child in dirty:
+                # marked before (the render phase takes both at the same time), so is the path up
+                break
+            else:
+                dirty[child] = None
+            parent.needs_render_descendant = True
+            child = parent
+            parent = parent.parent
+
+    def _discard_aborted_pass(self):
+        super()._discard_aborted_pass()
+        contexts: List[ComponentContext] = [self.context_root]
+        while contexts:
+            context = contexts.pop()
+            context.partial = False
+            context.dirty_children = None
+            contexts.extend(context.children.values())
+            contexts.extend(context.children_next.values())
+        # every context is marked dirty now: walk the whole tree
+        self._walk_all = True
 
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
@@ -2659,6 +2719,8 @@ class _RenderContextFast(_RenderContext):
             # the root element of a component determines which keys are in use,
             # everything else is stale and gets removed during reconciliation
             context.used_keys.clear()
+            context.has_shared = False
+            context.child_order_counter = 0
 
         el = element
         key = el._key
@@ -2673,6 +2735,9 @@ class _RenderContextFast(_RenderContext):
         context.used_keys.add(key)
 
         if el.is_shared:
+            # the walk over the dirty children only (see _render_component) does not
+            # handle shared elements
+            context.has_shared = True
             # a shared element renders a single widget, process it once per phase
             if el in self._shared_elements_next:
                 return
@@ -2711,7 +2776,13 @@ class _RenderContextFast(_RenderContext):
             # for non-shared component elements the component function decides
             # what ends up in the tree
             self._visit_children(el, key, parent_key, self._render)
+        order = context.child_order_counter
+        context.child_order_counter = order + 1
+        self._render_component(el, key, parent_key, el_prev, order)
 
+    def _render_component(self, el: Element, key: str, parent_key: str, el_prev: Optional[Element], order: int):
+        context = self.context
+        assert context is not None
         context_previous = context.children_next.get(key)
         if context_previous is None:
             context_previous = context.children.get(key)
@@ -2747,6 +2818,7 @@ class _RenderContextFast(_RenderContext):
             # subtree in both phases
             context_previous.clean_subtree = True
             context_previous.invoke_element = el
+            context_previous.order_in_parent = order
             context.children_next[key] = context_previous
             return
 
@@ -2784,6 +2856,23 @@ class _RenderContextFast(_RenderContext):
             needs_render = True
         if not needs_render:
             assert el_prev is not None
+        # A component that does not render again and whose element tree is the one of the
+        # last reconciliation: only walk its dirty children, not its element tree (the
+        # reconciliation of this pass must then also only look at those, see
+        # _reconsolidate). With shared elements, or pending exceptions, the full walk.
+        partial = (
+            not needs_render
+            and not self._walk_all
+            and not self._replacing
+            and not el.is_shared
+            and context is context_previous
+            and parent_context.children.get(key) is context
+            and context.root_element is not None
+            and (context.root_element_next is None or context.partial)
+            and not context.has_shared
+            and not context.exceptions_self
+            and not context.exceptions_children
+        )
 
         self.container_adders = []
         self.context = context
@@ -2840,8 +2929,16 @@ class _RenderContextFast(_RenderContext):
 
             # the subtree walk below will mark this again when state changes
             context.needs_render_descendant = False
+            dirty_children = context.dirty_children
+            context.dirty_children = None
             if root_element is not None:
-                self._render(root_element, "/", parent_key=join_key(parent_key, key))  # depth first
+                if partial:
+                    context.partial = True
+                    if dirty_children:
+                        self._render_dirty_children(context, dirty_children, join_key(parent_key, key))
+                else:
+                    context.partial = False
+                    self._render(root_element, "/", parent_key=join_key(parent_key, key))  # depth first
                 context.root_element_next = root_element
             elif el.is_shared:
                 self._shared_elements_next.remove(el)
@@ -2868,6 +2965,8 @@ class _RenderContextFast(_RenderContext):
 
             # only expose to the parent when we get this far
             parent_context.children_next[key] = context
+            context.key_in_parent = key
+            context.order_in_parent = order
             # drop children/elements from a previous render pass that are no longer used
             used_keys = context.used_keys
             for unused in [k for k in context.children_next if k not in used_keys]:
@@ -2885,7 +2984,7 @@ class _RenderContextFast(_RenderContext):
             if context.exceptions_self or context.exceptions_children:
                 # make sure the next render pass walks down to this context
                 # (e.g. so a parent with use_exception gets a chance to handle it)
-                _mark_needs_render_ancestors(context)
+                self._mark_dirty(context)
             if parent_context.exceptions_self or parent_context.exceptions_children:
                 if not self._rerender_needed:
                     # this happens when an exception was added from an event handler:
@@ -2893,6 +2992,26 @@ class _RenderContextFast(_RenderContext):
                     # need to rerender until a component catches the exception
                     self._set_rerender_needed("Exception ocurred during render")
                     parent_context.needs_render = True
+
+    def _render_dirty_children(self, context: ComponentContext, dirty_children: Dict[ComponentContext, None], parent_key: str):
+        # the render phase of a component that does not render again (self.context is its
+        # context): render only the child components that are dirty, as the walk over its
+        # (unchanged) element tree would, in the same order
+        if len(dirty_children) > 1:
+            children = sorted(dirty_children, key=lambda child: child.order_in_parent)
+        else:
+            children = list(dirty_children)
+        for child in children:
+            key = child.key_in_parent
+            if key is None or context.children.get(key) is not child:
+                # not (or no longer) mounted here, e.g. the setter of a removed component
+                continue
+            el = child.invoke_element
+            assert el is not None
+            # reconciliation takes it from there, like after a walk of the element tree
+            context.elements_next[key] = el
+            el._render_count += 1  # for testing only
+            self._render_component(el, key, parent_key, el, child.order_in_parent)
 
     def _call_component(self, el: Element) -> Optional[Element]:
         """Run the component function, with an implicit container when it returns None."""
@@ -2950,6 +3069,15 @@ class _RenderContextFast(_RenderContext):
                         if el_prev is not None:
                             context.element_to_widget.pop(el_prev, None)
                         context.element_to_widget[el] = widget
+                    return widget
+                if child_context_next is not None and child_context_next.partial:
+                    # the render phase only walked the dirty children of this component
+                    self._reconsolidate_partial(el, key, parent_key, child_context_next)
+                    context.children[key] = context.children_next.pop(key)
+                    widget = context.widgets[key]
+                    if el_prev is not None and el_prev is not el:
+                        context.element_to_widget.pop(el_prev, None)
+                    context.element_to_widget[el] = widget
                     return widget
 
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
@@ -3044,7 +3172,7 @@ class _RenderContextFast(_RenderContext):
                         except BaseException as e:
                             context.exceptions_self.append(e)
                             self._set_rerender_needed("Exception ocurred during reconciliation (creating widget)")
-                            _mark_needs_render_ancestors(context)
+                            self._mark_dirty(context)
                         else:
                             if self._elements_seen != elements_seen and not el.is_shared:
                                 context.resolved_kwargs[key] = kwargs
@@ -3071,7 +3199,7 @@ class _RenderContextFast(_RenderContext):
                                 context.resolved_kwargs.pop(key, None)
                                 context.exceptions_self.append(e)
                                 self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
-                                _mark_needs_render_ancestors(context)
+                                self._mark_dirty(context)
                             else:
                                 if has_elements and not el.is_shared:
                                     context.resolved_kwargs[key] = kwargs
@@ -3090,7 +3218,7 @@ class _RenderContextFast(_RenderContext):
                         except BaseException as e:
                             context.exceptions_self.append(e)
                             self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
-                            _mark_needs_render_ancestors(context)
+                            self._mark_dirty(context)
                         else:
                             if self._elements_seen != elements_seen and not el.is_shared:
                                 context.resolved_kwargs[key] = kwargs
@@ -3140,6 +3268,80 @@ class _RenderContextFast(_RenderContext):
                 assert el in self._shared_elements_next
                 self._shared_elements_next.remove(el)
 
+    def _reconsolidate_partial(self, el: Element, key: str, parent_key: str, child_context: ComponentContext):
+        # Reconcile a component that did not render again, and of which the render phase only
+        # walked the dirty children (see _render_component). Its element tree is the one of the
+        # last reconciliation, so no widget of its own changes, no element becomes stale, and
+        # it has no new effects. Only when the root widget of a dirty child changes, the
+        # widgets that hold it need an update.
+        context = self.context
+        assert context is not None
+        child_context.partial = False
+        new_parent_key = join_key(parent_key, key)
+        self.context = child_context
+        try:
+            rewire = False
+            widgets = child_context.widgets
+            for child_key, grandchild in list(child_context.children_next.items()):
+                widget_before = widgets.get(child_key)
+                fragment_children = tuple(widget_before.children) if isinstance(widget_before, FragmentWidget) else None
+                assert grandchild.invoke_element is not None
+                widget_after = self._reconsolidate(grandchild.invoke_element, child_key, new_parent_key)
+                if widget_after is not widget_before:
+                    rewire = True
+                elif fragment_children is not None and not _values_identical(fragment_children, tuple(widget_after.children)):
+                    # its children are spliced into the list holding the fragment
+                    rewire = True
+            assert child_context.root_element is not None
+            if rewire:
+                widget = self._rewire(child_context.root_element, "/")
+            else:
+                widget = context.widgets[key]
+            child_context.root_element_next = None
+            if el._meta or getattr(widget, "_react_meta", {}):
+                widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
+            context.widgets[key] = widget
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                # child does not handle exceptions, so bubble up
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
+        finally:
+            self.context = context
+
+    def _rewire(self, el: Element, default_key: str):
+        # Reconciliation of an unchanged element tree (of self.context) in which a child
+        # component got a different root widget: every widget stays, but a container whose
+        # kwargs now resolve to other widgets gets them.
+        context = self.context
+        assert context is not None
+        key = el._key
+        if key is None:
+            key = default_key
+        widget = context.widgets[key]
+        if isinstance(el.component, ComponentFunction):
+            return widget
+        elements_seen = self._elements_seen
+        kwargs = self._visit_children_values(el.kwargs, key, "", self._rewire_child)
+        if self._elements_seen == elements_seen or context.exceptions_children:
+            # no elements in the kwargs, nothing changed (or, like reconciliation, do not
+            # update while a child has an exception)
+            return widget
+        resolved_previous = context.resolved_kwargs.get(key)
+        if resolved_previous is None or not _values_identical(kwargs, resolved_previous):
+            try:
+                el._update_widget(widget, el, kwargs)
+            except BaseException as e:
+                context.resolved_kwargs.pop(key, None)
+                context.exceptions_self.append(e)
+                self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
+                self._mark_dirty(context)
+            else:
+                context.resolved_kwargs[key] = kwargs
+        return widget
+
+    def _rewire_child(self, el: Element, key: str, parent_key: str):
+        return self._rewire(el, key)
+
     def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):
         # NOTE: effect/cleanup exceptions are recorded on the context of the
         # component's *parent* (`context`), unlike render exceptions: this is
@@ -3160,7 +3362,7 @@ class _RenderContextFast(_RenderContext):
                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
-                        _mark_needs_render_ancestors(context)
+                        self._mark_dirty(context)
                         context.needs_render = True
                 effect = child_context.effects[effect_index] = effect.next
             if child_context.exceptions_self or child_context.exceptions_children:
@@ -3172,7 +3374,7 @@ class _RenderContextFast(_RenderContext):
                 logger.exception("Effect %r raised exception %r", effect.callable, e)
                 context.exceptions_self.append(e)
                 self._set_rerender_needed("Exception ocurred during effect")
-                _mark_needs_render_ancestors(context)
+                self._mark_dirty(context)
                 context.needs_render = True
 
     def _store_widget(self, context: "ComponentContext", el: Element, key: str, widget: Optional[widgets.Widget]):
@@ -3216,7 +3418,7 @@ class _RenderContextFast(_RenderContext):
                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
-                        _mark_needs_render_ancestors(child_context)
+                        self._mark_dirty(child_context)
                 assert child_context.root_element is not None
                 self._remove_element(child_context.root_element, "/", parent_key=join_key(parent_key, key))
             finally:
