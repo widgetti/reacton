@@ -216,14 +216,23 @@ def are_events_supressed():
     return getattr(local, "events_supressed", False)
 
 
-@contextlib.contextmanager
+class _SuppressEvents:
+    # a plain context manager: a @contextmanager generator per widget update costs ~1 us
+    __slots__ = ()
+
+    def __enter__(self):
+        local.events_supressed = True
+
+    def __exit__(self, *args):
+        local.events_supressed = False
+
+
+_suppress_events = _SuppressEvents()
+
+
 def suppress_events():
     """Suppress events while updating a widget"""
-    local.events_supressed = True
-    try:
-        yield
-    finally:
-        local.events_supressed = False
+    return _suppress_events
 
 
 widgets.Widget.element = classmethod(element)
@@ -2917,57 +2926,58 @@ class _RenderContextFast(_RenderContext):
                     self._visit_children(el, key, parent_key, self._render)
             return
 
-        assert isinstance(el.component, ComponentFunction)
-        if el.is_shared and (el.args or el.kwargs):
-            # arguments of a shared element belong to the context it is rendered in;
-            # for non-shared component elements the component function decides
-            # what ends up in the tree
-            self._visit_children(el, key, parent_key, self._render)
         order = context.child_order_counter
         context.child_order_counter = order + 1
+        if el.is_shared:
+            if el.args or el.kwargs:
+                # arguments of a shared element belong to the context it is rendered in;
+                # for non-shared component elements the component function decides
+                # what ends up in the tree
+                self._visit_children(el, key, parent_key, self._render)
+        elif not self._walk_all and not self._replacing:
+            child = context.children.get(key)
+            if (
+                child is not None
+                and not child.needs_render
+                and not child.needs_render_descendant
+                and child.root_element_next is None
+                and child.root_element is not None
+                and not child.exceptions_self
+                and not child.exceptions_children
+                and (
+                    el is el_prev
+                    or (
+                        # a new element for the same component with equal arguments (the parent
+                        # re-rendered): the component would not re-render, so it would only walk
+                        # an unchanged subtree
+                        el_prev is not None
+                        and el_prev is child.invoke_element
+                        and not el._meta
+                        and (el_prev.component is el.component or same_component(el_prev.component, el.component))
+                        and not el._arguments_changed(el_prev)
+                    )
+                )
+            ):
+                children_next = context.children_next
+                child_next = children_next.get(key)
+                if child_next is None or child_next is child:
+                    # fast path: no state changes or pending exceptions anywhere in this
+                    # subtree, and fully reconciled: the previous result stands, skip the
+                    # subtree in both phases
+                    child.clean_subtree = True
+                    child.invoke_element = el
+                    child.order_in_parent = order
+                    children_next[key] = child
+                    return
         self._render_component(el, key, parent_key, el_prev, order)
 
     def _render_component(self, el: Element, key: str, parent_key: str, el_prev: Optional[Element], order: int):
+        # the render phase of a component element that is not skipped (see _render)
         context = self.context
         assert context is not None
         context_previous = context.children_next.get(key)
         if context_previous is None:
             context_previous = context.children.get(key)
-
-        if (
-            not self._walk_all
-            and not el.is_shared
-            and not self._replacing
-            and context_previous is not None
-            and context.children.get(key) is context_previous
-            and not context_previous.needs_render
-            and not context_previous.needs_render_descendant
-            and not context_previous.exceptions_self
-            and not context_previous.exceptions_children
-            and context_previous.root_element is not None
-            and context_previous.root_element_next is None
-            and (
-                el is el_prev
-                or (
-                    # a new element for the same component with equal arguments (the parent
-                    # re-rendered): the component would not re-render, so it would only walk
-                    # an unchanged subtree
-                    el_prev is not None
-                    and el_prev is context_previous.invoke_element
-                    and not el._meta
-                    and same_component(el_prev.component, el.component)
-                    and not el._arguments_changed(el_prev)
-                )
-            )
-        ):
-            # fast path: no state changes or pending exceptions anywhere in this
-            # subtree, and fully reconciled: the previous result stands, skip the
-            # subtree in both phases
-            context_previous.clean_subtree = True
-            context_previous.invoke_element = el
-            context_previous.order_in_parent = order
-            context.children_next[key] = context_previous
-            return
 
         parent_context = context
         del context
@@ -3331,9 +3341,32 @@ class _RenderContextFast(_RenderContext):
         context = self.context
         assert context is not None
 
-        if el.is_shared and el in self._shared_elements and el is not self.element:
-            # shared elements reconcile once, all other uses share the widget
-            return self._shared_widgets[el]
+        if el.is_shared:
+            if el in self._shared_elements and el is not self.element:
+                # shared elements reconcile once, all other uses share the widget
+                return self._shared_widgets[el]
+        else:
+            child_context_next = context.children_next.get(key)
+            if child_context_next is not None and child_context_next.clean_subtree:
+                el_prev = context.elements.get(key)
+                if el_prev is None or not el_prev.is_shared:
+                    # subtree was skipped during the render phase: the previous
+                    # reconciliation result stands (the lean version of the path below)
+                    child_context_next.clean_subtree = False
+                    children_next = context.children_next
+                    context.children[key] = children_next[key]
+                    del children_next[key]
+                    widget = context.widgets[key]
+                    if el is not el_prev:
+                        # a new element with equal arguments, used by get_widget
+                        element_to_widget = context.element_to_widget
+                        if el_prev is not None:
+                            element_to_widget.pop(el_prev, None)
+                        element_to_widget[el] = widget
+                    elements_next = context.elements_next
+                    context.elements[key] = elements_next[key]
+                    del elements_next[key]
+                    return widget
 
         el_prev = context.elements.get(key)
         try:
@@ -3411,7 +3444,12 @@ class _RenderContextFast(_RenderContext):
 
                     # remove elements that are no longer part of this component's tree
                     # NOTE: sorted for reproducibility
-                    stale_keys = sorted(set(child_context.elements) - child_context.used_keys)
+                    # (all used keys are in elements now, and a shared element used twice has one
+                    # element for two keys: only then the sizes do not tell)
+                    if len(child_context.elements) > len(child_context.used_keys) or child_context.has_shared:
+                        stale_keys = sorted(set(child_context.elements) - child_context.used_keys)
+                    else:
+                        stale_keys = []
                     if stale_keys:
                         logger.info("elements to be removed: %r", stale_keys)
                         for stale_key in stale_keys:
