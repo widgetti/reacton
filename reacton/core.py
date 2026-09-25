@@ -255,6 +255,34 @@ def _values_identical(a, b):
     return False
 
 
+_missing = object()
+
+
+def _widget_holds_values(widget: widgets.Widget, kwargs: Dict[str, Any]) -> bool:
+    """Does the widget already hold these (resolved) kwargs, so that setting them is a no-op?
+
+    Only for the same element as last render: its event listeners are the same callbacks,
+    and no argument was dropped. Compares by identity, where a list and a tuple with the
+    same items count as the same (a Tuple trait stores a list as a tuple).
+    """
+    for name, value in kwargs.items():
+        if name.startswith("on_") and not widget.has_trait(name):
+            continue
+        if not _value_held(value, getattr(widget, name, _missing)):
+            return False
+    return True
+
+
+def _value_held(value, held) -> bool:
+    if value is held:
+        return True
+    if isinstance(value, (list, tuple)):
+        return type(held) in (list, tuple) and len(value) == len(held) and all(_value_held(x, y) for x, y in zip(value, held))
+    if type(value) is dict:
+        return type(held) is dict and len(value) == len(held) and all(k in held and _value_held(v, held[k]) for k, v in value.items())
+    return False
+
+
 def _with_tracebacks(e, tracebacks):
     # copy it, and we need with_traceback for unknown reasons not to cause
     # an infinite loop
@@ -2798,15 +2826,17 @@ class _RenderContextFast(_RenderContext):
                     # update the existing widget in place
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     if not context.exceptions_children:
-                        if el is not el_prev or not _values_identical(kwargs, el.kwargs):
+                        # the same element whose kwargs hold no elements: nothing can have changed.
+                        # With elements (a container), the kwargs resolve to widgets, so compare
+                        # them with what the widget holds: equal means setting them is a no-op
+                        # (and a value changed from the frontend is still set back)
+                        if el is not el_prev or not (_values_identical(kwargs, el.kwargs) or _widget_holds_values(widget_previous, kwargs)):
                             try:
                                 el._update_widget(widget_previous, el_prev, kwargs)
                             except BaseException as e:
                                 context.exceptions_self.append(e)
                                 self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
                                 _mark_needs_render_ancestors(context)
-                        # else: identical element and all children reconciled to the
-                        # same widgets, nothing can have changed
                     self._store_widget(context, el, key, widget_previous)
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
