@@ -390,6 +390,9 @@ class Element(Generic[W]):
     # updated (None: not known), so a close of the whole tree can skip work
     _on_kwargs: Optional[bool] = None  # a kwarg starts with on_ (maybe an event listener)
     _leaf: Optional[bool] = None  # no elements in the kwargs
+    # handlers (of reacton.ipyvue.use_event) to register on the widget of this element when it
+    # is created or updated: objects with _reacton_attach(widget)
+    _event_handlers: Tuple[Any, ...] = ()
 
     def __init__(self, component, args=None, kwargs=None):
         self.component = component
@@ -603,6 +606,8 @@ class Element(Generic[W]):
                 for name, callback in listeners.items():
                     if callback is not None:
                         self._add_widget_event_listener(widget, name, callback)
+            for handler in self._event_handlers:
+                handler._reacton_attach(widget)
         finally:
             _stop_recording_constructed(previous_recording)
         if recorded and (len(recorded) > 1 or recorded[0] is not widget):
@@ -649,6 +654,8 @@ class Element(Generic[W]):
                         self._update_widget_prop(widget, name, value)
         # only when the update finished (else: not known)
         self._on_kwargs = on_kwargs
+        for handler in self._event_handlers:
+            handler._reacton_attach(widget)
 
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
@@ -1012,6 +1019,46 @@ def get_widget(el: Element):
     raise KeyError(f"Element {el} not found in all known widgets")  # for the component {context.widgets}")
 
 
+def _add_event_handlers(el: Element, handlers: Tuple[Any, ...], context: "ComponentContext", rc: "_RenderContext") -> None:
+    # Add use_event handlers (reacton.ipyvue) to an element: the renderer registers them on its
+    # widget when it creates or updates that widget. A component element hands them on to the
+    # element its body returns, when it renders (the widget of a component is the widget of its
+    # root element). context: the component that renders el (or makes it, for use_event).
+    current = el._event_handlers
+    for handler in handlers:
+        if handler in current:
+            continue
+        current = el._event_handlers = (*current, handler)
+        if el._key_frozen:
+            # The element was rendered before, so its widget may exist already and not be created
+            # or updated again. E.g. a memoized element, or an element of a parent that a child
+            # hooks into (the fast mount makes the parent's widget before the child renders).
+            widget = rc._shared_widgets.get(el) if el.is_shared else _find_widget(context, el)
+            if widget is not None:
+                handler._reacton_attach(widget)
+
+
+def _find_widget(context: Optional["ComponentContext"], el: Element) -> Optional[widgets.Widget]:
+    # the widget of el, or None: in the component, its parents, then in the whole tree (e.g. an
+    # element placed by a sibling)
+    top = context
+    while context is not None:
+        widget = context.element_to_widget.get(el)
+        if widget is not None:
+            return widget
+        top = context
+        context = context.parent
+    contexts = [top]
+    while contexts:
+        context = contexts.pop()
+        if context is not None:
+            widget = context.element_to_widget.get(el)
+            if widget is not None:
+                return widget
+            contexts.extend(context.children.values())
+    return None
+
+
 def use_state(initial: T, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
     """Returns a `(value, setter)` tuple that is used to manage state in a component.
 
@@ -1365,6 +1412,8 @@ class ComponentContext:
 
     # (only a component context manager class makes a list, see _render_component)
     context_managers: Sequence[ContextManager] = ()
+    # the use_event handlers of this component (reacton.ipyvue), detached when it is removed
+    event_handlers: Tuple[Any, ...] = ()
 
     # For the fast renderer, which walks the context tree (not the element tree) of a
     # component that does not render again:
@@ -2327,6 +2376,8 @@ class _RenderContext:
                     raise RuntimeError("Recursive render detected, possible a bug in react")
                 if root_element is not None:
                     logger.debug("root element: %r %x", root_element, id(root_element))
+                    if el._event_handlers:
+                        _add_event_handlers(root_element, el._event_handlers, context, self)
                     new_parent_key = join_key(parent_key, key)
                     self._render(root_element, "/", parent_key=new_parent_key)  # depth first
                     context.root_element_next = root_element
@@ -2710,6 +2761,14 @@ class _RenderContext:
                             effect.cleanup()
                     except BaseException as e:
                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
+                        child_context.exceptions_self.append(e)
+                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                        self._rerender_needed = True
+                for handler in child_context.event_handlers:
+                    try:
+                        handler._reacton_detach()
+                    except BaseException as e:
+                        logger.exception("Removing event handler %r raised exception %r", handler, e)
                         child_context.exceptions_self.append(e)
                         self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                         self._rerender_needed = True
@@ -3249,6 +3308,8 @@ class _RenderContextFast(_RenderContext):
             dirty_children = context.dirty_children
             context.dirty_children = None
             if root_element is not None:
+                if el._event_handlers:
+                    _add_event_handlers(root_element, el._event_handlers, context, self)
                 if partial:
                     context.partial = True
                     if dirty_children:
@@ -3374,6 +3435,8 @@ class _RenderContextFast(_RenderContext):
             context.needs_render_descendant = False
             widget = None
             if root_element is not None:
+                if el._event_handlers:
+                    _add_event_handlers(root_element, el._event_handlers, context, self)
                 widget = self._mount_node(root_element, "/", join_key(parent_key, key))
                 context.root_element = root_element
             elif el.is_shared:
@@ -3482,6 +3545,8 @@ class _RenderContextFast(_RenderContext):
                     for name, callback in listeners.items():
                         if callback is not None:
                             el._add_widget_event_listener(widget, name, callback)
+                for handler in el._event_handlers:
+                    handler._reacton_attach(widget)
                 orphan_ids = None
                 if len(recording) > count + 1 or (len(recording) == count + 1 and recording[count] is not widget):
                     widgets_dict = _get_widgets_dict()
@@ -4051,6 +4116,14 @@ class _RenderContextFast(_RenderContext):
                             effect.cleanup()
                     except BaseException as e:
                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
+                        child_context.exceptions_self.append(e)
+                        self._set_rerender_needed("Exception ocurred during effect")
+                        self._mark_dirty(child_context)
+                for handler in child_context.event_handlers:
+                    try:
+                        handler._reacton_detach()
+                    except BaseException as e:
+                        logger.exception("Removing event handler %r raised exception %r", handler, e)
                         child_context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
                         self._mark_dirty(child_context)
