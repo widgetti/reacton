@@ -4671,3 +4671,56 @@ def test_dynamic_widget_class_is_freed():
     class_ref = render_and_close()
     gc.collect()
     assert class_ref() is None
+
+
+def test_setter_is_stable():
+    # like React's setState: the same setter every render, so a child that gets it as an
+    # argument sees equal arguments and does not render again
+    setters: List[Callable] = []
+    child_renders = 0
+
+    @react.component
+    def Child(on_value):
+        nonlocal child_renders
+        child_renders += 1
+        return w.Button(description="child", on_click=lambda: on_value(10))
+
+    @react.component
+    def App():
+        value, set_value = react.use_state(0)
+        setters.append(set_value)
+        return w.VBox(children=[w.Label(value=str(value)), Child(on_value=set_value)])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    setters[0](1)
+    setters[-1](2)
+    assert vbox.children[0].value == "2"
+    assert len(setters) == 3
+    assert setters[0] is setters[1] is setters[2]
+    assert child_renders == 1
+    # the child calls the setter it got in the first render
+    vbox.children[1].click()
+    assert vbox.children[0].value == "10"
+    rc.close()
+
+
+def test_setter_uses_latest_eq():
+    set_value = lambda x: None  # noqa
+    render_count = 0
+
+    @react.component
+    def App():
+        nonlocal set_value, render_count
+        render_count += 1
+        # the first render compares by identity, later renders say everything is equal
+        eq = (lambda a, b: a is b) if render_count == 1 else (lambda a, b: True)
+        value, set_value = react.use_state([1], eq=eq)
+        return w.Label(value=str(value))
+
+    label, rc = react.render_fixed(App(), handle_error=False)
+    set_value([2])  # not identical: renders again, with the eq that finds all equal
+    assert label.value == "[2]"
+    set_value([3])  # equal for the latest eq: no render
+    assert label.value == "[2]"
+    assert render_count == 2
+    rc.close()

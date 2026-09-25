@@ -1321,7 +1321,9 @@ class ComponentContext:
     element_to_widget: Dict[Element, "ipywidgets.Widget"]
 
     # hooks data
-    state: Dict  # lazy
+    state: Dict
+    # one setter per state key, made once (a stable setter, like React's setState)
+    setters: Dict[str, Callable]
     state_metadata: Dict  # lazy
     state_index = 0
     effects: List["Effect"]
@@ -1415,6 +1417,7 @@ class ComponentContext:
         # most components use state (solara: every component), and have a container widget:
         # making these on first use (see __getattr__) costs more than an empty dict
         self.state = {}
+        self.setters = {}
         self.resolved_kwargs = {}
         # the dataclass constructor took every field as a keyword argument
         for name, value in fields.items():
@@ -1436,6 +1439,7 @@ class ComponentContext:
 
 _COMPONENT_CONTEXT_LAZY: Dict[str, Callable[[], Any]] = {
     "state": dict,
+    "setters": dict,
     "state_metadata": dict,
     "user_contexts": dict,
     "user_contexts_prev": dict,
@@ -1741,16 +1745,30 @@ class _RenderContext:
                 self.context.state_metadata[key] = utils.dataframe_fingerprint(initial)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Initial state = %r for key %r (%r)", initial, key, id(self.context))
-            return initial, self.make_setter(key, self.context, eq)
+            state = initial
         else:
             state = self.context.state[key]
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Got state = %r for key %r (%r)", state, key, id(self.context))
-            return state, self.make_setter(key, self.context, eq)
+        # the setter is made once per state key and kept (like React's setState): it compares
+        # equal to itself, so a child that gets it as an argument, or an effect that has it as
+        # a dependency, sees no change (utils.equals already found the setters of two renders
+        # equal, by comparing their code and closures)
+        setters = self.context.setters
+        setter = setters.get(key)
+        if setter is None:
+            setter = setters[key] = self.make_setter(key, self.context, eq)
+        else:
+            eq_cell = setter._reacton_eq  # type: ignore
+            if eq_cell[0] is not eq:
+                # the latest eq, as when a setter was made every render
+                eq_cell[0] = eq
+        return state, setter
 
     def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
         if DEBUG:
             created_stack = traceback.format_stack()
+        eq_cell = [eq]
 
         # NOTE: set_ captures self and context strongly, and that is a requirement:
         # a setter may be the ONLY reference keeping its component context alive
@@ -1759,6 +1777,7 @@ class _RenderContext:
         # the component contexts instead.
 
         def set_(value):
+            eq = eq_cell[0]
             if self._closing:
                 # the render context is closed (or closing) and the tree is (being)
                 # torn down: there is nothing to update. This check must come first:
@@ -1826,6 +1845,8 @@ class _RenderContext:
                     self._rerender_needed = True
                 self._possible_rerender()
 
+        # (a cell, not an attribute read via set_ itself: that would be a reference cycle)
+        set_._reacton_eq = eq_cell  # type: ignore
         return set_
 
     def _mark_dirty(self, context: ComponentContext):
