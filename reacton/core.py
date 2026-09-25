@@ -7,11 +7,13 @@ ReactJS - ipywidgets relation:
 
 """
 
+import collections
 import contextlib
 import copy
 import functools
 import inspect
 import logging
+import os
 import sys
 import threading
 import traceback
@@ -24,6 +26,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Deque,
     Dict,
     Generic,
     List,
@@ -1274,7 +1277,11 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
-        self._rerender_needed_reasons: List[RerenderReason] = []
+        # the reasons are only read for the "too many renders" error message, and a reason
+        # holds the previous and next state value: keeping all of them kept every old state
+        # value alive until close(). REACTON_RERENDER_REASONS keeps more, for debugging.
+        max_reasons = max(1, int(os.environ.get("REACTON_RERENDER_REASONS", "2")))
+        self._rerender_needed_reasons: Deque[RerenderReason] = collections.deque(maxlen=max_reasons)
         self.thread_lock = threading.Lock()
         self._closing = False
         self.tracebacks: List[TracebackType] = []
@@ -1654,10 +1661,10 @@ class _RenderContext:
                                         f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
                                     return f
 
-                                self._rerender_needed_reasons[-1]
                                 msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
                                 if len(self._rerender_needed_reasons) >= 2:
-                                    msg += f"Previous reasons: {format(self._rerender_needed_reasons[-2])}\n"
+                                    previous = reversed(list(self._rerender_needed_reasons)[:-1])
+                                    msg += f"Previous reasons: {''.join(format(reason) for reason in previous)}\n"
                                 raise RuntimeError(msg)
                             logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
                             self._rerender_needed = False
@@ -3022,8 +3029,6 @@ class _RenderContextFast(_RenderContext):
 
 
 def _render_context_class():
-    import os
-
     return _RenderContextFast if os.environ.get("REACTON_FAST") == "1" else _RenderContext
 
 
