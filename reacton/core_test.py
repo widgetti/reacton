@@ -3838,3 +3838,54 @@ def test_implicit_container_only_for_none():
         else:
             assert len(made) == 4
         rc.close()
+
+
+def test_fast_child_visitors_match_default():
+    import collections
+
+    Point = collections.namedtuple("Point", "x y")
+
+    class MyList(list):
+        pass
+
+    class MyDict(dict):
+        pass
+
+    button = w.Button(description="a")
+    label = w.Label(value="b")
+    widgets_before = set(_get_widgets_dict())
+    fragment_children = [widgets.Button(), widgets.Button()]
+    fragment = core.FragmentWidget(children=fragment_children)
+    value = {
+        "children": [button, "text", 1, None, True, (label, [button, label]), label],
+        "slots": [{"name": "x", "children": label}, {"name": "y", "children": [button]}],
+        "tuple": (button, 2.0, b"bytes"),
+        "point": Point(button, label),
+        "mylist": MyList([label, "x"]),
+        "mydict": MyDict(a=button, b=1),
+        "callback": print,
+        "widget": fragment,
+        "nested": {"deep": {"el": button, 3: [label]}},
+    }
+
+    def f(el, key, parent_key):
+        # the label becomes a fragment, to check that its children are spliced into lists
+        if el is label:
+            return fragment
+        return (el.component.name, key, parent_key)
+
+    default_rc = core._RenderContext(w.Button())
+    fast_rc = core._RenderContextFast(w.Button())
+    expected = core._RenderContext._visit_children_values(default_rc, value, "K/", "P", f)
+    got = core._RenderContextFast._visit_children_values(fast_rc, value, "K/", "P", f)
+    assert got == expected
+    assert [type(v) for v in got.values()] == [type(v) for v in expected.values()]
+    assert got["children"][-2:] == fragment_children
+
+    calls_default: List[str] = []
+    calls_fast: List[str] = []
+    core._RenderContext._visit_children_values(default_rc, value, "K/", "P", lambda el, key, parent_key: calls_default.append(key))
+    core._RenderContextFast._walk_children_values(fast_rc, value, "K/", "P", lambda el, key, parent_key: calls_fast.append(key))
+    assert calls_fast == calls_default
+    for model_id in set(_get_widgets_dict()) - widgets_before:
+        _get_widgets_dict()[model_id].close()

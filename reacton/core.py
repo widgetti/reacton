@@ -13,6 +13,7 @@ import copy
 import functools
 import inspect
 import logging
+import operator
 import sys
 import threading
 import traceback
@@ -251,7 +252,10 @@ def _values_identical(a, b):
     if type_a is not type(b):
         return False
     if type_a is list or type_a is tuple:
-        return len(a) == len(b) and all(x is y or _values_identical(x, y) for x, y in zip(a, b))
+        if len(a) != len(b):
+            return False
+        # a list of child widgets: usually all the same objects
+        return all(map(operator.is_, a, b)) or all(x is y or _values_identical(x, y) for x, y in zip(a, b))
     if type_a is dict:
         return len(a) == len(b) and all(k in b and (v is b[k] or _values_identical(v, b[k])) for k, v in a.items())
     return False
@@ -298,7 +302,8 @@ class Element(Generic[W]):
     # so that we can remove the listeners
     _callback_wrappers: Dict[Tuple[str, str, Callable], Callable] = {}
     create_lock: ContextManager = threading.Lock()
-    _shared = False
+    # a plain attribute (not a property): it is read for every element in every walk
+    is_shared: bool = False
 
     def __init__(self, component, args=None, kwargs=None):
         self.component = component
@@ -363,12 +368,17 @@ class Element(Generic[W]):
         self._meta = {**self._meta, **kwargs}
         return self
 
+    # the old name of is_shared
     @property
-    def is_shared(self):
-        return self._shared
+    def _shared(self) -> bool:
+        return self.is_shared
+
+    @_shared.setter
+    def _shared(self, value: bool):
+        self.is_shared = value
 
     def shared(self):
-        self._shared = True
+        self.is_shared = True
         return self
 
     def __repr__(self):
@@ -3074,22 +3084,96 @@ class _RenderContextFast(_RenderContext):
             del context.element_to_widget[el]
         del context.elements[key]
 
+    # The visitors below are the hottest code of a mount: they dispatch on the exact type,
+    # skip scalars without a call, and only build key strings for values that can hold
+    # elements. Subclasses of list/tuple/dict take the generic path, like before.
+
     def _visit_children(self, el: Element, default_key: str, parent_key: str, f: Callable):
+        # calls f for every element in the arguments of el (without building new values)
         key = el._key
         if key is None:
             key = default_key
         assert key is not None
-        self._visit_children_values(el.kwargs, key, parent_key, f)
-        self._visit_children_values(el.args, key, parent_key, f)
+        self._walk_children_values(el.kwargs, key, parent_key, f)
+        if el.args:
+            self._walk_children_values(el.args, key, parent_key, f)
+
+    def _walk_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
+        t = type(value)
+        if t is dict:
+            items: Any = value.items()
+        elif t is list or t is tuple:
+            items = enumerate(value)
+        elif t in _SCALAR_TYPES:
+            return
+        elif isinstance(value, Element):
+            f(value, key, parent_key)
+            return
+        elif isinstance(value, dict):
+            items = value.items()
+        elif isinstance(value, (list, tuple)):
+            items = enumerate(value)
+        else:
+            return
+        for k, v in items:
+            tv = type(v)
+            if tv in _SCALAR_TYPES:
+                continue
+            if isinstance(v, Element):
+                f(v, f"{key}{k}/", parent_key)
+            elif isinstance(v, (list, tuple, dict)):
+                self._walk_children_values(v, f"{key}{k}/", parent_key, f)
 
     # number of elements the visitor handed to its callback (see _reconsolidate)
     _elements_seen = 0
 
     def _visit_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
+        # returns value with every element replaced by f(element), and the children of a
+        # FragmentWidget spliced into the list that holds it
+        t = type(value)
+        if t is dict:
+            new_dict = {}
+            for k, v in value.items():
+                tv = type(v)
+                if tv in _SCALAR_TYPES:
+                    new_dict[k] = v
+                elif isinstance(v, Element):
+                    self._elements_seen += 1
+                    new_dict[k] = f(v, f"{key}{k}/", parent_key)
+                else:
+                    new_dict[k] = self._visit_children_values(v, f"{key}{k}/", parent_key, f)
+            return new_dict
+        if t is list or t is tuple:
+            values = []
+            for index, v in enumerate(value):
+                tv = type(v)
+                if tv in _SCALAR_TYPES:
+                    values.append(v)
+                    continue
+                if isinstance(v, Element):
+                    self._elements_seen += 1
+                    new_value = f(v, f"{key}{index}/", parent_key)
+                else:
+                    new_value = self._visit_children_values(v, f"{key}{index}/", parent_key, f)
+                if isinstance(new_value, FragmentWidget):
+                    values.extend(new_value.children)
+                else:
+                    values.append(new_value)
+            if t is tuple:
+                return tuple(values)
+            return values
+        if t in _SCALAR_TYPES:
+            return value
         if isinstance(value, Element):
             self._elements_seen += 1
             return f(value, key, parent_key)
-        elif isinstance(value, (list, tuple)):
+        if isinstance(value, (list, tuple, dict)):
+            return self._visit_children_values_generic(value, key, parent_key, f)
+        return value
+
+    def _visit_children_values_generic(self, value: Any, key: str, parent_key: str, f: Callable):
+        # subclasses of list/tuple/dict (the result is a plain list/tuple/dict)
+        if isinstance(value, (list, tuple)):
             values = []
             for index, v in enumerate(value):
                 new_value = self._visit_children_values(v, f"{key}{index}/", parent_key, f)
@@ -3100,10 +3184,7 @@ class _RenderContextFast(_RenderContext):
             if isinstance(value, tuple):
                 return tuple(values)
             return values
-        elif isinstance(value, dict):
-            return {k: self._visit_children_values(v, f"{key}{k}/", parent_key, f) for k, v in value.items()}
-        else:
-            return value
+        return {k: self._visit_children_values(v, f"{key}{k}/", parent_key, f) for k, v in value.items()}
 
     def _remove_stale_root_elements(self, parent_key):
         # remove stale elements of the root context itself
@@ -3112,6 +3193,10 @@ class _RenderContextFast(_RenderContext):
         for stale_key in stale_keys:
             if stale_key in self.context_root.elements:
                 self._remove_element(self.context_root.elements[stale_key], stale_key, parent_key)
+
+
+# values that cannot hold elements (the child visitors skip them)
+_SCALAR_TYPES = frozenset([str, int, float, bool, complex, bytes, type(None)])
 
 
 def _render_context_class():
