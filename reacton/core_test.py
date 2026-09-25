@@ -3889,3 +3889,66 @@ def test_fast_child_visitors_match_default():
     assert calls_fast == calls_default
     for model_id in set(_get_widgets_dict()) - widgets_before:
         _get_widgets_dict()[model_id].close()
+
+
+def test_hold_trait_notifications_batches_renders():
+    # a frontend update of several traits holds the trait notifications (Widget.set_state):
+    # the state changes of the listeners must result in a single render
+    @react.component
+    def Test():
+        value, set_value = react.use_state(0)
+        description, set_description = react.use_state("a")
+        return w.IntSlider(value=value, on_value=set_value, description=description, on_description=set_description)
+
+    slider, rc = react.render_fixed(Test(), handle_error=False)
+    render_count = rc.render_count
+    with slider.hold_trait_notifications():
+        slider.value = 3
+        slider.description = "b"
+        assert rc.render_count == render_count
+    assert rc.render_count == render_count + 1
+    assert slider.value == 3
+    assert slider.description == "b"
+
+    # a widget of the same class that reacton did not create is not affected
+    other = widgets.IntSlider()
+    with other.hold_trait_notifications():
+        other.value = 2
+    assert other.value == 2
+    assert rc.render_count == render_count + 1
+
+    rc.close()
+    # a closed widget does not keep the render context alive
+    assert "_reacton_rc" not in slider.__dict__
+    other.close()
+    other.layout.close()
+    other.style.close()
+
+
+def test_orphans_are_recorded_per_thread():
+    # widgets made as a side effect of creating a widget (like its Layout) are closed with
+    # it; renders in other threads construct widgets at the same time, and must not end up
+    # as orphans of our widget (or ours of theirs)
+    class SlowBox(widgets.Box):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # let the other threads construct their widgets now
+            time.sleep(0.01)
+            self._extra = widgets.Layout()
+
+    @react.component
+    def Test(i):
+        return SlowBox.element(children=[w.Button(description=str(i))])
+
+    def worker(i):
+        box, rc = react.render_fixed(Test(i), handle_error=False)
+        return box, rc
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(worker, range(8)))
+    for box, rc in results:
+        orphans = rc._orphans[box.model_id]
+        assert orphans == {box.layout.model_id, box._extra.model_id}
+    for box, rc in results:
+        rc.close()
+        assert box._extra.comm is None

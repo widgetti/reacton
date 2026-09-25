@@ -88,30 +88,94 @@ _get_widgets_dict = _widgets_dict_getter()
 # via the widget constructed hook: diffing the global widgets dict per widget
 # creation is O(total widgets), and solara replaces that dict with a context
 # aware mapping we should not depend on.
-_construction_recording: Optional[List["widgets.Widget"]] = None
+# The recording is per thread: renders in other threads (e.g. other kernels) construct
+# widgets at the same time, and must not end up in our recording.
+_construction_local = threading.local()
 _chained_construction_callback: Optional[Callable] = None
 
 
 def _record_constructed_widget(widget: "widgets.Widget"):
-    if _construction_recording is not None:
-        _construction_recording.append(widget)
+    recording = getattr(_construction_local, "recording", None)
+    if recording is not None:
+        recording.append(widget)
     if _chained_construction_callback is not None:
         _chained_construction_callback(widget)
 
 
-def _start_recording_constructed(recording: List["widgets.Widget"]):
-    global _construction_recording, _chained_construction_callback
+def _start_recording_constructed(recording: List["widgets.Widget"]) -> Optional[List["widgets.Widget"]]:
+    """Record the widgets this thread constructs into recording, returns the recording it replaces."""
+    global _chained_construction_callback
     current = getattr(widgets.Widget, "_widget_construction_callback", None)
     if current is not _record_constructed_widget:
         # first time, or someone else registered a callback after us: chain it
         _chained_construction_callback = current
         widgets.Widget.on_widget_constructed(_record_constructed_widget)
-    _construction_recording = recording
+    previous = getattr(_construction_local, "recording", None)
+    _construction_local.recording = recording
+    return previous
 
 
-def _stop_recording_constructed():
-    global _construction_recording
-    _construction_recording = None
+def _stop_recording_constructed(previous: Optional[List["widgets.Widget"]] = None):
+    _construction_local.recording = previous
+
+
+class _BatchedHold:
+    """hold_trait_notifications of a widget made by reacton: also batch the renders.
+
+    A frontend update of several traits (Widget.set_state) holds the trait notifications;
+    each notification can call an on_<trait> listener that sets state. Entering the render
+    context as well makes that a single render at the end, instead of one per trait.
+    """
+
+    __slots__ = ("rc", "hold")
+
+    def __init__(self, rc: "_RenderContext", hold):
+        self.rc = rc
+        self.hold = hold
+
+    def __enter__(self):
+        self.rc.__enter__()
+        try:
+            return self.hold.__enter__()
+        except BaseException:
+            self.rc.__exit__(*sys.exc_info())
+            raise
+
+    def __exit__(self, exc_type, exc_value, tb):
+        try:
+            suppress = self.hold.__exit__(exc_type, exc_value, tb)
+        except BaseException:
+            self.rc.__exit__(*sys.exc_info())
+            raise
+        if suppress:
+            self.rc.__exit__(None, None, None)
+        else:
+            self.rc.__exit__(exc_type, exc_value, tb)
+        return suppress
+
+
+def _install_batched_hold(cls: type):
+    """Make hold_trait_notifications of cls batch renders for widgets made by reacton.
+
+    Done once per class: a wrapper per widget instance (a closure and a contextmanager
+    per widget) was a large part of the cost of creating a widget. The wrapper only
+    changes widgets that have a render context in _reacton_rc (set by
+    Element._create_widget), all others get the original context manager.
+    """
+    hold = cls.hold_trait_notifications  # type: ignore
+    if getattr(hold, "_reacton_batched", False):
+        return
+
+    @functools.wraps(hold)
+    def hold_trait_notifications(self, *args, **kwargs):
+        cm = hold(self, *args, **kwargs)
+        rc = self.__dict__.get("_reacton_rc")
+        if rc is None:
+            return cm
+        return _BatchedHold(rc, cm)
+
+    hold_trait_notifications._reacton_batched = True  # type: ignore
+    cls.hold_trait_notifications = hold_trait_notifications  # type: ignore
 
 
 _last_rc = None  # used for testing
@@ -463,43 +527,44 @@ class Element(Generic[W]):
 
     def _close_widget(self, widget: widgets.Widget):
         close_widget(widget)
-        try:
-            delattr(widget, "hold_trait_notifications")
-        except AttributeError:
-            raise
+        # a closed widget no longer batches renders into (and keeps alive) our render context
+        widget.__dict__.pop("_reacton_rc", None)
 
     def _create_widget(self, kwargs):
         # we can't use our own kwarg, since that contains elements, not widgets
-        kwargs, listeners = self._split_kwargs(kwargs)
+        listeners = None
+        for name in kwargs:
+            if name.startswith("on_"):
+                # only then we need the trait names, to tell listeners from on_* traits
+                kwargs, listeners = self._split_kwargs(kwargs)
+                break
         assert isinstance(self.component, ComponentWidget)
-        # The recording is global state, so we need a lock.
-        with self.create_lock:
-            rc = get_render_context(required=True)
-            recorded: List[widgets.Widget] = []
-            _start_recording_constructed(recorded)
+        rc = get_render_context(required=True)
+        recorded: List[widgets.Widget] = []
+        # the recording is per thread, so no lock is needed
+        previous_recording = _start_recording_constructed(recorded)
+        try:
             try:
-                try:
-                    widget = self.component.widget(**kwargs)
-                    hold_trait_notifications = widget.hold_trait_notifications
-
-                    @contextlib.contextmanager
-                    def hold_trait_notifications_extra(*args, **kwargs):
-                        with rc, hold_trait_notifications(*args, **kwargs):
-                            yield
-
-                    widget.hold_trait_notifications = hold_trait_notifications_extra
-
-                    if self._meta:
-                        widget._react_meta = dict(self._meta)
-                except Exception as e:
-                    raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
+                widget = self.component.widget(**kwargs)
+                cls = type(widget)
+                if not getattr(cls.hold_trait_notifications, "_reacton_batched", False):
+                    _install_batched_hold(cls)
+                widget._reacton_rc = rc
+                if self._meta:
+                    widget._react_meta = dict(self._meta)
+            except Exception as e:
+                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
+            if listeners:
                 for name, callback in listeners.items():
                     if callback is not None:
                         self._add_widget_event_listener(widget, name, callback)
-            finally:
-                _stop_recording_constructed()
-        widgets_dict = _get_widgets_dict()
-        orphans = {w.model_id for w in recorded if w is not widget and w.comm is not None and w.model_id in widgets_dict}
+        finally:
+            _stop_recording_constructed(previous_recording)
+        if recorded and (len(recorded) > 1 or recorded[0] is not widget):
+            widgets_dict = _get_widgets_dict()
+            orphans = {w.model_id for w in recorded if w is not widget and w.comm is not None and w.model_id in widgets_dict}
+        else:
+            orphans = set()
         return widget, orphans
 
     def _update_widget(self, widget: widgets.Widget, el_prev: "Element", kwargs):
@@ -507,27 +572,33 @@ class Element(Generic[W]):
         assert isinstance(el_prev.component, ComponentWidget)
         assert same_component(self.component, el_prev.component)
         # used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
-        args = self.component.widget.class_trait_names()
+        # the trait names are only needed for on_* names (listener or trait?)
+        args = None
         with widget.hold_sync(), suppress_events():
             # update values
             for name, value in kwargs.items():
-                if name.startswith("on_") and name not in args:
-                    self._update_widget_event_listener(widget, name, value, el_prev.kwargs.get(name))
-                else:
-                    self._update_widget_prop(widget, name, value)
+                if name.startswith("on_"):
+                    if args is None:
+                        args = self.component.widget.class_trait_names()
+                    if name not in args:
+                        self._update_widget_event_listener(widget, name, value, el_prev.kwargs.get(name))
+                        continue
+                self._update_widget_prop(widget, name, value)
 
             # if we previously gave an argument, but now we don't
             # we have to restore the default values, and remove listeners
-            cls = widget.__class__
-            traits = cls.class_traits()
-
             dropped_arguments = set(el_prev.kwargs) - set(self.kwargs)
-            for name in dropped_arguments:
-                if name.startswith("on_") and name not in args:
-                    self._remove_widget_event_listener(widget, name, el_prev.kwargs[name])
-                else:
-                    value = traits[name].default()
-                    self._update_widget_prop(widget, name, value)
+            if dropped_arguments:
+                cls = widget.__class__
+                traits = cls.class_traits()
+                if args is None:
+                    args = self.component.widget.class_trait_names()
+                for name in dropped_arguments:
+                    if name.startswith("on_") and name not in args:
+                        self._remove_widget_event_listener(widget, name, el_prev.kwargs[name])
+                    else:
+                        value = traits[name].default()
+                        self._update_widget_prop(widget, name, value)
 
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
@@ -564,10 +635,13 @@ class Element(Generic[W]):
             logger.error("Could not remove event listener %r from %r", name, widget)
 
     def _cleanup_callbacks(self, widget: widgets.Widget):
-        args = self._get_widget_args()
+        args = None
         for name, value in self.kwargs.items():
-            if name.startswith("on_") and name not in args and value is not None:
-                self._remove_widget_event_listener(widget, name, value)
+            if name.startswith("on_") and value is not None:
+                if args is None:
+                    args = self._get_widget_args()
+                if name not in args:
+                    self._remove_widget_event_listener(widget, name, value)
 
 
 class Value(Generic[V], Protocol):
