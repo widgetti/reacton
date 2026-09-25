@@ -4724,3 +4724,33 @@ def test_setter_uses_latest_eq():
     assert label.value == "[2]"
     assert render_count == 2
     rc.close()
+
+
+def test_effect_dependencies_back_to_previous_in_second_pass():
+    # the dependencies change in a render pass, and change back in the next pass of the same
+    # render call: the effect does not run again (its dependencies at reconciliation are equal)
+    runs: List[str] = []
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        dependency = "b" if value == 1 else "a"
+        if value == 1:
+            set_value(2)  # a second render pass, where the dependency is "a" again
+
+        def effect():
+            runs.append(dependency)
+
+        react.use_effect(effect, [dependency])
+        return w.Label(value=str(value))
+
+    label, rc = react.render_fixed(Test(), handle_error=False)
+    assert runs == ["a"]
+    set_value(1)
+    assert label.value == "2"
+    assert runs == ["a"]
+    set_value(3)
+    assert runs == ["a"]
+    rc.close()

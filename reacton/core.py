@@ -1863,25 +1863,31 @@ class _RenderContext:
             self.render(self.element, self.container)
 
     def use_effect(self, effect: EffectCallable, dependencies=None):
-        assert self.context is not None
-        if len(self.context.effects) <= self.context.effect_index:
-            self.context.effect_index += 1
-            self.context.effects.append(Effect(effect, dependencies))
+        context = self.context
+        assert context is not None
+        effects = context.effects
+        index = context.effect_index
+        context.effect_index = index + 1
+        if len(effects) <= index:
+            effects.append(Effect(effect, dependencies))
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Initial effect = %r for index %r (%r)", effect, self.context.effect_index - 1, dependencies)
+                logger.debug("Initial effect = %r for index %r (%r)", effect, index, dependencies)
         else:
-            previous_effect = self.context.effects[self.context.effect_index]
-            # we always set it, even replacing it when we didn't execute it
-            # in the consolidation phase we decide what to do (e.g. skip it)
+            previous_effect = effects[index]
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
+                logger.debug("Setting next effect = %r for index %r (%r)", effect, index, dependencies)
             if previous_effect.executed:
-                # line up...
-                previous_effect.next = Effect(effect, dependencies)
+                if dependencies is not None and utils.equals(previous_effect.dependencies, dependencies):
+                    # The same dependencies: the effect does not run again. Reconciliation made
+                    # this same compare on a new Effect (and dropped it); now no Effect is made
+                    # (and one from an earlier render pass of this call is dropped).
+                    previous_effect.next = None
+                else:
+                    # line up, reconciliation cleans up the previous one and runs this one
+                    previous_effect.next = Effect(effect, dependencies)
             else:
                 # replace
-                self.context.effects[self.context.effect_index] = Effect(effect, dependencies)
-            self.context.effect_index += 1
+                effects[index] = Effect(effect, dependencies)
 
     def update(self, element: Element):
         self._walk_all = True
