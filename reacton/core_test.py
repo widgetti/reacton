@@ -4001,3 +4001,25 @@ def test_component_context_managers_count(n_managers):
         rc.close()
     finally:
         core._component_context_manager_classes[:] = saved
+
+
+def test_component_context_containers():
+    context = core.ComponentContext(state={"0": 1})
+    assert context.state == {"0": 1}
+    assert context.parent is None
+    assert context.invoke_element is None
+    assert context.needs_render
+    # the rarely used containers are made on first use, one per context
+    other = core.ComponentContext(parent=context)
+    assert other.parent is context
+    assert other.state == {}
+    assert other.owns == set()
+    assert other.user_contexts is not context.user_contexts
+    listener = unittest.mock.Mock()
+    user_context = react.create_context(1)
+    other.context_listeners[user_context].add(listener)  # a defaultdict(set)
+    assert other.context_listeners == {user_context: {listener}}
+    with pytest.raises(TypeError):
+        core.ComponentContext(no_such_field=1)  # type: ignore
+    with pytest.raises(AttributeError):
+        context.no_such_field  # type: ignore

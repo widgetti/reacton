@@ -17,6 +17,7 @@ import operator
 import sys
 import threading
 import traceback
+import typing
 import weakref
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -1203,9 +1204,15 @@ invoke_element = App()
 """
 
 
-@dataclass
 class ComponentContext:
-    parent: Optional["ComponentContext"] = field(default=None, repr=False)
+    """The state of one component instance: hooks, its element tree, child contexts, widgets.
+
+    A plain class, not a dataclass: one is made for every component instance, and the
+    dataclass made 16 containers for each, most of them never used. The containers in
+    _COMPONENT_CONTEXT_LAZY are made on first use (see __getattr__).
+    """
+
+    parent: Optional["ComponentContext"]
 
     # this is the element in the parent context
     invoke_element: Optional[Element] = None
@@ -1214,36 +1221,36 @@ class ComponentContext:
     root_element_next: Optional[Element] = None
     root_element: Optional[Element] = None
     # all elements, including the root element
-    elements_next: Dict[str, Element] = field(default_factory=dict)
+    elements_next: Dict[str, Element]
     # from previous reconciliation phase
-    elements: Dict[str, Element] = field(default_factory=dict)
+    elements: Dict[str, Element]
     # contexts for child elements which are a component
     # (every function component should be in children and elements, but not widget component)
-    children_next: Dict[str, "ComponentContext"] = field(default_factory=dict)
+    children_next: Dict[str, "ComponentContext"]
     # from previous reconciliation phase, so we can reuse hooks
-    children: Dict[str, "ComponentContext"] = field(default_factory=dict)
+    children: Dict[str, "ComponentContext"]
 
     # widgets correponding to the elements (non-shared widgets)
-    widgets: Dict[str, "widgets.Widget"] = field(default_factory=dict)
+    widgets: Dict[str, "widgets.Widget"]
 
     # used for get_widget to find the widget corresponding to an element
-    element_to_widget: Dict[Element, "ipywidgets.Widget"] = field(default_factory=dict)
+    element_to_widget: Dict[Element, "ipywidgets.Widget"]
 
     # hooks data
-    state: Dict = field(default_factory=dict)
-    state_metadata: Dict = field(default_factory=dict)
+    state: Dict  # lazy
+    state_metadata: Dict  # lazy
     state_index = 0
-    effects: List["Effect"] = field(default_factory=list)
+    effects: List["Effect"]
     effect_index = 0
-    memo: List[Any] = field(default_factory=list)
+    memo: List[Any]
     memo_index = 0
     # for provide/use_context
-    user_contexts: Dict["UserContext", Any] = field(default_factory=dict)
-    user_contexts_prev: Dict["UserContext", Any] = field(default_factory=dict)
-    context_listeners: Dict["UserContext", Set[Callable]] = field(default_factory=lambda: defaultdict(set))
+    user_contexts: Dict["UserContext", Any]  # lazy
+    user_contexts_prev: Dict["UserContext", Any]  # lazy
+    context_listeners: Dict["UserContext", Set[Callable]]  # lazy
 
     # to track key collisions, and remove unused elements
-    used_keys: Set[str] = field(default_factory=set)
+    used_keys: Set[str]
     # if a child component's state if changed, it needs a rerender
     needs_render: bool = True
     # some context in this subtree may need a render (set by setters walking up,
@@ -1255,22 +1262,76 @@ class ComponentContext:
     # the kwargs (elements resolved to widgets) that the widget of a container element
     # was last created or updated with, so an unchanged element that resolves to the
     # same widgets is not updated again (only used by the fast renderer)
-    resolved_kwargs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    resolved_kwargs: Dict[str, Dict[str, Any]]  # lazy
 
     # elements created in this context go there
-    owns: Set[Element] = field(default_factory=set)
+    owns: Set[Element]  # lazy
 
     # the exception that were raised in this component
-    exceptions_self: List[BaseException] = field(default_factory=list)
+    exceptions_self: List[BaseException]
     # all exceptions that occurred during render, reconcolliate or use effect
     # that bubbled up (children with exception_handler = False)
-    exceptions_children: List[BaseException] = field(default_factory=list)
+    exceptions_children: List[BaseException]
     # flag if this component will handle an exception of it's children
     # NOTE: we can never handle an exception in our own render function,
     # it will always bubble up to the parent component.
     exception_handler: bool = False
 
-    context_managers: List[ContextManager] = field(default_factory=list)
+    context_managers: List[ContextManager]  # lazy
+
+    def __init__(
+        self,
+        parent: Optional["ComponentContext"] = None,
+        invoke_element: Optional[Element] = None,
+        context_managers: Optional[List[ContextManager]] = None,
+        **fields,
+    ):
+        self.parent = parent
+        if invoke_element is not None:
+            self.invoke_element = invoke_element
+        if context_managers is not None:
+            self.context_managers = context_managers
+        # the containers every rendered component uses
+        self.elements_next = {}
+        self.elements = {}
+        self.children_next = {}
+        self.children = {}
+        self.widgets = {}
+        self.element_to_widget = {}
+        self.effects = []
+        self.memo = []
+        self.used_keys = set()
+        self.exceptions_self = []
+        self.exceptions_children = []
+        # the dataclass constructor took every field as a keyword argument
+        for name, value in fields.items():
+            if name not in _COMPONENT_CONTEXT_FIELDS:
+                raise TypeError(f"ComponentContext() got an unexpected keyword argument {name!r}")
+            setattr(self, name, value)
+
+    if not typing.TYPE_CHECKING:  # keep attribute checks for mypy
+
+        def __getattr__(self, name):
+            # only called for an attribute that is not set yet: make a rarely used container
+            factory = _COMPONENT_CONTEXT_LAZY.get(name)
+            if factory is None:
+                raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+            value = factory()
+            setattr(self, name, value)
+            return value
+
+
+_COMPONENT_CONTEXT_LAZY: Dict[str, Callable[[], Any]] = {
+    "state": dict,
+    "state_metadata": dict,
+    "user_contexts": dict,
+    "user_contexts_prev": dict,
+    "context_listeners": lambda: defaultdict(set),
+    "resolved_kwargs": dict,
+    "owns": set,
+    "context_managers": list,
+}
+_COMPONENT_CONTEXT_FIELDS = set(ComponentContext.__annotations__)
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -1302,19 +1363,14 @@ def _teardown_component_context(context: ComponentContext):
     context.children_next = {}
     context.widgets = {}
     context.element_to_widget = {}
-    context.state = {}
-    context.state_metadata = {}
     context.effects = []
     context.memo = []
-    context.user_contexts = {}
-    context.user_contexts_prev = {}
-    context.context_listeners = defaultdict(set)
     context.used_keys = set()
-    context.resolved_kwargs = {}
-    context.owns = set()
     context.exceptions_self = []
     context.exceptions_children = []
-    context.context_managers = []
+    # the rarely used containers are made again (empty) when used
+    for name in _COMPONENT_CONTEXT_LAZY:
+        context.__dict__.pop(name, None)
 
 
 @dataclass
