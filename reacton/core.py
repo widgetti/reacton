@@ -385,6 +385,10 @@ class Element(Generic[W]):
     # for debugging/testing only
     _render_count = 0
     _key_frozen: bool = False
+    # facts about the kwargs of a widget element, learned when its widget is created or
+    # updated (None: not known), so a close of the whole tree can skip work
+    _on_kwargs: Optional[bool] = None  # a kwarg starts with on_ (maybe an event listener)
+    _leaf: Optional[bool] = None  # no elements in the kwargs
 
     def __init__(self, component, args=None, kwargs=None):
         self.component = component
@@ -564,7 +568,10 @@ class Element(Generic[W]):
             if name.startswith("on_"):
                 # only then we need the trait names, to tell listeners from on_* traits
                 kwargs, listeners = self._split_kwargs(kwargs)
+                self._on_kwargs = True
                 break
+        else:
+            self._on_kwargs = False
         assert isinstance(self.component, ComponentWidget)
         rc = get_render_context(required=True)
         recorded: List[widgets.Widget] = []
@@ -601,10 +608,12 @@ class Element(Generic[W]):
         # used_kwargs, _ = el_prev.split_kwargs(el_prev.kwargs)
         # the trait names are only needed for on_* names (listener or trait?)
         args = None
+        on_kwargs = False
         with widget.hold_sync(), suppress_events():
             # update values
             for name, value in kwargs.items():
                 if name.startswith("on_"):
+                    on_kwargs = True
                     if args is None:
                         args = self.component.widget.class_trait_names()
                     if name not in args:
@@ -626,6 +635,8 @@ class Element(Generic[W]):
                     else:
                         value = traits[name].default()
                         self._update_widget_prop(widget, name, value)
+        # only when the update finished (else: not known)
+        self._on_kwargs = on_kwargs
 
     def _update_widget_prop(self, widget, name, value):
         setattr(widget, name, value)
@@ -1255,7 +1266,7 @@ class ComponentContext:
     _COMPONENT_CONTEXT_LAZY are made on first use (see __getattr__).
     """
 
-    parent: Optional["ComponentContext"]
+    parent: Optional["ComponentContext"] = None
 
     # this is the element in the parent context
     invoke_element: Optional[Element] = None
@@ -1401,6 +1412,18 @@ _COMPONENT_CONTEXT_LAZY: Dict[str, Callable[[], Any]] = {
     "resolved_kwargs": dict,
     "owns": set,
     "context_managers": list,
+    # made in __init__, and made again after _teardown_component_context
+    "elements_next": dict,
+    "elements": dict,
+    "children_next": dict,
+    "children": dict,
+    "widgets": dict,
+    "element_to_widget": dict,
+    "effects": list,
+    "memo": list,
+    "used_keys": set,
+    "exceptions_self": list,
+    "exceptions_children": list,
 }
 _COMPONENT_CONTEXT_FIELDS = set(ComponentContext.__annotations__)
 # use_state keys of the first 64 hooks of a component (str(index))
@@ -1425,26 +1448,11 @@ def _teardown_component_context(context: ComponentContext):
     """
     # replace the containers instead of clearing them: state_get() hands out the live
     # state dicts (test_state_get closes and re-renders with them), and in general we
-    # only want to drop OUR references, not destroy objects someone else captured
-    context.parent = None
-    context.invoke_element = None
-    context.root_element = None
-    context.root_element_next = None
-    context.elements = {}
-    context.elements_next = {}
-    context.children = {}
-    context.children_next = {}
-    context.widgets = {}
-    context.element_to_widget = {}
-    context.effects = []
-    context.memo = []
-    context.used_keys = set()
-    context.exceptions_self = []
-    context.exceptions_children = []
-    context.dirty_children = None
-    # the rarely used containers are made again (empty) when used
-    for name in _COMPONENT_CONTEXT_LAZY:
-        context.__dict__.pop(name, None)
+    # only want to drop OUR references, not destroy objects someone else captured.
+    # Dropping all instance attributes does that: what is left are the class defaults
+    # (parent, invoke_element, root_element... are None), and every container is made
+    # again, empty, when it is used (see ComponentContext.__getattr__).
+    context.__dict__.clear()
 
 
 class RerenderReason:
@@ -1574,6 +1582,10 @@ class _RenderContext:
     def _before_close(self):
         """Called by close() before the tree is removed."""
 
+    def _close_tree(self):
+        """Remove the whole element tree (close): effect cleanups, widgets, orphans."""
+        self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
+
     def close(self):
         with self.thread_lock:
             self._closing = True
@@ -1581,16 +1593,16 @@ class _RenderContext:
             # snapshot the component contexts before _remove_element detaches them from
             # their parents: detached contexts would escape the teardown below while the
             # setter/handler closures in their state still reference them and us
-            all_contexts: List[ComponentContext] = []
-
-            def collect(context: ComponentContext):
-                all_contexts.append(context)
-                for child in list(context.children.values()) + list(context.children_next.values()):
-                    collect(child)
-
-            collect(self.context_root)
+            all_contexts: List[ComponentContext] = [self.context_root]
+            index = 0
+            while index < len(all_contexts):
+                context = all_contexts[index]
+                index += 1
+                all_contexts.extend(context.children.values())
+                if context.children_next:
+                    all_contexts.extend(context.children_next.values())
             logger.info("Removing elements...")
-            self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
+            self._close_tree()
             logger.info("Removing elements done.")
             assert self.context is self.context_root
             # everything below used to run outside the lock: a render() that was
@@ -2850,6 +2862,81 @@ class _RenderContextFast(_RenderContext):
             # a reconciliation that raised did not finish them
             self._unmount()
 
+    def _close_tree(self):
+        if self._shared_elements or self._shared_widgets or DEBUG:
+            super()._close_tree()
+            return
+        # The whole tree goes away: the same walk as _remove_element (the same order of
+        # effect cleanups and widget closes, the same exception handling), without the
+        # bookkeeping of a partial removal (the contexts are dropped after this).
+        self._close_element(self.element, "/")
+
+    def _close_element(self, el: Element, default_key: str):
+        context = self.context
+        assert context is not None
+        key = el._key
+        if key is None:
+            key = default_key
+        if isinstance(el.component, ComponentFunction):
+            child_context = context.children.get(key)
+            if child_context is None:
+                return
+            # the element is going away, pending exceptions only matter if cleanup fails
+            if child_context.exceptions_self:
+                child_context.exceptions_self = []
+            if child_context.exceptions_children:
+                child_context.exceptions_children = []
+            self.context = child_context
+            try:
+                for effect in child_context.effects:
+                    if not effect._cleaned_up:
+                        # Effect.cleanup, inline
+                        cleanup = effect._cleanup
+                        try:
+                            if cleanup is not None:
+                                cleanup()
+                        except BaseException as e:
+                            logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
+                            child_context.exceptions_self.append(e)
+                        effect._cleaned_up = True
+                root_element = child_context.root_element
+                if root_element is not None:
+                    self._close_element(root_element, "/")
+            finally:
+                self.context = context
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                # child does not handle exceptions, so bubble up
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
+        else:
+            if el._leaf is not True:
+                self._walk_children_values(el.kwargs, key, "", self._close_child)
+            widget = context.widgets.get(key)
+            if widget is not None:
+                orphans = self._orphans.pop(widget.model_id, None)
+                if orphans:
+                    widgets_dict = _get_widgets_dict()
+                    for orphan in orphans:
+                        orphan_widget = widgets_dict.get(orphan)
+                        if orphan_widget:
+                            close_widget(orphan_widget)
+                element_class = type(el)
+                if el._on_kwargs is not False or element_class._cleanup_callbacks is not _element_cleanup_callbacks:
+                    el._cleanup_callbacks(widget)
+                if element_class._close_widget is _element_close_widget:
+                    # Element._close_widget, inline
+                    close = widget.close
+                    if callable(close):
+                        close()
+                    else:
+                        close_widget(widget)  # logs the warning
+                    widget.__dict__.pop("_reacton_rc", None)
+                else:
+                    el._close_widget(widget)
+
+    def _close_child(self, el: Element, key: str, parent_key: str):
+        self._close_element(el, key)
+
     def _discard_aborted_pass(self):
         self._unmount()
         super()._discard_aborted_pass()
@@ -3219,6 +3306,7 @@ class _RenderContextFast(_RenderContext):
                 del children_next[key]
             elements_seen = self._elements_seen
             kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._mount_element)
+            el._leaf = self._elements_seen == elements_seen
             if self._rerender_needed or self._mount_failed:
                 # this pass will be undone, do not create more widgets
                 return None
@@ -3499,6 +3587,7 @@ class _RenderContextFast(_RenderContext):
                 if widget_previous is None:
                     # initial create
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    el._leaf = self._elements_seen == elements_seen
                     if el.is_shared and el in self._shared_widgets:
                         raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
                     widget = None
@@ -3517,6 +3606,7 @@ class _RenderContextFast(_RenderContext):
                     # update the existing widget in place
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     has_elements = self._elements_seen != elements_seen
+                    el._leaf = not has_elements
                     if not context.exceptions_children:
                         identical = False
                         if el is el_prev:
@@ -3547,6 +3637,7 @@ class _RenderContextFast(_RenderContext):
                     # a different widget type at the same key: replace
                     self._remove_element(el_prev, key, parent_key=parent_key)
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    el._leaf = self._elements_seen == elements_seen
                     widget = None
                     if not context.exceptions_children:
                         try:
@@ -3911,6 +4002,8 @@ class _RenderContextFast(_RenderContext):
 
 # values that cannot hold elements (the child visitors skip them)
 _SCALAR_TYPES = frozenset([str, int, float, bool, complex, bytes, type(None)])
+_element_cleanup_callbacks = Element._cleanup_callbacks
+_element_close_widget = Element._close_widget
 
 
 def _render_context_class():

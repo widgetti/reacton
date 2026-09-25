@@ -4540,3 +4540,81 @@ def test_mount_widget_creation_error():
     # renderers: close those here
     for model_id in set(_get_widgets_dict()) - widgets_before:
         _get_widgets_dict()[model_id].close()
+
+
+def _close_log(fast: bool, fail_in_cleanup: bool = False):
+    # close a tree with nested components, effects and listeners; log the order of the
+    # effect cleanups and the widget closes
+    log: List[str] = []
+
+    class LoggedButton(widgets.Button):
+        def close(self):
+            if self.comm is not None:
+                log.append(f"close {self.description}")
+            super().close()
+
+    class LoggedBox(widgets.VBox):
+        def close(self):
+            if self.comm is not None:
+                log.append(f"close box {self.layout.width}")
+            super().close()
+
+    def Box(name, children):
+        return LoggedBox.element(children=children, layout=w.Layout(width=name))
+
+    @react.component
+    def Leaf(name):
+        value, set_value = react.use_state(0)
+
+        def effect():
+            def cleanup():
+                log.append(f"cleanup {name}")
+                if fail_in_cleanup and name == "b1":
+                    raise ValueError(f"cleanup {name} failed")
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
+
+    @react.component
+    def Group(name, n):
+        def effect():
+            return lambda: log.append(f"cleanup {name}")
+
+        react.use_effect(effect, [])
+        return Box(name, [Leaf(f"{name}{i}") for i in range(n)])
+
+    @react.component
+    def App():
+        def effect():
+            return lambda: log.append("cleanup app")
+
+        react.use_effect(effect, [])
+        return Box("app", [LoggedButton.element(description="first"), Group("a", 2), Box("inner", [Group("b", 2)]), Leaf("last")])
+
+    with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+        box, rc = react.render_fixed(App(), handle_error=False)
+        assert isinstance(rc, core._RenderContextFast) == fast
+        error = None
+        try:
+            rc.close()
+        except ValueError as e:
+            error = str(e)
+    return log, error
+
+
+@pytest.mark.parametrize("fail_in_cleanup", [False, True])
+def test_close_order_same_in_both_renderers(fail_in_cleanup):
+    level = core.logger.level
+    core.logger.setLevel(core.logging.CRITICAL)  # a failing cleanup logs a traceback
+    try:
+        default_log, default_error = _close_log(False, fail_in_cleanup)
+        fast_log, fast_error = _close_log(True, fail_in_cleanup)
+    finally:
+        core.logger.setLevel(level)
+    assert "cleanup app" in default_log and "close first" in default_log
+    assert fast_log == default_log
+    assert fast_error == default_error
+    if fail_in_cleanup:
+        assert default_error == "cleanup b1 failed"
