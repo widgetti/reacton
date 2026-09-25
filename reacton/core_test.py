@@ -3788,3 +3788,53 @@ def test_equal_args_child_is_not_walked():
     assert first_button._render_count == 1
     assert spy.types() == ["Label", "VBox"]
     rc.close()
+
+
+def test_implicit_container_only_for_none():
+    made = []
+
+    def Container(**kwargs):
+        el = w.VBox(**kwargs)
+        made.append(el)
+        return el
+
+    @react.component
+    def Implicit():
+        with w.HBox():
+            w.Button(description="in hbox")
+        w.Label(value="top")
+        w.Button(description="also top")
+
+    @react.component
+    def Explicit():
+        w.Label(value="not used")
+        return w.Button(description="returned")
+
+    @react.component
+    def Single():
+        w.Button(description="single")
+
+    @react.component
+    def App():
+        with w.VBox() as main:
+            Implicit()
+            Explicit()
+            Single()
+        return main
+
+    with unittest.mock.patch.object(reacton.core, "_default_container", Container):
+        vbox, rc = react.render_fixed(App(), handle_error=False)
+        implicit = vbox.children[0]
+        assert [type(child) for child in implicit.children] == [widgets.HBox, widgets.Label, widgets.Button]
+        assert implicit.children[0].children[0].description == "in hbox"
+        assert implicit.children[2].description == "also top"
+        assert vbox.children[1].description == "returned"
+        # a single element becomes the root itself
+        assert vbox.children[2].description == "single"
+        assert len(vbox.children) == 3
+        if core._render_context_class() is core._RenderContextFast:
+            # only the components that return None get a container
+            assert len(made) == 2
+        else:
+            assert len(made) == 4
+        rc.close()

@@ -2629,18 +2629,7 @@ class _RenderContextFast(_RenderContext):
                     with contextlib.ExitStack() as stack:
                         for cm in context.context_managers:
                             stack.enter_context(cm)
-                        if _default_container is not None:
-                            with _default_container() as container:
-                                el.component.render_count += 1
-                                root_element = el.component.f(*el.args, **el.kwargs)
-                            if root_element is None:
-                                if len(container.kwargs["children"]) == 1:
-                                    root_element = container.kwargs["children"][0]
-                                else:
-                                    root_element = container
-                        else:
-                            el.component.render_count += 1
-                            root_element = el.component.f(*el.args, **el.kwargs)
+                        root_element = self._call_component(el)
                         assert root_element is not None
                 except BaseException as e:
                     if DEBUG:
@@ -2718,6 +2707,35 @@ class _RenderContextFast(_RenderContext):
                     # need to rerender until a component catches the exception
                     self._set_rerender_needed("Exception ocurred during render")
                     parent_context.needs_render = True
+
+    def _call_component(self, el: Element) -> Optional[Element]:
+        """Run the component function, with an implicit container when it returns None."""
+        component = cast(ComponentFunction, el.component)
+        default_container = _default_container
+        if default_container is None:
+            component.render_count += 1
+            return component.f(*el.args, **el.kwargs)
+        # Only a body that returns None needs the implicit container. Building it for every
+        # body (an extra element, and collecting the top level elements from all elements the
+        # body made) costs more than a typical component body, so first only record the
+        # elements the body makes, like the container would.
+        adder: ContainerAdder = ContainerAdder(cast(Element, None), "children")
+        container_adders = self.container_adders
+        container_adders.append(adder)
+        try:
+            component.render_count += 1
+            root_element = component.f(*el.args, **el.kwargs)
+        finally:
+            container_adders.pop()
+        if root_element is None:
+            with default_container() as container:
+                # the container collects the same elements, the same way
+                self.container_adders[-1].created.extend(adder.created)
+            if len(container.kwargs["children"]) == 1:
+                root_element = container.kwargs["children"][0]
+            else:
+                root_element = container
+        return root_element
 
     def _reconsolidate(self, el: Element, default_key: str, parent_key: str):
         key = el._key
