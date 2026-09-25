@@ -31,6 +31,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -1360,7 +1361,8 @@ class ComponentContext:
     # it will always bubble up to the parent component.
     exception_handler: bool = False
 
-    context_managers: List[ContextManager]  # lazy
+    # (only a component context manager class makes a list, see _render_component)
+    context_managers: Sequence[ContextManager] = ()
 
     # For the fast renderer, which walks the context tree (not the element tree) of a
     # component that does not render again:
@@ -1440,7 +1442,6 @@ _COMPONENT_CONTEXT_LAZY: Dict[str, Callable[[], Any]] = {
     "context_listeners": lambda: defaultdict(set),
     "resolved_kwargs": dict,
     "owns": set,
-    "context_managers": list,
     # made in __init__, and made again after _teardown_component_context
     "elements_next": dict,
     "elements": dict,
@@ -2800,16 +2801,14 @@ class _RenderContextFast(_RenderContext):
     # changes, the widgets holding it are updated (_rewire).
     #
     # A new component (no previous context: a first render, a new list
-    # item, another component type at a key) is mounted in one pass: the
-    # render phase runs the bodies as always, and also creates the widgets
-    # of the new subtree (_mount_element), children first. It still writes
-    # the bookkeeping of the render phase, so a mount can be undone into the
-    # plain two phase state (_unmount): that happens when the pass needs a
-    # next pass (state set during render), or raised, or met something the
-    # mount does not handle (shared elements, a widget that fails to be
-    # created). Reconciliation then only finishes a mounted subtree
-    # (_finish_mount): it moves the bookkeeping and runs the effects, in the
-    # same order as reconciliation would.
+    # item, another component type at a key) is mounted in one walk
+    # (_mount_component, _mount_node): it runs the bodies as the render phase
+    # does, creates the widgets of the new subtree children first, and writes
+    # the bookkeeping in its reconciled form. Reconciliation then only runs
+    # the effects, in the same order as before (_finish_mount). A mount is
+    # undone into the render bookkeeping of the two phase walk (_unmount)
+    # when the pass needs a next pass (state set during render), when a body
+    # raised, for shared elements, and when a widget fails to be created.
     # ------------------------------------------------------------------
 
     # > 0 while the render phase walks the new children of a widget that replaces a
@@ -2825,6 +2824,10 @@ class _RenderContextFast(_RenderContext):
         self._mount_created: List[Tuple[ComponentContext, str, Element, widgets.Widget]] = []
         # the mounted components of the subtree that is being mounted, children first
         self._mount_list: Optional[List[ComponentContext]] = None
+        # every component context made by mounts in this render pass
+        self._mount_contexts: List[ComponentContext] = []
+        # the widgets constructed during the mount of a subtree (one recording per mount)
+        self._mount_recording: List[widgets.Widget] = []
         # something in this pass cannot be mounted: undo the mounts at the end of the pass
         self._mount_failed = False
         super().__init__(*args, **kwargs)
@@ -2852,18 +2855,18 @@ class _RenderContextFast(_RenderContext):
             parent = parent.parent
 
     def _end_render_pass(self):
-        if self._mount_created or self._mount_roots:
+        if self._mount_contexts:
             if self._rerender_needed or self._mount_failed or self.context_root.exceptions_children:
                 # another pass (or no reconciliation at all) follows: go back to the plain two
                 # phase state, as if the widgets were never created
                 self._unmount()
             else:
                 self._mount_created = []
+                self._mount_contexts = []
         self._mount_failed = False
 
     def _unmount(self):
         widgets_dict = _get_widgets_dict()
-        touched: Dict[ComponentContext, None] = {}
         for context, key, el, widget in self._mount_created:
             for orphan in self._orphans.pop(widget.model_id, ()):
                 orphan_widget = widgets_dict.get(orphan)
@@ -2871,23 +2874,28 @@ class _RenderContextFast(_RenderContext):
                     close_widget(orphan_widget)
             el._cleanup_callbacks(widget)
             el._close_widget(widget)
-            touched[context] = None
-        for context in touched:
+        for context in self._mount_contexts:
+            # the render bookkeeping of the two phase walk
+            context.elements_next = context.elements
+            context.elements = {}
+            context.children_next = context.children
+            context.children = {}
+            context.root_element_next = context.root_element
+            context.root_element = None
             context.widgets = {}
             context.element_to_widget = {}
-            context.__dict__.pop("resolved_kwargs", None)
-        for root in self._mount_roots:
-            for context in root.mount_order or ():
-                context.mounted = False
-                context.mount_widget = None
-            root.mount_order = None
+            context.resolved_kwargs = {}
+            context.mounted = False
+            context.mount_widget = None
+            context.mount_order = None
         self._mount_roots = {}
         self._mount_created = []
+        self._mount_contexts = []
         self._mount_list = None
         self._mount_failed = False
 
     def _before_close(self):
-        if self._mount_created or self._mount_roots:
+        if self._mount_contexts or self._mount_roots:
             # a reconciliation that raised did not finish them
             self._unmount()
 
@@ -3095,7 +3103,17 @@ class _RenderContextFast(_RenderContext):
 
         parent_context = context
         del context
-        new = True
+        if self._mount_enabled and not el.is_shared and not DEBUG:
+            # a new component without a widget yet: mount it (render + create widgets) in one walk
+            if context_previous is None:
+                return self._mount_component(el, key, parent_context, parent_key, order)
+            if context_previous.root_element is None and context_previous.root_element_next is None:
+                # pre-created, carrying initial state (state_set), but never rendered
+                return self._mount_component(el, key, parent_context, parent_key, order, context_previous)
+            assert context_previous.invoke_element is not None
+            if not same_component(context_previous.invoke_element.component, el.component):
+                # a different component took this key (the old context is removed during reconciliation)
+                return self._mount_component(el, key, parent_context, parent_key, order)
         if context_previous is None:
             context = ComponentContext(parent=parent_context, context_managers=[cm(el) for cm in _component_context_manager_classes])
             el_prev = None  # do not compare against an element of a different component
@@ -3113,10 +3131,6 @@ class _RenderContextFast(_RenderContext):
             else:
                 context = context_previous
                 context.parent = parent_context
-                new = False
-        # a new component without a widget yet: mount it (render + create widgets) in one pass
-        mount = new and self._mount_enabled and not el.is_shared and not DEBUG
-        mount_root = mount and self._mount_list is None
         context.clean_subtree = False
         context.invoke_element = el
 
@@ -3153,8 +3167,6 @@ class _RenderContextFast(_RenderContext):
         self.container_adders = []
         self.context = context
         render_count_check = self.render_count
-        if mount_root:
-            self._mount_list = []
         try:
             context.exceptions_self = []
             root_element: Optional[Element] = None
@@ -3214,15 +3226,6 @@ class _RenderContextFast(_RenderContext):
                     context.partial = True
                     if dirty_children:
                         self._render_dirty_children(context, dirty_children, join_key(parent_key, key))
-                elif mount:
-                    context.partial = False
-                    widget = self._mount_element(root_element, "/", join_key(parent_key, key))
-                    if widget is not None:
-                        context.mount_widget = widget
-                        context.mounted = True
-                        mount_list = self._mount_list
-                        assert mount_list is not None
-                        mount_list.append(context)
                 else:
                     context.partial = False
                     self._render(root_element, "/", parent_key=join_key(parent_key, key))  # depth first
@@ -3261,21 +3264,7 @@ class _RenderContextFast(_RenderContext):
             for unused in [k for k in context.elements_next if k not in used_keys]:
                 del context.elements_next[unused]
             context.user_contexts_prev = context.user_contexts
-            if context.mounted:
-                return context.mount_widget
-            return None
         finally:
-            if mount_root:
-                mount_list = self._mount_list
-                self._mount_list = None
-                if context.mounted:
-                    assert mount_list is not None
-                    context.mount_order = mount_list
-                    self._mount_roots[context] = None
-                elif mount_list:
-                    # the mount did not finish, but components in it were mounted: undo at
-                    # the end of the pass
-                    self._mount_failed = True
             assert context.parent is parent_context
             self.context = parent_context
             if context.exceptions_self or context.exceptions_children and not context.exception_handler:
@@ -3294,24 +3283,117 @@ class _RenderContextFast(_RenderContext):
                     self._set_rerender_needed("Exception ocurred during render")
                     parent_context.needs_render = True
 
-    def _mount_element(self, element: Element, default_key: str, parent_key: str):
-        # The render phase walk of an element of a new component (self.context), which also
-        # creates the widgets, children first. It writes the same render bookkeeping as
-        # _render, so _unmount can go back to the plain two phase state. Returns the widget
-        # (None when widgets are no longer created in this pass).
+    def _mount_component(
+        self, el: Element, key: str, parent_context: ComponentContext, parent_key: str, order: int, context: Optional[ComponentContext] = None
+    ) -> Optional[widgets.Widget]:
+        # Mount a new component (no previous state; context is a context pre-created by
+        # state_set, or None): run the body with its hooks, mount the element tree it returns
+        # (_mount_node), and write the bookkeeping in its reconciled form. Returns the root
+        # widget, or None when this pass does not create widgets (any more).
+        mount_list = self._mount_list
+        first = mount_list is None
+        if first:
+            # one recording of the widgets constructed during the whole mount (to find the
+            # widgets made as a side effect of making a widget, like Layout and Style)
+            mount_list = self._mount_list = []
+            recording: List[widgets.Widget] = []
+            previous_recording = _start_recording_constructed(recording)
+            self._mount_recording = recording
+        try:
+            if context is None:
+                context = ComponentContext(parent=parent_context)
+            else:
+                context.parent = parent_context
+            if _component_context_manager_classes:
+                context.context_managers = [cm(el) for cm in _component_context_manager_classes]
+            context.invoke_element = el
+            context.key_in_parent = key
+            context.order_in_parent = order
+            self._mount_contexts.append(context)
+            if first:
+                # the parent renders in two phases
+                parent_context.children_next[key] = context
+            else:
+                parent_context.children[key] = context
+
+            self.container_adders = []
+            self.context = context
+            render_count_check = self.render_count
+            context.user_contexts = {}
+            context.needs_render = False
+            root_element: Optional[Element] = None
+            try:
+                context_managers = context.context_managers
+                if not context_managers:
+                    root_element = self._call_component(el)
+                    assert root_element is not None
+                elif len(context_managers) == 1:
+                    with context_managers[0]:
+                        root_element = self._call_component(el)
+                        assert root_element is not None
+                else:
+                    with contextlib.ExitStack() as stack:
+                        for cm in context_managers:
+                            stack.enter_context(cm)
+                        root_element = self._call_component(el)
+                        assert root_element is not None
+            except BaseException as e:
+                logger.exception("Component %r raised exception %r", el.component, e)
+                context.exceptions_self.append(e)
+                self._set_rerender_needed("Exception ocurred during render")
+                context.needs_render = True
+            if self.render_count != render_count_check:
+                raise RuntimeError("Recursive render detected, possible a bug in react")
+            context.needs_render_descendant = False
+            widget = None
+            if root_element is not None:
+                widget = self._mount_node(root_element, "/", join_key(parent_key, key))
+                context.root_element = root_element
+            elif el.is_shared:
+                self._shared_elements_next.discard(el)
+            # (no hook count check: this render made the hooks)
+            if context.children_next:
+                # pre-created (state_set) children that were not used
+                context.children_next = {}
+            context.user_contexts_prev = context.user_contexts
+            self.context = parent_context
+            # exceptions: as in _render_component
+            if context.exceptions_self or context.exceptions_children and not context.exception_handler:
+                parent_context.exceptions_children.extend(context.exceptions_self)
+                parent_context.exceptions_children.extend(context.exceptions_children)
+            if context.exceptions_self or context.exceptions_children:
+                self._mark_dirty(context)
+            if parent_context.exceptions_self or parent_context.exceptions_children:
+                if not self._rerender_needed:
+                    self._set_rerender_needed("Exception ocurred during render")
+                    parent_context.needs_render = True
+            if widget is not None:
+                context.mount_widget = widget
+                context.mounted = True
+                assert mount_list is not None
+                mount_list.append(context)
+            return widget
+        finally:
+            if first:
+                _stop_recording_constructed(previous_recording)
+                self._mount_recording = []
+                self._mount_list = None
+                if context is not None and context.mounted:
+                    context.mount_order = mount_list
+                    self._mount_roots[context] = None
+                elif mount_list:
+                    # parts of the subtree were mounted, not all: undo at the end of the pass
+                    self._mount_failed = True
+
+    def _mount_node(self, element: Element, default_key: str, parent_key: str) -> Optional[widgets.Widget]:
+        # The mount walk of an element of the component self.context: returns its widget.
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
         el = element
-        if el.is_shared:
-            # shared elements are rendered once for the whole tree: the two phase walk
-            self._mount_failed = True
-            self._render(el, default_key, parent_key)
-            return None
         context = self.context
         assert context is not None
         if default_key == "/":
             context.used_keys.clear()
-            context.has_shared = False
             context.child_order_counter = 0
         key = el._key
         if key is None:
@@ -3321,31 +3403,72 @@ class _RenderContextFast(_RenderContext):
         if key in used_keys:
             raise KeyError(f"Duplicate key {key!r}")
         used_keys.add(key)
-        context.elements_next[key] = el
+        if el.is_shared:
+            # rendered once for the whole tree, by the two phase walk: undo this pass's mounts
+            self._mount_failed = True
+            context.has_shared = True
+            if el in self._shared_elements_next:
+                return None
+            self._shared_elements_next.add(el)
+        context.elements[key] = el
         el._render_count += 1  # for testing only
 
-        if isinstance(el.component, ComponentWidget):
+        component = el.component
+        if isinstance(component, ComponentWidget):
             assert not el.args, "no positional args supported for widgets"
-            children_next = context.children_next
-            if children_next and key in children_next:
-                # a pre-created (state_set) component context at this key
-                del children_next[key]
             elements_seen = self._elements_seen
-            kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._mount_element)
-            el._leaf = self._elements_seen == elements_seen
+            kwargs = {}
+            on_kwargs = False
+            for name, value in el.kwargs.items():
+                if name.startswith("on_"):
+                    on_kwargs = True
+                if type(value) in _SCALAR_TYPES:
+                    kwargs[name] = value
+                else:
+                    kwargs[name] = self._visit_children_values(value, f"{key}{name}/", parent_key, self._mount_node)
+            has_elements = self._elements_seen != elements_seen
+            el._leaf = not has_elements
             if self._rerender_needed or self._mount_failed:
                 # this pass will be undone, do not create more widgets
                 return None
-            try:
-                widget, orphan_ids = el._create_widget(kwargs)
-            except BaseException:
-                # let reconciliation create it (and handle the exception) as it always does
-                self._mount_failed = True
-                return None
+            if type(el)._create_widget is _element_create_widget:
+                # Element._create_widget, with the recording of this mount
+                listeners = None
+                if on_kwargs:
+                    kwargs, listeners = el._split_kwargs(kwargs)
+                el._on_kwargs = on_kwargs
+                recording = self._mount_recording
+                count = len(recording)
+                try:
+                    widget = component.widget(**kwargs)
+                except Exception:
+                    # let reconciliation create it (and handle the exception) as it always does
+                    self._mount_failed = True
+                    return None
+                cls = type(widget)
+                if not getattr(cls.hold_trait_notifications, "_reacton_batched", False):
+                    _install_batched_hold(cls)
+                widget._reacton_rc = self
+                if el._meta:
+                    widget._react_meta = dict(el._meta)
+                if listeners:
+                    for name, callback in listeners.items():
+                        if callback is not None:
+                            el._add_widget_event_listener(widget, name, callback)
+                orphan_ids = None
+                if len(recording) > count + 1 or (len(recording) == count + 1 and recording[count] is not widget):
+                    widgets_dict = _get_widgets_dict()
+                    orphan_ids = {w.model_id for w in recording[count:] if w is not widget and w.comm is not None and w.model_id in widgets_dict}
+            else:
+                try:
+                    widget, orphan_ids = el._create_widget(kwargs)
+                except BaseException:
+                    self._mount_failed = True
+                    return None
             self._mount_created.append((context, key, el, widget))
             context.widgets[key] = widget
             context.element_to_widget[el] = widget
-            if self._elements_seen != elements_seen:
+            if has_elements:
                 context.resolved_kwargs[key] = kwargs
             if orphan_ids:
                 for orphan_widget in [_get_widgets_dict()[k] for k in orphan_ids]:
@@ -3355,46 +3478,70 @@ class _RenderContextFast(_RenderContext):
                     self._orphans.setdefault(widget.model_id, set()).update(orphan_ids)
             return widget
 
-        assert isinstance(el.component, ComponentFunction)
+        # a component element
+        if el.is_shared and (el.args or el.kwargs):
+            self._visit_children_values(el.kwargs, key, parent_key, self._mount_node)
+            self._visit_children_values(el.args, key, parent_key, self._mount_node)
         order = context.child_order_counter
         context.child_order_counter = order + 1
-        return self._render_component(el, key, parent_key, None, order)
+        children_next = context.children_next
+        precreated = children_next.pop(key, None) if children_next else None
+        widget = self._mount_component(el, key, context, parent_key, order, precreated)
+        if widget is not None:
+            context.widgets[key] = widget
+            context.element_to_widget[el] = widget
+            if el._meta or getattr(widget, "_react_meta", {}):
+                widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
+        return widget
 
     def _finish_mount(self, root: ComponentContext):
-        # Reconciliation of a mounted subtree (self.context is the parent of root): its widgets
-        # exist, move the render bookkeeping to the reconciled state, and run the effects,
-        # children first, as the reconciliation walk would.
+        # Reconciliation of a mounted subtree (self.context is the parent of root): the widgets
+        # and the bookkeeping are done, run the effects, children first, as the reconciliation
+        # walk would, and hook the root widget into the parent.
         parent_context = self.context
+        assert parent_context is not None
         mount_order = root.mount_order
         assert mount_order is not None
         try:
             for context in mount_order:
                 parent = context.parent
                 assert parent is not None
-                context.elements = context.elements_next
-                context.elements_next = {}
-                context.children = context.children_next
-                context.children_next = {}
-                context.root_element = context.root_element_next
-                context.root_element_next = None
-                widget = context.mount_widget
-                el = context.invoke_element
-                assert el is not None and widget is not None
-                if el._meta or getattr(widget, "_react_meta", {}):
-                    widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
-                key = context.key_in_parent
-                assert key is not None
-                parent.widgets[key] = widget
-                parent.element_to_widget[el] = widget
                 context.mounted = False
-                context.mount_widget = None
-                self.context = context
-                self._process_effects(context, parent)
+                effects = context.effects
+                if effects:
+                    self.context = context
+                    if context.exceptions_self or context.exceptions_children:
+                        self._process_effects(context, parent)
+                    else:
+                        # _process_effects for effects that all run for the first time
+                        for effect in effects:
+                            if effect.next is not None or effect.executed:
+                                self._process_effects(context, parent)
+                                break
+                            try:
+                                effect._cleanup = effect.callable()
+                                effect.executed = True
+                            except BaseException as e:
+                                logger.exception("Effect %r raised exception %r", effect.callable, e)
+                                parent.exceptions_self.append(e)
+                                self._set_rerender_needed("Exception ocurred during effect")
+                                self._mark_dirty(parent)
+                                parent.needs_render = True
                 if context.exceptions_self or context.exceptions_children and not context.exception_handler:
                     parent.exceptions_children.extend(context.exceptions_self)
                     parent.exceptions_children.extend(context.exceptions_children)
+            widget = root.mount_widget
+            el = root.invoke_element
+            key = root.key_in_parent
+            assert el is not None and widget is not None and key is not None
+            if el._meta or getattr(widget, "_react_meta", {}):
+                widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
+            parent_context.widgets[key] = widget
+            parent_context.element_to_widget[el] = widget
         finally:
             self.context = parent_context
+            for context in mount_order:
+                context.mount_widget = None
             root.mount_order = None
             self._mount_roots.pop(root, None)
 
@@ -4190,6 +4337,7 @@ class _RenderContextFast(_RenderContext):
 # values that cannot hold elements (the child visitors skip them)
 _SCALAR_TYPES = frozenset([str, int, float, bool, complex, bytes, type(None)])
 _element_cleanup_callbacks = Element._cleanup_callbacks
+_element_create_widget = Element._create_widget
 _element_close_widget = Element._close_widget
 
 
