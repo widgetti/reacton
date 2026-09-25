@@ -4272,6 +4272,9 @@ def _random_app(registry, log):
     def Leaf(id):
         value, set_value = react.use_state(0)
         registry[id] = set_value
+        if value == 0 and h(id) % 5 == 0:
+            # state set during the first render (a second render pass)
+            set_value(1)
         kind = h(id, value) % 4
         if kind == 0:
             return w.Label(value=f"leaf {id} {value}")
@@ -4287,7 +4290,8 @@ def _random_app(registry, log):
     def Thrower(id):
         value, set_value = react.use_state(0)
         registry[id] = set_value
-        if value == 7:
+        if value == 7 or (value == 0 and h(id) % 3 == 0):
+            # also raises in its first render (in a new subtree)
             raise ValueError(f"boom {id}")
         return w.Button(description=f"thrower {id} {value}")
 
@@ -4388,3 +4392,151 @@ def test_renderers_agree_on_random_updates(seed):
         core.logger.setLevel(level)
     for step, (a, b) in enumerate(zip(expected, got)):
         assert a == b, f"step {step}, batch {batches[step]}"
+
+
+# The fast renderer creates the widgets of a new subtree in the render phase (a mount), and
+# goes back to the two phase path when the pass needs another pass or cannot be mounted.
+# These tests pin the behavior of those cases (the same for both renderers).
+
+
+def _effect_log_component(log, name):
+    @react.component
+    def Logged(i):
+        def effect():
+            log.append(("effect", name, i))
+
+            def cleanup():
+                log.append(("cleanup", name, i))
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return w.Button(description=f"{name}-{i}")
+
+    return Logged
+
+
+def test_mount_state_set_during_render():
+    # the last child sets its own state during its first render: the widgets of the siblings
+    # (made before) belong to a pass that is not reconciled
+    log: List[tuple] = []
+    Logged = _effect_log_component(log, "row")
+    set_show = lambda x: None  # noqa
+
+    @react.component
+    def Setter():
+        value, set_value = react.use_state(0)
+        if value == 0:
+            set_value(1)
+        return w.Label(value=f"setter-{value}")
+
+    @react.component
+    def Section():
+        return w.VBox(children=[Logged(0), Logged(1), Setter()])
+
+    @react.component
+    def App():
+        nonlocal set_show
+        show, set_show = react.use_state(False)
+        return w.VBox(children=[Logged(-1), Section()] if show else [Logged(-1)])
+
+    widgets_before = set(_get_widgets_dict())
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert log == [("effect", "row", -1)]
+    set_show(True)
+    section = vbox.children[1]
+    assert [child.description for child in section.children[:2]] == ["row-0", "row-1"]
+    assert section.children[2].value == "setter-1"
+    assert log == [("effect", "row", -1), ("effect", "row", 0), ("effect", "row", 1)]
+    rc.close()
+    # no widgets from the undone pass are left (cleanup_guard checks the others)
+    assert set(_get_widgets_dict()) == widgets_before
+    assert log[-3:] == [("cleanup", "row", -1), ("cleanup", "row", 0), ("cleanup", "row", 1)]
+
+
+def test_mount_state_set_during_first_render():
+    Logged = _effect_log_component([], "row")
+
+    @react.component
+    def Setter():
+        value, set_value = react.use_state(0)
+        if value < 3:
+            set_value(value + 1)
+        return w.Label(value=f"setter-{value}")
+
+    @react.component
+    def App():
+        return w.VBox(children=[Logged(0), w.HBox(children=[Logged(1), Setter()]), Logged(2)])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert vbox.children[1].children[1].value == "setter-3"
+    assert [vbox.children[0].description, vbox.children[1].children[0].description, vbox.children[2].description] == ["row-0", "row-1", "row-2"]
+    rc.close()
+
+
+def test_mount_exception_caught_above():
+    # a new subtree raises after its siblings made widgets; a parent catches it
+    log: List[tuple] = []
+    Logged = _effect_log_component(log, "row")
+
+    @react.component
+    def Thrower():
+        raise ValueError("boom")
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        if exception:
+            return w.Label(value=f"caught {exception}")
+        return w.VBox(children=[Logged(0), Logged(1), Thrower()])
+
+    @react.component
+    def App():
+        return w.VBox(children=[Logged(-1), Catcher()])
+
+    widgets_before = set(_get_widgets_dict())
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert vbox.children[0].description == "row--1"
+    assert vbox.children[1].value == "caught boom"
+    assert ("effect", "row", 0) not in log
+    rc.close()
+    assert set(_get_widgets_dict()) == widgets_before
+
+
+def test_mount_shared_element():
+    @react.component
+    def Shared():
+        button = w.Button(description="shared").shared()
+        return w.VBox(children=[w.HBox(children=[button, button]), w.Label(value="after")])
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="before"), Shared()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    hbox = vbox.children[1].children[0]
+    assert hbox.children[0] is hbox.children[1]
+    assert hbox.children[0].description == "shared"
+    rc.close()
+
+
+def test_mount_widget_creation_error():
+    class Broken(widgets.Button):
+        def __init__(self, **kwargs):
+            raise ValueError("cannot create")
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Button(description="fine"), Broken.element(description="broken")])
+
+    widgets_before = set(_get_widgets_dict())
+    rc = core._render_context_class()(App(), handle_error=False)
+    with pytest.raises(RuntimeError, match="Could not create widget"):
+        rc.render(rc.element)
+    # close raises the pending exception too
+    with pytest.raises(RuntimeError, match="Could not create widget"):
+        rc.close()
+    # a constructor that raises leaves the widgets it made (Layout, style) behind, in both
+    # renderers: close those here
+    for model_id in set(_get_widgets_dict()) - widgets_before:
+        _get_widgets_dict()[model_id].close()
