@@ -987,7 +987,8 @@ def get_widget(el: Element):
         else:
             if el in context.element_to_widget:
                 return context.element_to_widget[el]
-    if id(el) in rc._old_element_ids:
+    if id(el) in rc._old_element_ids or el._key_frozen:
+        # (the fast renderer does not record the ids: every rendered element is frozen)
         raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
     raise KeyError(f"Element {el} not found in all known widgets")  # for the component {context.widgets}")
 
@@ -2963,8 +2964,7 @@ class _RenderContextFast(_RenderContext):
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
-        # for tracking stale elements when using get_widget
-        self._old_element_ids.add(id(element))
+        # (no _old_element_ids: get_widget recognizes a stale element by _key_frozen)
         context = self.context
         assert context is not None
 
@@ -3055,16 +3055,15 @@ class _RenderContextFast(_RenderContext):
                     )
                 )
             ):
-                children_next = context.children_next
-                child_next = children_next.get(key)
+                child_next = context.children_next.get(key)
                 if child_next is None or child_next is child:
                     # fast path: no state changes or pending exceptions anywhere in this
                     # subtree, and fully reconciled: the previous result stands, skip the
-                    # subtree in both phases
+                    # subtree in both phases (a skipped child stays in children only, the
+                    # reconciliation finds it there)
                     child.clean_subtree = True
                     child.invoke_element = el
                     child.order_in_parent = order
-                    children_next[key] = child
                     return
         self._render_component(el, key, parent_key, el_prev, order)
 
@@ -3290,7 +3289,6 @@ class _RenderContextFast(_RenderContext):
             self._mount_failed = True
             self._render(el, default_key, parent_key)
             return None
-        self._old_element_ids.add(id(el))
         context = self.context
         assert context is not None
         if default_key == "/":
@@ -3445,6 +3443,9 @@ class _RenderContextFast(_RenderContext):
                 return self._shared_widgets[el]
         else:
             child_context_next = context.children_next.get(key)
+            if child_context_next is None:
+                # a skipped child is only in children (see _render)
+                child_context_next = context.children.get(key)
             if child_context_next is not None and child_context_next.clean_subtree:
                 el_prev = context.elements.get(key)
                 if el_prev is None or not el_prev.is_shared:
@@ -3452,8 +3453,9 @@ class _RenderContextFast(_RenderContext):
                     # reconciliation result stands (the lean version of the path below)
                     child_context_next.clean_subtree = False
                     children_next = context.children_next
-                    context.children[key] = children_next[key]
-                    del children_next[key]
+                    if key in children_next:
+                        context.children[key] = children_next[key]
+                        del children_next[key]
                     widget = context.widgets[key]
                     if el is not el_prev:
                         # a new element with equal arguments, used by get_widget
@@ -3470,11 +3472,15 @@ class _RenderContextFast(_RenderContext):
         try:
             if isinstance(el.component, ComponentFunction):
                 child_context_next = context.children_next.get(key)
+                if child_context_next is None:
+                    # a skipped child is only in children (see _render)
+                    child_context_next = context.children.get(key)
                 if child_context_next is not None and child_context_next.clean_subtree:
                     # subtree was skipped during the render phase: the previous
                     # reconciliation result stands
                     child_context_next.clean_subtree = False
-                    context.children[key] = context.children_next.pop(key)
+                    if key in context.children_next:
+                        context.children[key] = context.children_next.pop(key)
                     widget = context.widgets[key]
                     if el is not el_prev:
                         # a new element with equal arguments, used by get_widget
@@ -3951,7 +3957,6 @@ class _RenderContextFast(_RenderContext):
                 self._render(v, f"{key}{k}/", parent_key)
                 continue
             # _render for a component element, inline up to the skip
-            self._old_element_ids.add(id(v))
             child_key = v._key
             if child_key is None:
                 child_key = f"{key}{k}/"
@@ -3990,13 +3995,12 @@ class _RenderContextFast(_RenderContext):
                     )
                 )
             ):
-                children_next = context.children_next
-                child_next = children_next.get(child_key)
+                child_next = context.children_next.get(child_key)
                 if child_next is None or child_next is child:
+                    # (a skipped child stays in children only, see _reconsolidate)
                     child.clean_subtree = True
                     child.invoke_element = v
                     child.order_in_parent = order
-                    children_next[child_key] = child
                     continue
             self._render_component(v, child_key, parent_key, el_prev, order)
 
@@ -4020,24 +4024,30 @@ class _RenderContextFast(_RenderContext):
         values: List[Any] = []
         append = values.append
         children_next = context.children_next
+        children = context.children
+        elements_seen = 0
         for index, v in enumerate(value):
             tv = type(v)
             if tv in _SCALAR_TYPES:
                 append(v)
                 continue
             if isinstance(v, Element):
-                self._elements_seen += 1
+                elements_seen += 1
                 child_key = v._key
                 if child_key is None:
                     child_key = f"{key}{index}/"
                 child = children_next.get(child_key)
+                if child is None:
+                    # a skipped child is only in children (see _render)
+                    child = children.get(child_key)
                 if child is not None and child.clean_subtree and not v.is_shared:
                     el_prev = context.elements.get(child_key)
                     if el_prev is None or not el_prev.is_shared:
                         # the skipped child of _reconsolidate, inline
                         child.clean_subtree = False
-                        context.children[child_key] = child
-                        del children_next[child_key]
+                        if child_key in children_next:
+                            children[child_key] = child
+                            del children_next[child_key]
                         new_value = context.widgets[child_key]
                         if v is not el_prev:
                             element_to_widget = context.element_to_widget
@@ -4057,6 +4067,7 @@ class _RenderContextFast(_RenderContext):
                 values.extend(new_value.children)
             else:
                 append(new_value)
+        self._elements_seen += elements_seen
         if t is tuple:
             return tuple(values)
         return values

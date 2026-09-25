@@ -4618,3 +4618,32 @@ def test_close_order_same_in_both_renderers(fail_in_cleanup):
     assert fast_error == default_error
     if fail_in_cleanup:
         assert default_error == "cleanup b1 failed"
+
+
+def test_get_widget_stale_element_message():
+    stale = []
+    set_value = lambda x: None  # noqa
+    errors: List[str] = []
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        button = w.Button(description=str(value))
+        stale.append(button)
+
+        def effect():
+            if value == 1:
+                try:
+                    react.get_widget(stale[0])
+                except KeyError as e:
+                    errors.append(str(e))
+
+        react.use_effect(effect, [value])
+        return button
+
+    button, rc = react.render_fixed(Test(), handle_error=False)
+    set_value(1)
+    assert len(errors) == 1
+    assert "was found to be in a previous render" in errors[0]
+    rc.close()
