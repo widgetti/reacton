@@ -20,7 +20,6 @@ import traceback
 import typing
 import weakref
 from collections import defaultdict
-from dataclasses import dataclass, field
 from inspect import isclass
 from types import TracebackType
 from typing import (
@@ -1373,13 +1372,29 @@ def _teardown_component_context(context: ComponentContext):
         context.__dict__.pop(name, None)
 
 
-@dataclass
 class RerenderReason:
-    reason: str
-    prev_value: Any = None
-    next_value: Any = None
-    created_stack: List[str] = field(default_factory=list)
-    trigger_stack: List[str] = field(default_factory=list)
+    # one is made for every state change: a plain class is cheaper than the dataclass it was
+    __slots__ = ("reason", "prev_value", "next_value", "created_stack", "trigger_stack")
+
+    def __init__(
+        self,
+        reason: str,
+        prev_value: Any = None,
+        next_value: Any = None,
+        created_stack: Optional[List[str]] = None,
+        trigger_stack: Optional[List[str]] = None,
+    ):
+        self.reason = reason
+        self.prev_value = prev_value
+        self.next_value = next_value
+        self.created_stack: List[str] = created_stack if created_stack is not None else []
+        self.trigger_stack: List[str] = trigger_stack if trigger_stack is not None else []
+
+    def __repr__(self):
+        return (
+            f"RerenderReason(reason={self.reason!r}, prev_value={self.prev_value!r}, next_value={self.next_value!r}, "
+            f"created_stack={self.created_stack!r}, trigger_stack={self.trigger_stack!r})"
+        )
 
 
 class Effect:
@@ -1547,15 +1562,18 @@ class _RenderContext:
             memo = (value, dependencies)
             self.context.memo.append(memo)
             self.context.memo_index += 1
-            logger.debug("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
             return value
         else:
             memo = self.context.memo[self.context.memo_index]
             value, dependencies_previous = memo
             if utils.equals(dependencies_previous, dependencies):
-                logger.debug("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
             else:
-                logger.debug("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
                 value = f()
                 memo = (value, dependencies)
                 self.context.memo[self.context.memo_index] = memo
@@ -1573,11 +1591,13 @@ class _RenderContext:
                 self.context.state_metadata[key] = len(initial)
             elif utils.isinstance_lazy(initial, "pandas.DataFrame"):
                 self.context.state_metadata[key] = utils.dataframe_fingerprint(initial)
-            logger.debug("Initial state = %r for key %r (%r)", initial, key, id(self.context))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Initial state = %r for key %r (%r)", initial, key, id(self.context))
             return initial, self.make_setter(key, self.context, eq)
         else:
             state = self.context.state[key]
-            logger.debug("Got state = %r for key %r (%r)", state, key, id(self.context))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Got state = %r for key %r (%r)", state, key, id(self.context))
             return state, self.make_setter(key, self.context, eq)
 
     def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
@@ -1598,7 +1618,8 @@ class _RenderContext:
                 return
             if callable(value):
                 value = value(context.state[key])
-            logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
 
             should_update = False
             new_metadata = None
@@ -1633,7 +1654,7 @@ class _RenderContext:
                 context.state[key] = value
                 if context.state[key] is value and isinstance(value, (list, dict, set)) and new_metadata is None:
                     new_metadata = len(value)
-                if context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame") and new_metadata is None:
+                if new_metadata is None and context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame"):
                     new_metadata = utils.dataframe_fingerprint(value)
                 context.state_metadata[key] = new_metadata
                 # TODO: enable
@@ -1673,12 +1694,14 @@ class _RenderContext:
         if len(self.context.effects) <= self.context.effect_index:
             self.context.effect_index += 1
             self.context.effects.append(Effect(effect, dependencies))
-            logger.debug("Initial effect = %r for index %r (%r)", effect, self.context.effect_index - 1, dependencies)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Initial effect = %r for index %r (%r)", effect, self.context.effect_index - 1, dependencies)
         else:
             previous_effect = self.context.effects[self.context.effect_index]
             # we always set it, even replacing it when we didn't execute it
             # in the consolidation phase we decide what to do (e.g. skip it)
-            logger.debug("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Setting next effect = %r for index %r (%r)", effect, self.context.effect_index, dependencies)
             if previous_effect.executed:
                 # line up...
                 previous_effect.next = Effect(effect, dependencies)
@@ -1766,7 +1789,11 @@ class _RenderContext:
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
                 self._rerender_needed = False
-                logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
+                # the logging calls below cost a noticeable part of a small update when logging is off
+                log_info = logger.isEnabledFor(logging.INFO)
+                log_debug = logger.isEnabledFor(logging.DEBUG)
+                if log_info:
+                    logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
                 self._is_rendering = True
                 # if we got called recursively, self.context is not the root context
@@ -1809,7 +1836,8 @@ class _RenderContext:
                                 if len(self._rerender_needed_reasons) >= 2:
                                     msg += f"Previous reasons: {format(self._rerender_needed_reasons[-2])}\n"
                                 raise RuntimeError(msg)
-                            logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
+                            if log_info:
+                                logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
                             self._rerender_needed = False
                             self._shared_elements_next = set()
                             self.context.exception_handler = False
@@ -1818,21 +1846,24 @@ class _RenderContext:
 
                             self._render(self.element, "/", parent_key=ROOT_KEY)
                             self._walk_all = False
-                            logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
+                            if log_info:
+                                logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
                             assert self.context is self.context_root
                             render_counts += 1
-                        logger.debug("Render phase resulted in (next) elements:")
-                        for el in self._shared_elements_next:
-                            logger.debug("\t%r %x", el, id(el))
+                        if log_debug:
+                            logger.debug("Render phase resulted in (next) elements:")
+                            for el in self._shared_elements_next:
+                                logger.debug("\t%r %x", el, id(el))
 
-                        logger.debug("Current elements:")
-                        for el in self._shared_elements:
-                            logger.debug("\t %r %x", el, id(el))
+                            logger.debug("Current elements:")
+                            for el in self._shared_elements:
+                                logger.debug("\t %r %x", el, id(el))
                         if self.context_root.exceptions_children:
                             # an exception bubbled up render
                             break
 
-                        logger.info("Render reconsolidate...")
+                        if log_info:
+                            logger.info("Render reconsolidate...")
                         self.reconsolidating = True
                         in_render_phase = False
                         try:
@@ -1840,7 +1871,8 @@ class _RenderContext:
                         finally:
                             self.reconsolidating = False
                         in_render_phase = True
-                        logger.info("Render reconsolidate done")
+                        if log_info:
+                            logger.info("Render reconsolidate done")
                         self.context.root_element = self.context.root_element_next
                         self.context.root_element_next = None
 
@@ -1850,9 +1882,10 @@ class _RenderContext:
 
                         if self._shared_elements_next:
                             raise RuntimeError(f"Element not reconsolidated: {self._shared_elements_next}")
-                        logger.debug("Reconsolidate phase resulted in elements:")
-                        for el in self._shared_elements:
-                            logger.debug("\t%r %x", el, id(el))
+                        if log_debug:
+                            logger.debug("Reconsolidate phase resulted in elements:")
+                            for el in self._shared_elements:
+                                logger.debug("\t%r %x", el, id(el))
                         # RESET
                         assert self.context is self.context_root
                         if self.element.is_shared:
@@ -1880,14 +1913,16 @@ class _RenderContext:
                             break
 
                         if self._rerender_needed:
-                            logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
+                            if log_info:
+                                logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
                             stable = False
                         else:
                             stable = True
 
                     self._is_rendering = False
                 self.context = context_prev
-                logger.info("Done with render phase: %r", render_count)
+                if log_info:
+                    logger.info("Done with render phase: %r", render_count)
             except BaseException as e:
                 # Exceptions raised by components are collected in exceptions_self, so an
                 # exception here comes from the render machinery itself (duplicate key,

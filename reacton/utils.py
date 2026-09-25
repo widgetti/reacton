@@ -36,14 +36,24 @@ def wrap(mod, globals):
             globals[cls_name] = component(cls)
 
 
-def equals(a, b):
-    from reacton.core import Element, same_component
+_core = None
 
+
+def equals(a, b):
     if a is b:
         return True
     # ignore E721 for now
     if type(a) != type(b):  # noqa: E721 # is this always true? after a == b failed?
         return False
+    # an import statement costs more than the rest of a typical call (this is called for
+    # every argument of every re-rendered child, and every hook dependency)
+    global _core
+    if _core is None:
+        import reacton.core
+
+        _core = reacton.core
+    Element = _core.Element
+    same_component = _core.same_component
     if isinstance(a, Element):
         return same_component(a.component, b.component) and equals(a.args, b.args) and equals(a.kwargs, b.kwargs)
     elif isinstance(a, types.FunctionType) and isinstance(b, types.FunctionType):
@@ -102,6 +112,10 @@ def import_item(name: str):
 
 
 def isinstance_lazy(value, types):
+    if isinstance(types, str):
+        # the common case (e.g. "pandas.DataFrame" in every state change)
+        cls = import_item(types)
+        return cls is not None and isinstance(value, cls)
     if not isinstance(types, (list, tuple)):
         types = [types]
     types = [import_item(t) if isinstance(t, str) else t for t in types]

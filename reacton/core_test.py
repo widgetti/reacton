@@ -4023,3 +4023,31 @@ def test_component_context_containers():
         core.ComponentContext(no_such_field=1)  # type: ignore
     with pytest.raises(AttributeError):
         context.no_such_field  # type: ignore
+
+
+def test_render_logging_when_enabled(caplog):
+    # the hot paths only build their log messages when logging is enabled
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        react.use_memo(lambda: value, [value])
+        react.use_effect(lambda: None, [value])
+        return w.Button(description=str(value))
+
+    button, rc = react.render_fixed(Test(), handle_error=False)
+    with caplog.at_level("DEBUG", logger="reacton"):
+        set_value(1)
+    messages = [record.getMessage() for record in caplog.records if record.name == "reacton"]
+    assert any(message.startswith("Set state = 1 for key '0' (previous value was 0)") for message in messages)
+    assert any(message.startswith("Render phase: ") for message in messages)
+    assert any(message.startswith("Got state = 1 for key '0'") for message in messages)
+    assert any(message.startswith("Replace memo with") for message in messages)
+    assert any(message.startswith("Setting next effect") for message in messages)
+    assert any(message.startswith("Done with render phase") for message in messages)
+    caplog.clear()
+    set_value(2)
+    assert [record for record in caplog.records if record.name == "reacton"] == []
+    rc.close()
