@@ -1168,6 +1168,10 @@ class ComponentContext:
     # the render phase skipped this whole subtree (nothing changed), so the
     # reconciliation phase can reuse the previous result without walking
     clean_subtree: bool = False
+    # the kwargs (elements resolved to widgets) that the widget of a container element
+    # was last created or updated with, so an unchanged element that resolves to the
+    # same widgets is not updated again (only used by the fast renderer)
+    resolved_kwargs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
@@ -1222,6 +1226,7 @@ def _teardown_component_context(context: ComponentContext):
     context.user_contexts_prev = {}
     context.context_listeners = defaultdict(set)
     context.used_keys = set()
+    context.resolved_kwargs = {}
     context.owns = set()
     context.exceptions_self = []
     context.exceptions_children = []
@@ -2785,6 +2790,9 @@ class _RenderContextFast(_RenderContext):
                         widget_previous = context.widgets[key]
 
                 orphan_ids: Set[str] = set()
+                # the visitor counts the elements it resolves: a widget element whose kwargs
+                # hold elements (a container) keeps its resolved kwargs to compare against
+                elements_seen = self._elements_seen
                 if widget_previous is None:
                     # initial create
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
@@ -2798,20 +2806,38 @@ class _RenderContextFast(_RenderContext):
                             context.exceptions_self.append(e)
                             self._set_rerender_needed("Exception ocurred during reconciliation (creating widget)")
                             _mark_needs_render_ancestors(context)
+                        else:
+                            if self._elements_seen != elements_seen and not el.is_shared:
+                                context.resolved_kwargs[key] = kwargs
                     self._store_widget(context, el, key, widget)
                 elif el_prev is not None and el_prev.component == el.component:
                     # update the existing widget in place
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    has_elements = self._elements_seen != elements_seen
                     if not context.exceptions_children:
-                        if el is not el_prev or not _values_identical(kwargs, el.kwargs):
+                        identical = False
+                        if el is el_prev:
+                            # the same element: its widget can only need an update when an
+                            # element in its kwargs now resolves to a different widget
+                            if not has_elements:
+                                identical = _values_identical(kwargs, el.kwargs)
+                            elif not el.is_shared:
+                                resolved_previous = context.resolved_kwargs.get(key)
+                                identical = resolved_previous is not None and _values_identical(kwargs, resolved_previous)
+                        if not identical:
                             try:
                                 el._update_widget(widget_previous, el_prev, kwargs)
                             except BaseException as e:
+                                # the widget may be half updated: compare against nothing next time
+                                context.resolved_kwargs.pop(key, None)
                                 context.exceptions_self.append(e)
                                 self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
                                 _mark_needs_render_ancestors(context)
-                        # else: identical element and all children reconciled to the
-                        # same widgets, nothing can have changed
+                            else:
+                                if has_elements and not el.is_shared:
+                                    context.resolved_kwargs[key] = kwargs
+                                elif key in context.resolved_kwargs:
+                                    del context.resolved_kwargs[key]
                     self._store_widget(context, el, key, widget_previous)
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
@@ -2826,6 +2852,9 @@ class _RenderContextFast(_RenderContext):
                             context.exceptions_self.append(e)
                             self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
                             _mark_needs_render_ancestors(context)
+                        else:
+                            if self._elements_seen != elements_seen and not el.is_shared:
+                                context.resolved_kwargs[key] = kwargs
                     self._store_widget(context, el, key, widget)
                 if orphan_ids:
                     # widgets created as a side effect (like Layout and Style); we track
@@ -2984,6 +3013,8 @@ class _RenderContextFast(_RenderContext):
             del self._shared_widgets[el]
         else:
             del context.widgets[key]
+            # it references the child widgets, which are closed now
+            context.resolved_kwargs.pop(key, None)
         # elements can be removed multiple times, since they can be added multiple times
         # (even non-shared elements can)
         if el in context.element_to_widget:
@@ -2998,8 +3029,12 @@ class _RenderContextFast(_RenderContext):
         self._visit_children_values(el.kwargs, key, parent_key, f)
         self._visit_children_values(el.args, key, parent_key, f)
 
+    # number of elements the visitor handed to its callback (see _reconsolidate)
+    _elements_seen = 0
+
     def _visit_children_values(self, value: Any, key: str, parent_key: str, f: Callable):
         if isinstance(value, Element):
+            self._elements_seen += 1
             return f(value, key, parent_key)
         elif isinstance(value, (list, tuple)):
             values = []

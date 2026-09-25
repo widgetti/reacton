@@ -3566,3 +3566,136 @@ def test_render_lock_no_false_recursive_render():
     finally:
         thread.join(5)
     assert not thread.is_alive()
+
+
+# Tests for the update path: what a state change re-renders and which widgets it touches.
+# Some of these pin properties of the fast renderer only (REACTON_FAST=1); the default
+# renderer walks and updates the whole tree on every render.
+fast_renderer_only = pytest.mark.skipif(core._render_context_class() is not core._RenderContextFast, reason="a property of the fast renderer (REACTON_FAST=1)")
+
+
+class UpdateSpy:
+    """Records the widgets that get a (re)assignment of their kwargs via Element._update_widget."""
+
+    def __init__(self):
+        self.updated: List[widgets.Widget] = []
+
+    def __enter__(self):
+        original = core.Element._update_widget
+        spy = self
+
+        def _update_widget(self, widget, el_prev, kwargs):
+            spy.updated.append(widget)
+            return original(self, widget, el_prev, kwargs)
+
+        self._patch = unittest.mock.patch.object(core.Element, "_update_widget", _update_widget)
+        self._patch.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        self._patch.__exit__(*args)
+
+    def types(self):
+        return sorted(type(widget).__name__ for widget in self.updated)
+
+
+@fast_renderer_only
+def test_leaf_update_does_not_update_sibling_containers():
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Row(i):
+        return w.HBox(children=[w.Button(description=f"button-{i}"), w.Label(value=f"label-{i}")])
+
+    @react.component
+    def Leaf():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.Button(description=f"leaf-{value}")
+
+    @react.component
+    def App():
+        # the HBox is a container next to the leaf, in the same (not re-rendered) component
+        return w.VBox(children=[w.HBox(children=[w.Label(value="sibling")]), Row(0), Row(1), Leaf()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    children_before = vbox.children
+    with UpdateSpy() as spy:
+        set_value(1)
+    assert rc.find(widgets.Button, description="leaf-1").widget is vbox.children[-1]
+    # only the leaf button gets new kwargs, the containers keep their children
+    assert spy.types() == ["Button"]
+    assert vbox.children == children_before
+    rc.close()
+
+
+def test_container_updates_when_child_widget_changes(Container):
+    # the component holding the containers does not re-render, but the root widget of
+    # a child component changes type: the container must get the new widget
+    setters = {}
+
+    @react.component
+    def Switch(name):
+        label, set_label = react.use_state(False)
+        setters[name] = set_label
+        if label:
+            return w.Label(value=name)
+        return w.Button(description=name)
+
+    @react.component
+    def App():
+        return w.VBox(children=[Container(children=[w.Button(description="sibling"), Switch("inner")]), Switch("outer")])
+
+    def describe(widget):
+        return (type(widget).__name__, widget.value if isinstance(widget, widgets.Label) else widget.description)
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    box = vbox.children[0]
+    assert isinstance(box, widgets.HBox)
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Button", "inner")]
+    assert describe(vbox.children[1]) == ("Button", "outer")
+
+    setters["outer"](True)
+    assert vbox.children[0] is box
+    assert describe(vbox.children[1]) == ("Label", "outer")
+
+    setters["inner"](True)
+    assert vbox.children[0] is box
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Label", "inner")]
+    label = box.children[1]
+
+    setters["inner"](False)
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Button", "inner")]
+    assert label.comm is None  # closed
+    setters["outer"](False)
+    assert describe(vbox.children[1]) == ("Button", "outer")
+    rc.close()
+
+
+def test_container_updates_when_fragment_child_changes():
+    # a child component returns a fragment: its widgets are spliced into the parent
+    # container, which must follow when the fragment changes
+    set_count = lambda x: None  # noqa
+
+    @react.component
+    def Items():
+        nonlocal set_count
+        count, set_count = react.use_state(1)
+        return reacton.Fragment(children=[w.Button(description=str(i)) for i in range(count)])
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="first"), Items(), w.Label(value="last")])
+
+    def describe(vbox):
+        return [child.value if isinstance(child, widgets.Label) else child.description for child in vbox.children]
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert describe(vbox) == ["first", "0", "last"]
+    set_count(3)
+    assert describe(vbox) == ["first", "0", "1", "2", "last"]
+    set_count(0)
+    assert describe(vbox) == ["first", "last"]
+    set_count(2)
+    assert describe(vbox) == ["first", "0", "1", "last"]
+    rc.close()
