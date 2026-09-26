@@ -4560,10 +4560,11 @@ def test_mount_widget_creation_error():
         _get_widgets_dict()[model_id].close()
 
 
-def _close_log(fast: bool, fail_in_cleanup: bool = False):
+def _close_log(fast: bool, fail_in_cleanup: bool = False, remove: bool = False):
     # close a tree with nested components, effects and listeners; log the order of the
-    # effect cleanups and the widget closes
+    # effect cleanups and the widget closes. remove: first remove the tree in an update
     log: List[str] = []
+    set_show = lambda value: None  # noqa
 
     class LoggedButton(widgets.Button):
         def close(self):
@@ -4583,8 +4584,13 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
     @react.component
     def Leaf(name):
         value, set_value = react.use_state(0)
+        button = LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
 
         def effect():
+            if name.endswith("1"):
+                # (the fast renderer makes the dicts of this mounted component here)
+                react.get_widget(button)
+
             def cleanup():
                 log.append(f"cleanup {name}")
                 if fail_in_cleanup and name == "b1":
@@ -4593,7 +4599,7 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
             return cleanup
 
         react.use_effect(effect, [])
-        return LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
+        return button
 
     @react.component
     def Group(name, n):
@@ -4605,16 +4611,27 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
 
     @react.component
     def App():
+        nonlocal set_show
+        show, set_show = react.use_state(True)
+
         def effect():
             return lambda: log.append("cleanup app")
 
         react.use_effect(effect, [])
+        if not show:
+            return Box("app", [LoggedButton.element(description="first")])
         return Box("app", [LoggedButton.element(description="first"), Group("a", 2), Box("inner", [Group("b", 2)]), Leaf("last")])
 
     with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
         box, rc = react.render_fixed(App(), handle_error=False)
         assert isinstance(rc, core._RenderContextFast) == fast
         error = None
+        if remove:
+            try:
+                set_show(False)
+            except ValueError as e:
+                error = str(e)
+            log.append("removed")
         try:
             rc.close()
         except ValueError as e:
@@ -4622,16 +4639,21 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
     return log, error
 
 
+@pytest.mark.parametrize("remove", [False, True])
 @pytest.mark.parametrize("fail_in_cleanup", [False, True])
-def test_close_order_same_in_both_renderers(fail_in_cleanup):
+def test_close_order_same_in_both_renderers(fail_in_cleanup, remove):
+    # (the fast renderer removes and closes a mounted subtree from its nodes; some of its
+    # components made their dicts, see Leaf)
     level = core.logger.level
     core.logger.setLevel(core.logging.CRITICAL)  # a failing cleanup logs a traceback
     try:
-        default_log, default_error = _close_log(False, fail_in_cleanup)
-        fast_log, fast_error = _close_log(True, fail_in_cleanup)
+        default_log, default_error = _close_log(False, fail_in_cleanup, remove)
+        fast_log, fast_error = _close_log(True, fail_in_cleanup, remove)
     finally:
         core.logger.setLevel(level)
     assert "cleanup app" in default_log and "close first" in default_log
+    if remove:
+        assert default_log.index("close b1") < default_log.index("removed")
     assert fast_log == default_log
     assert fast_error == default_error
     if fail_in_cleanup:
@@ -4793,3 +4815,90 @@ def test_effect_dependencies_back_to_previous_in_second_pass():
     set_value(3)
     assert runs == ["a"]
     rc.close()
+
+
+def _context_keys(rc):
+    # the keys of the dicts of every component context (the fast renderer makes the dicts of a
+    # mounted component from its nodes here)
+    out = {}
+    todo = [("", rc.context_root)]
+    while todo:
+        path, context = todo.pop()
+        out[path] = (sorted(context.elements), sorted(context.children), sorted(context.widgets), sorted(context.used_keys))
+        todo.extend((f"{path}{key}|", child) for key, child in context.children.items())
+    return out
+
+
+def test_mounted_component_dicts_have_the_same_keys():
+    # a mounted component keeps its tree positionally; the dicts made from it must have the
+    # keys of the two phase walk
+    @react.component
+    def Leaf(i):
+        return w.Button(description=f"leaf {i}")
+
+    @react.component
+    def Wrapper(i):
+        return Leaf(i)
+
+    @react.component
+    def App():
+        return w.VBox(
+            children=[
+                w.Label(value="first"),
+                Wrapper(1),
+                w.HBox(children=[Leaf(2), Leaf(3).key("three"), w.Button(description="x")]),
+                react.Fragment(children=[Leaf(4), w.Label(value="in fragment")]),
+                Leaf(5).key("five"),
+            ],
+            layout=w.Layout(width="10px"),
+        )
+
+    keys = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            box, rc = react.render_fixed(App(), handle_error=False)
+            keys[fast] = _context_keys(rc)
+            rc.close()
+    assert keys[True] == keys[False]
+    assert "three" in keys[True]["/|"][1]
+
+
+def test_state_get_restores_nested_state():
+    set_values: Dict[str, Callable] = {}
+
+    @react.component
+    def Child(name):
+        value, set_value = react.use_state(0)
+        set_values[name] = set_value
+        return w.Button(description=f"{name} {value}")
+
+    @react.component
+    def Parent():
+        value, set_value = react.use_state(0)
+        set_values["parent"] = set_value
+        return w.VBox(children=[w.Label(value=f"parent {value}"), Child("a"), Child("b").key("b")])
+
+    @react.component
+    def App():
+        return w.HBox(children=[Parent()])
+
+    def descriptions(widget):
+        if isinstance(widget, widgets.Box):
+            return [descriptions(child) for child in widget.children]
+        return getattr(widget, "description", None) or widget.value
+
+    states = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            box, rc = react.render_fixed(App(), handle_error=False)
+            set_values["parent"](1)
+            set_values["a"](2)
+            set_values["b"](3)
+            state = states[fast] = rc.state_get()
+            rc.close()
+            # restored: the (mounted) components get their state back, at every level
+            container = widgets.VBox()
+            hbox, rc = react.render(App(), container, initial_state=state, handle_error=False)
+            assert descriptions(container.children[0]) == [["parent 1", "a 2", "b 3"]]
+            rc.close()
+    assert states[True] == states[False]

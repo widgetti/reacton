@@ -18,7 +18,7 @@ from .utils import implements
 class FigureElement(Element[bqplot.Figure]):
     def __enter__(self):
         rc = _get_render_context()
-        ca = ContainerAdder[bqplot.Figure](self, "marks")
+        ca = ContainerAdder(self, "marks")
         rc.container_adders.append(ca)
         return self
 
