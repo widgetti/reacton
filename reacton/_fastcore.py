@@ -1547,6 +1547,8 @@ def _remove_mounted(rc, child_context, closing):
 _FastRC: Any = None  # reacton.core._RenderContextFast
 _Ref: Any = None
 _Effect: Any = None
+# (annotated before _register_hooks declares it global: Python 3.7 rejects the other order)
+_RerenderReason: Any = None
 _logging_debug = 10
 # logging.DEBUG enabled for reacton (set at the start of every render, see core.render)
 _log_debug = False
@@ -2028,9 +2030,6 @@ class _Setter:
                 add_rerender_reason(rc, reason)
                 rc._rerender_needed = True
             rc._possible_rerender()
-
-
-_RerenderReason: Any = None
 
 
 def _warn_mutated(message):
