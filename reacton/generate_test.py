@@ -25,12 +25,11 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-    widget_cls = reacton.generate_test.MyTest
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_MyTest_component, kwargs=kwargs)
 
 
 del _MyTest
+_MyTest_component = reacton.core.ComponentWidget(widget=reacton.generate_test.MyTest)
 '''
     assert code.strip() == code_expected.strip()
 
@@ -54,12 +53,11 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-    widget_cls = reacton.generate_test.MyTest
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _MyTest_component, kwargs=kwargs)
 
 
 del _MyTest
+_MyTest_component = reacton.core.ComponentWidget(widget=reacton.generate_test.MyTest)
 '''
     assert code.strip() == code_expected.strip()
 
@@ -88,12 +86,11 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-    widget_cls = reacton.generate_test.MyTest
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_MyTest_component, kwargs=kwargs)
 
 
-del _MyTest'''
+del _MyTest
+_MyTest_component = reacton.core.ComponentWidget(widget=reacton.generate_test.MyTest)'''
     assert code.strip() == code_expected.strip()
 
 
@@ -119,12 +116,11 @@ def _MyTest(
 
 @implements(_MyTest)
 def MyTest(**kwargs):
-    widget_cls = reacton.generate_test.MyTest
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_MyTest_component, kwargs=kwargs)
 
 
 del _MyTest
+_MyTest_component = reacton.core.ComponentWidget(widget=reacton.generate_test.MyTest)
 '''
     assert code.strip() == code_expected.strip()
 
