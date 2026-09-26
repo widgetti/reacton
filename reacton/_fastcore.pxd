@@ -53,7 +53,13 @@ cdef class _Mount:
 
 
 cdef int _plain_class(object cls) except -1
-cdef object _trait_names(object component)
+cdef class _WidgetInfo:
+    cdef public object widget
+    cdef public frozenset trait_names
+    cdef public object batched
+
+@cython.locals(info=_WidgetInfo)
+cdef _WidgetInfo _widget_info(object component)
 
 @cython.locals(m=_Mount, c=object, widget=object)
 cpdef object mount_component(object rc, ElementBase el, object key, object parent_context, object order, object context)
@@ -70,7 +76,7 @@ cdef object _call_body(_Mount m, ElementBase el, object managers)
 @cython.locals(component=object, default_container=object, adder=ContainerAdder, created=list, container_adders=list, root_element=object, kwargs=dict)
 cdef object _call_component(_Mount m, ElementBase el)
 
-@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, callback_wrappers=dict, listener=object, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
+@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, callback_wrappers=dict, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
 cdef object _mount_node(_Mount m, ElementBase el, object c, list nodes, object dkey)
 
 @cython.locals(values=list, index=Py_ssize_t, x=object, w=object)
@@ -106,7 +112,7 @@ cdef class _Materialize:
 @cython.locals(el=object, widget=object, orphans=object, orphan=object, orphan_widget=object, close=object, widgets_dict=object)
 cdef object _close_widget_node(object rc, object node)
 
-@cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object)
+@cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object, switched=bint, effects=object, handlers=object)
 cpdef object remove_mounted(object rc, object child_context, bint closing)
 
 

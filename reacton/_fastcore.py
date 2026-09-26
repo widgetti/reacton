@@ -155,7 +155,8 @@ class ElementBase:
             if container_adders:
                 adder = container_adders[-1]
                 if type(adder) is ContainerAdder:
-                    adder.created.append(self)
+                    ca: ContainerAdder = adder
+                    ca.created.append(self)
                 else:
                     adder.add(self)
         if DEBUG:
@@ -250,7 +251,8 @@ class ValueElementBase(ElementBase):
             if container_adders:
                 adder = container_adders[-1]
                 if type(adder) is ContainerAdder:
-                    adder.created.append(self)
+                    ca: ContainerAdder = adder
+                    ca.created.append(self)
                 else:
                     adder.add(self)
         if DEBUG:
@@ -319,7 +321,8 @@ def component_call(self, *args, **kwargs):
             if container_adders:
                 adder = container_adders[-1]
                 if type(adder) is ContainerAdder:
-                    adder.created.append(new)
+                    ca: ContainerAdder = adder
+                    ca.created.append(new)
                 else:
                     adder.add(new)
         el = new
@@ -436,12 +439,22 @@ def _plain_class(cls):
     return plain
 
 
-def _trait_names(component):
-    # the trait names of the widget class of a ComponentWidget (kept on it)
-    names = component._reacton_trait_names
-    if names is None:
-        names = component._reacton_trait_names = frozenset(component.widget.class_trait_names())
-    return names
+class _WidgetInfo:
+    """What the mount keeps about the widget class of a ComponentWidget (on the component)."""
+
+    def __init__(self, component):
+        self.widget = component.widget
+        self.trait_names = frozenset(component.widget.class_trait_names())
+        # the widget class whose hold_trait_notifications batches renders (see
+        # core._install_batched_hold)
+        self.batched = None
+
+
+def _widget_info(component):
+    info = component._reacton_info
+    if info is None:
+        info = component._reacton_info = _WidgetInfo(component)
+    return info
 
 
 class _Mount:
@@ -474,6 +487,9 @@ def mount_component(rc, el, key, parent_context, order, context):
     or None when this pass cannot keep the mount.
     """
     m = _Mount(rc)
+    if rc._rerender_needed:
+        # (state set earlier in this pass: it will be undone, do not make widgets)
+        m.failed = True
     previous_recording = _core._start_recording_constructed(m.recording)
     try:
         widget = _mount_component(m, el, parent_context, None, context, key)
@@ -552,6 +568,10 @@ def _mount_component(m, el, parent, parent_nodes, context, key):
         context.needs_render = True
         m.raised += 1
     # (a nested render() from a body is refused by render() itself: it holds the lock)
+    if rc._rerender_needed:
+        # the body set state (or raised): this pass will be undone, do not make more widgets
+        # (only a body changes the flag, so the widgets do not check it themselves)
+        m.failed = True
     widget = None
     if root is not None:
         if not isinstance(root, ElementBase):
@@ -712,10 +732,10 @@ def _mount_node(m, el, c, nodes, dkey):
         if resolved is None:
             resolved = dict(kwargs)
         resolved[name] = new_value
-    rc = m.rc
-    if m.failed or rc._rerender_needed:
+    if m.failed:
         # this pass will be undone, do not make more widgets
         return None
+    rc = m.rc
     if resolved is None:
         # (no copy: the constructor gets the kwargs unpacked)
         resolved = kwargs
@@ -728,7 +748,8 @@ def _mount_node(m, el, c, nodes, dkey):
     if plain != 0:
         # Element._create_widget, with the recording of this mount
         listeners = None
-        traits = _trait_names(component)
+        info = _widget_info(component)
+        traits = info.trait_names
         if not traits.issuperset(resolved):
             for name in list(resolved):
                 if name.startswith("on_") and name not in traits:
@@ -738,16 +759,16 @@ def _mount_node(m, el, c, nodes, dkey):
                         listeners = {}
                     listeners[name] = resolved.pop(name)
         try:
-            widget = component.widget(**resolved)
+            widget = info.widget(**resolved)
         except Exception:
             # let reconciliation make it (and handle the exception) as it always does
             m.failed = True
             return None
         widget_class = type(widget)
-        if component._reacton_batched is not widget_class:
+        if info.batched is not widget_class:
             if not getattr(widget_class.hold_trait_notifications, "_reacton_batched", False):
                 _core._install_batched_hold(widget_class)
-            component._reacton_batched = widget_class
+            info.batched = widget_class
         widget._reacton_rc = rc
         if el._meta:
             widget._react_meta = dict(el._meta)
@@ -974,7 +995,7 @@ class _Materialize:
             # elements in the kwargs (each one took a node): the kwargs the widget was made
             # with, as the update path compares them (see _mount_node: without listeners)
             assert resolved is not None
-            traits = _trait_names(component)
+            traits = _widget_info(component).trait_names
             if not traits.issuperset(resolved):
                 for name in list(resolved):
                     if name.startswith("on_") and name not in traits:
@@ -1128,7 +1149,10 @@ def _close_widget_node(rc, node):
             close()
         else:
             _core.close_widget(widget)  # logs the warning
-        widget.__dict__.pop("_reacton_rc", None)
+        try:
+            del widget._reacton_rc
+        except AttributeError:
+            pass
 
 
 def remove_mounted(rc, child_context, closing):
@@ -1138,9 +1162,15 @@ def remove_mounted(rc, child_context, closing):
     context = rc.context
     child_context.exceptions_self = []
     child_context.exceptions_children = []
-    rc.context = child_context
+    # (rc.context is only switched to child_context when an effect cleanup, a handler or a
+    # child component can use it: most mounted components have none)
+    switched = False
     try:
-        for effect in child_context.effects:
+        effects = child_context.effects
+        if effects:
+            rc.context = child_context
+            switched = True
+        for effect in effects:
             if not effect._cleaned_up:
                 cleanup = effect._cleanup
                 try:
@@ -1154,7 +1184,11 @@ def remove_mounted(rc, child_context, closing):
                         rc._mark_dirty(child_context)
                 effect._cleaned_up = True
         if not closing:
-            for handler in child_context.event_handlers:
+            handlers = child_context.event_handlers
+            if handlers and not switched:
+                rc.context = child_context
+                switched = True
+            for handler in handlers:
                 try:
                     handler._reacton_detach()
                 except BaseException as e:
@@ -1166,6 +1200,9 @@ def remove_mounted(rc, child_context, closing):
         child_context.nodes = None
         for node in nodes:
             if isinstance(node, _ComponentContext):
+                if not switched:
+                    rc.context = child_context
+                    switched = True
                 if node.nodes is not None:
                     remove_mounted(rc, node, closing)
                 elif closing:
@@ -1176,7 +1213,8 @@ def remove_mounted(rc, child_context, closing):
             else:
                 _close_widget_node(rc, node)
     finally:
-        rc.context = context
+        if switched:
+            rc.context = context
     if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
         # child does not handle exceptions, so bubble up
         context.exceptions_children.extend(child_context.exceptions_self)

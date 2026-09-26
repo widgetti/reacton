@@ -650,10 +650,8 @@ _NO_ELEMENTS: List["Element"] = _fastcore._NO_ELEMENTS
 class ComponentWidget(Component):
     mime_bundle: Dict[str, Any] = mime_bundle_default
     widget: Type[widgets.Widget]
-    # (for the mount, see _fastcore: the trait names, and the widget class whose
-    # hold_trait_notifications batches renders)
-    _reacton_trait_names: Optional[frozenset] = None
-    _reacton_batched: Optional[type] = None
+    # (for the mount: what it keeps about the widget class, see _fastcore._WidgetInfo)
+    _reacton_info: Any = None
     # (for use_event: the widget class is an ipyvue widget)
     _reacton_vue: Optional[bool] = None
 
@@ -4107,6 +4105,10 @@ class _RenderContextFast(_RenderContext):
     def _remove_stale_root_elements(self, parent_key):
         # remove stale elements of the root context itself
         # (child contexts are swept during their reconciliation)
+        root = self.context_root
+        if len(root.elements) <= len(root.used_keys) and not root.has_shared:
+            # (all used keys are in elements: only then the sizes tell there are none)
+            return
         stale_keys = sorted(set(self.context_root.elements) - self.context_root.used_keys)
         for stale_key in stale_keys:
             if stale_key in self.context_root.elements:
