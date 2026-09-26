@@ -83,3 +83,8 @@ examples
 site
 _site
 .mypy_cache
+
+# optional Cython build (setup_cython.py)
+/build/
+/reacton/_fastcore.c
+/reacton/_fastcore.html

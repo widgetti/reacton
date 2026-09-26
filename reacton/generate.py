@@ -258,14 +258,14 @@ class CodeGen(Generic[W]):
         if "v_model" in traits:
             element_type = f'ValueElement[{class_name}, {types["v_model"]}]'
             element_class_name = "ValueElement"
-            create_element = f'{element_class_name}("v_model", comp, kwargs=kwargs)'
+            create_element = f'{element_class_name}("v_model", _{method_name}_component, kwargs=kwargs)'
         elif "value" in traits:
             element_type = f'ValueElement[{class_name}, {types["value"]}]'
             element_class_name = "ValueElement"
-            create_element = f'{element_class_name}("value", comp, kwargs=kwargs)'
+            create_element = f'{element_class_name}("value", _{method_name}_component, kwargs=kwargs)'
         else:
             element_type = f"Element[{class_name}]"
-            create_element = f"{element_class_name}(comp, kwargs=kwargs)"
+            create_element = f"{element_class_name}(_{method_name}_component, kwargs=kwargs)"
 
         docstring_args_template = Template(
             """
@@ -276,6 +276,8 @@ class CodeGen(Generic[W]):
         docstring_args = docstring_args_template.render(docargs=docargs)
         docstring_args = indent(docstring_args, "    ").strip()
 
+        # The element factory uses one ComponentWidget per widget class, made when the module
+        # is imported (not one lookup per element).
         code_method = Template(
             """
 
@@ -288,12 +290,11 @@ def _{{ method_name }}({{ signature }}) -> {{element_type}}:
 @implements(_{{ method_name }})
 def {{ method_name }}(**kwargs):
     {{InstanceDict_fixes}}
-    widget_cls = {{class_name}}
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
     return {{create_element}}
 
 
 del _{{ method_name }}
+_{{ method_name }}_component = reacton.core.ComponentWidget(widget={{class_name}})
 
         """
         )

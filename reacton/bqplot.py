@@ -18,7 +18,7 @@ from .utils import implements
 class FigureElement(Element[bqplot.Figure]):
     def __enter__(self):
         rc = _get_render_context()
-        ca = ContainerAdder[bqplot.Figure](self, "marks")
+        ca = ContainerAdder(self, "marks")
         rc.container_adders.append(ca)
         return self
 
@@ -89,12 +89,11 @@ def _Albers(
 
 @implements(_Albers)
 def Albers(**kwargs):
-    widget_cls = bqplot.scales.Albers
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Albers_component, kwargs=kwargs)
 
 
 del _Albers
+_Albers_component = reacton.core.ComponentWidget(widget=bqplot.scales.Albers)
 
 
 def _AlbersUSA(
@@ -128,12 +127,11 @@ def _AlbersUSA(
 
 @implements(_AlbersUSA)
 def AlbersUSA(**kwargs):
-    widget_cls = bqplot.scales.AlbersUSA
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_AlbersUSA_component, kwargs=kwargs)
 
 
 del _AlbersUSA
+_AlbersUSA_component = reacton.core.ComponentWidget(widget=bqplot.scales.AlbersUSA)
 
 
 def _Axis(
@@ -232,12 +230,11 @@ def _Axis(
 
 @implements(_Axis)
 def Axis(**kwargs):
-    widget_cls = bqplot.axes.Axis
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Axis_component, kwargs=kwargs)
 
 
 del _Axis
+_Axis_component = reacton.core.ComponentWidget(widget=bqplot.axes.Axis)
 
 
 def _Bars(
@@ -398,12 +395,11 @@ def _Bars(
 
 @implements(_Bars)
 def Bars(**kwargs):
-    widget_cls = bqplot.marks.Bars
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Bars_component, kwargs=kwargs)
 
 
 del _Bars
+_Bars_component = reacton.core.ComponentWidget(widget=bqplot.marks.Bars)
 
 
 def _BaseAxis() -> Element[bqplot.axes.BaseAxis]:
@@ -413,12 +409,11 @@ def _BaseAxis() -> Element[bqplot.axes.BaseAxis]:
 
 @implements(_BaseAxis)
 def BaseAxis(**kwargs):
-    widget_cls = bqplot.axes.BaseAxis
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_BaseAxis_component, kwargs=kwargs)
 
 
 del _BaseAxis
+_BaseAxis_component = reacton.core.ComponentWidget(widget=bqplot.axes.BaseAxis)
 
 
 def _Bins(
@@ -563,12 +558,11 @@ def _Bins(
 
 @implements(_Bins)
 def Bins(**kwargs):
-    widget_cls = bqplot.marks.Bins
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Bins_component, kwargs=kwargs)
 
 
 del _Bins
+_Bins_component = reacton.core.ComponentWidget(widget=bqplot.marks.Bins)
 
 
 def _Boxplot(
@@ -652,12 +646,11 @@ def _Boxplot(
 
 @implements(_Boxplot)
 def Boxplot(**kwargs):
-    widget_cls = bqplot.marks.Boxplot
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Boxplot_component, kwargs=kwargs)
 
 
 del _Boxplot
+_Boxplot_component = reacton.core.ComponentWidget(widget=bqplot.marks.Boxplot)
 
 
 def _ColorAxis(
@@ -712,12 +705,11 @@ def _ColorAxis(
 
 @implements(_ColorAxis)
 def ColorAxis(**kwargs):
-    widget_cls = bqplot.axes.ColorAxis
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ColorAxis_component, kwargs=kwargs)
 
 
 del _ColorAxis
+_ColorAxis_component = reacton.core.ComponentWidget(widget=bqplot.axes.ColorAxis)
 
 
 def _ColorScale(
@@ -772,12 +764,11 @@ def _ColorScale(
 
 @implements(_ColorScale)
 def ColorScale(**kwargs):
-    widget_cls = bqplot.scales.ColorScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ColorScale_component, kwargs=kwargs)
 
 
 del _ColorScale
+_ColorScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.ColorScale)
 
 
 def _DOMWidget(
@@ -792,12 +783,11 @@ def _DOMWidget(
 def DOMWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.domwidget.DOMWidget
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DOMWidget_component, kwargs=kwargs)
 
 
 del _DOMWidget
+_DOMWidget_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.domwidget.DOMWidget)
 
 
 def _DateColorScale(
@@ -845,12 +835,11 @@ def _DateColorScale(
 
 @implements(_DateColorScale)
 def DateColorScale(**kwargs):
-    widget_cls = bqplot.scales.DateColorScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DateColorScale_component, kwargs=kwargs)
 
 
 del _DateColorScale
+_DateColorScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.DateColorScale)
 
 
 def _DateScale(
@@ -888,12 +877,11 @@ def _DateScale(
 
 @implements(_DateScale)
 def DateScale(**kwargs):
-    widget_cls = bqplot.scales.DateScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DateScale_component, kwargs=kwargs)
 
 
 del _DateScale
+_DateScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.DateScale)
 
 
 def _EquiRectangular(
@@ -924,12 +912,11 @@ def _EquiRectangular(
 
 @implements(_EquiRectangular)
 def EquiRectangular(**kwargs):
-    widget_cls = bqplot.scales.EquiRectangular
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_EquiRectangular_component, kwargs=kwargs)
 
 
 del _EquiRectangular
+_EquiRectangular_component = reacton.core.ComponentWidget(widget=bqplot.scales.EquiRectangular)
 
 
 def _Figure(
@@ -1065,12 +1052,11 @@ def _Figure(
 def Figure(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
-    widget_cls = bqplot.figure.Figure
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return FigureElement(comp, kwargs=kwargs)
+    return FigureElement(_Figure_component, kwargs=kwargs)
 
 
 del _Figure
+_Figure_component = reacton.core.ComponentWidget(widget=bqplot.figure.Figure)
 
 
 def _FlexLine(
@@ -1155,12 +1141,11 @@ def _FlexLine(
 
 @implements(_FlexLine)
 def FlexLine(**kwargs):
-    widget_cls = bqplot.marks.FlexLine
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_FlexLine_component, kwargs=kwargs)
 
 
 del _FlexLine
+_FlexLine_component = reacton.core.ComponentWidget(widget=bqplot.marks.FlexLine)
 
 
 def _GeoScale(
@@ -1181,12 +1166,11 @@ def _GeoScale(
 
 @implements(_GeoScale)
 def GeoScale(**kwargs):
-    widget_cls = bqplot.scales.GeoScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_GeoScale_component, kwargs=kwargs)
 
 
 del _GeoScale
+_GeoScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.GeoScale)
 
 
 def _Gnomonic(
@@ -1226,12 +1210,11 @@ def _Gnomonic(
 
 @implements(_Gnomonic)
 def Gnomonic(**kwargs):
-    widget_cls = bqplot.scales.Gnomonic
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Gnomonic_component, kwargs=kwargs)
 
 
 del _Gnomonic
+_Gnomonic_component = reacton.core.ComponentWidget(widget=bqplot.scales.Gnomonic)
 
 
 def _Graph(
@@ -1350,12 +1333,11 @@ def _Graph(
 
 @implements(_Graph)
 def Graph(**kwargs):
-    widget_cls = bqplot.marks.Graph
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Graph_component, kwargs=kwargs)
 
 
 del _Graph
+_Graph_component = reacton.core.ComponentWidget(widget=bqplot.marks.Graph)
 
 
 def _GridHeatMap(
@@ -1483,12 +1465,11 @@ def _GridHeatMap(
 
 @implements(_GridHeatMap)
 def GridHeatMap(**kwargs):
-    widget_cls = bqplot.marks.GridHeatMap
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_GridHeatMap_component, kwargs=kwargs)
 
 
 del _GridHeatMap
+_GridHeatMap_component = reacton.core.ComponentWidget(widget=bqplot.marks.GridHeatMap)
 
 
 def _HeatMap(
@@ -1561,12 +1542,11 @@ def _HeatMap(
 
 @implements(_HeatMap)
 def HeatMap(**kwargs):
-    widget_cls = bqplot.marks.HeatMap
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_HeatMap_component, kwargs=kwargs)
 
 
 del _HeatMap
+_HeatMap_component = reacton.core.ComponentWidget(widget=bqplot.marks.HeatMap)
 
 
 def _Hist(
@@ -1668,12 +1648,11 @@ def _Hist(
 
 @implements(_Hist)
 def Hist(**kwargs):
-    widget_cls = bqplot.marks.Hist
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Hist_component, kwargs=kwargs)
 
 
 del _Hist
+_Hist_component = reacton.core.ComponentWidget(widget=bqplot.marks.Hist)
 
 
 def _Image(
@@ -1741,12 +1720,11 @@ def _Image(
 
 @implements(_Image)
 def Image(**kwargs):
-    widget_cls = bqplot.marks.Image
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Image_component, kwargs=kwargs)
 
 
 del _Image
+_Image_component = reacton.core.ComponentWidget(widget=bqplot.marks.Image)
 
 
 def _Interaction() -> Element[bqplot.interacts.Interaction]:
@@ -1773,12 +1751,11 @@ def _Interaction() -> Element[bqplot.interacts.Interaction]:
 
 @implements(_Interaction)
 def Interaction(**kwargs):
-    widget_cls = bqplot.interacts.Interaction
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Interaction_component, kwargs=kwargs)
 
 
 del _Interaction
+_Interaction_component = reacton.core.ComponentWidget(widget=bqplot.interacts.Interaction)
 
 
 def _Label(
@@ -1926,12 +1903,11 @@ def _Label(
 
 @implements(_Label)
 def Label(**kwargs):
-    widget_cls = bqplot.marks.Label
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Label_component, kwargs=kwargs)
 
 
 del _Label
+_Label_component = reacton.core.ComponentWidget(widget=bqplot.marks.Label)
 
 
 def _LinearScale(
@@ -1991,12 +1967,11 @@ def _LinearScale(
 
 @implements(_LinearScale)
 def LinearScale(**kwargs):
-    widget_cls = bqplot.scales.LinearScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_LinearScale_component, kwargs=kwargs)
 
 
 del _LinearScale
+_LinearScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.LinearScale)
 
 
 def _Lines(
@@ -2142,12 +2117,11 @@ def _Lines(
 
 @implements(_Lines)
 def Lines(**kwargs):
-    widget_cls = bqplot.marks.Lines
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Lines_component, kwargs=kwargs)
 
 
 del _Lines
+_Lines_component = reacton.core.ComponentWidget(widget=bqplot.marks.Lines)
 
 
 def _LogScale(
@@ -2183,12 +2157,11 @@ def _LogScale(
 
 @implements(_LogScale)
 def LogScale(**kwargs):
-    widget_cls = bqplot.scales.LogScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_LogScale_component, kwargs=kwargs)
 
 
 del _LogScale
+_LogScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.LogScale)
 
 
 def _Map(
@@ -2272,12 +2245,11 @@ def _Map(
 
 @implements(_Map)
 def Map(**kwargs):
-    widget_cls = bqplot.marks.Map
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Map_component, kwargs=kwargs)
 
 
 del _Map
+_Map_component = reacton.core.ComponentWidget(widget=bqplot.marks.Map)
 
 
 def _Mark(
@@ -2396,12 +2368,11 @@ def _Mark(
 
 @implements(_Mark)
 def Mark(**kwargs):
-    widget_cls = bqplot.marks.Mark
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Mark_component, kwargs=kwargs)
 
 
 del _Mark
+_Mark_component = reacton.core.ComponentWidget(widget=bqplot.marks.Mark)
 
 
 def _Mercator(
@@ -2442,12 +2413,11 @@ def _Mercator(
 
 @implements(_Mercator)
 def Mercator(**kwargs):
-    widget_cls = bqplot.scales.Mercator
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Mercator_component, kwargs=kwargs)
 
 
 del _Mercator
+_Mercator_component = reacton.core.ComponentWidget(widget=bqplot.scales.Mercator)
 
 
 def _OHLC(
@@ -2545,12 +2515,11 @@ def _OHLC(
 
 @implements(_OHLC)
 def OHLC(**kwargs):
-    widget_cls = bqplot.marks.OHLC
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_OHLC_component, kwargs=kwargs)
 
 
 del _OHLC
+_OHLC_component = reacton.core.ComponentWidget(widget=bqplot.marks.OHLC)
 
 
 def _OrdinalColorScale(
@@ -2596,12 +2565,11 @@ def _OrdinalColorScale(
 
 @implements(_OrdinalColorScale)
 def OrdinalColorScale(**kwargs):
-    widget_cls = bqplot.scales.OrdinalColorScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_OrdinalColorScale_component, kwargs=kwargs)
 
 
 del _OrdinalColorScale
+_OrdinalColorScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.OrdinalColorScale)
 
 
 def _OrdinalScale(
@@ -2633,12 +2601,11 @@ def _OrdinalScale(
 
 @implements(_OrdinalScale)
 def OrdinalScale(**kwargs):
-    widget_cls = bqplot.scales.OrdinalScale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_OrdinalScale_component, kwargs=kwargs)
 
 
 del _OrdinalScale
+_OrdinalScale_component = reacton.core.ComponentWidget(widget=bqplot.scales.OrdinalScale)
 
 
 def _Orthographic(
@@ -2683,12 +2650,11 @@ def _Orthographic(
 
 @implements(_Orthographic)
 def Orthographic(**kwargs):
-    widget_cls = bqplot.scales.Orthographic
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Orthographic_component, kwargs=kwargs)
 
 
 del _Orthographic
+_Orthographic_component = reacton.core.ComponentWidget(widget=bqplot.scales.Orthographic)
 
 
 def _PanZoom(
@@ -2719,12 +2685,11 @@ def _PanZoom(
 
 @implements(_PanZoom)
 def PanZoom(**kwargs):
-    widget_cls = bqplot.interacts.PanZoom
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_PanZoom_component, kwargs=kwargs)
 
 
 del _PanZoom
+_PanZoom_component = reacton.core.ComponentWidget(widget=bqplot.interacts.PanZoom)
 
 
 def _Pie(
@@ -2859,12 +2824,11 @@ def _Pie(
 
 @implements(_Pie)
 def Pie(**kwargs):
-    widget_cls = bqplot.marks.Pie
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Pie_component, kwargs=kwargs)
 
 
 del _Pie
+_Pie_component = reacton.core.ComponentWidget(widget=bqplot.marks.Pie)
 
 
 def _Scale(
@@ -2900,12 +2864,11 @@ def _Scale(
 
 @implements(_Scale)
 def Scale(**kwargs):
-    widget_cls = bqplot.scales.Scale
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Scale_component, kwargs=kwargs)
 
 
 del _Scale
+_Scale_component = reacton.core.ComponentWidget(widget=bqplot.scales.Scale)
 
 
 def _Scatter(
@@ -3113,12 +3076,11 @@ def _Scatter(
 
 @implements(_Scatter)
 def Scatter(**kwargs):
-    widget_cls = bqplot.marks.Scatter
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Scatter_component, kwargs=kwargs)
 
 
 del _Scatter
+_Scatter_component = reacton.core.ComponentWidget(widget=bqplot.marks.Scatter)
 
 
 def _ScatterGL(
@@ -3227,12 +3189,11 @@ def _ScatterGL(
 
 @implements(_ScatterGL)
 def ScatterGL(**kwargs):
-    widget_cls = bqplot.marks.ScatterGL
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ScatterGL_component, kwargs=kwargs)
 
 
 del _ScatterGL
+_ScatterGL_component = reacton.core.ComponentWidget(widget=bqplot.marks.ScatterGL)
 
 
 def _Stereographic(
@@ -3277,12 +3238,11 @@ def _Stereographic(
 
 @implements(_Stereographic)
 def Stereographic(**kwargs):
-    widget_cls = bqplot.scales.Stereographic
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Stereographic_component, kwargs=kwargs)
 
 
 del _Stereographic
+_Stereographic_component = reacton.core.ComponentWidget(widget=bqplot.scales.Stereographic)
 
 
 def _Toolbar(
@@ -3328,12 +3288,11 @@ def _Toolbar(
 def Toolbar(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
-    widget_cls = bqplot.toolbar.Toolbar
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Toolbar_component, kwargs=kwargs)
 
 
 del _Toolbar
+_Toolbar_component = reacton.core.ComponentWidget(widget=bqplot.toolbar.Toolbar)
 
 
 def _Tooltip(
@@ -3376,9 +3335,8 @@ def _Tooltip(
 def Tooltip(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = w.Layout(**kwargs["layout"])
-    widget_cls = bqplot.default_tooltip.Tooltip
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Tooltip_component, kwargs=kwargs)
 
 
 del _Tooltip
+_Tooltip_component = reacton.core.ComponentWidget(widget=bqplot.default_tooltip.Tooltip)

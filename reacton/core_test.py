@@ -3325,6 +3325,24 @@ def test_key_mutate_protection(Container):
     rc.close()
 
 
+def test_key_frozen_follows_render_count():
+    # the frozen key is derived from the render count (no flag written per element render)
+    button = w.Button(description="a")
+    assert not button._key_frozen
+    button.key("before-render")
+
+    @react.component
+    def Test():
+        return w.VBox(children=[button])
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert button._render_count == 1
+    assert button._key_frozen
+    with pytest.raises(RuntimeError, match="Element keys should not be mutated after rendering"):
+        button.key("after-render")
+    rc.close()
+
+
 def test_render_nested_pass_widget_to_component_flip():
     # One render() call, two passes: the first pass puts a widget element at a
     # slot, a state write during that pass opens a nested pass, and the nested
@@ -4542,10 +4560,11 @@ def test_mount_widget_creation_error():
         _get_widgets_dict()[model_id].close()
 
 
-def _close_log(fast: bool, fail_in_cleanup: bool = False):
+def _close_log(fast: bool, fail_in_cleanup: bool = False, remove: bool = False):
     # close a tree with nested components, effects and listeners; log the order of the
-    # effect cleanups and the widget closes
+    # effect cleanups and the widget closes. remove: first remove the tree in an update
     log: List[str] = []
+    set_show = lambda value: None  # noqa
 
     class LoggedButton(widgets.Button):
         def close(self):
@@ -4565,8 +4584,13 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
     @react.component
     def Leaf(name):
         value, set_value = react.use_state(0)
+        button = LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
 
         def effect():
+            if name.endswith("1"):
+                # (the fast renderer makes the dicts of this mounted component here)
+                react.get_widget(button)
+
             def cleanup():
                 log.append(f"cleanup {name}")
                 if fail_in_cleanup and name == "b1":
@@ -4575,7 +4599,7 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
             return cleanup
 
         react.use_effect(effect, [])
-        return LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
+        return button
 
     @react.component
     def Group(name, n):
@@ -4587,16 +4611,27 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
 
     @react.component
     def App():
+        nonlocal set_show
+        show, set_show = react.use_state(True)
+
         def effect():
             return lambda: log.append("cleanup app")
 
         react.use_effect(effect, [])
+        if not show:
+            return Box("app", [LoggedButton.element(description="first")])
         return Box("app", [LoggedButton.element(description="first"), Group("a", 2), Box("inner", [Group("b", 2)]), Leaf("last")])
 
     with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
         box, rc = react.render_fixed(App(), handle_error=False)
         assert isinstance(rc, core._RenderContextFast) == fast
         error = None
+        if remove:
+            try:
+                set_show(False)
+            except ValueError as e:
+                error = str(e)
+            log.append("removed")
         try:
             rc.close()
         except ValueError as e:
@@ -4604,16 +4639,21 @@ def _close_log(fast: bool, fail_in_cleanup: bool = False):
     return log, error
 
 
+@pytest.mark.parametrize("remove", [False, True])
 @pytest.mark.parametrize("fail_in_cleanup", [False, True])
-def test_close_order_same_in_both_renderers(fail_in_cleanup):
+def test_close_order_same_in_both_renderers(fail_in_cleanup, remove):
+    # (the fast renderer removes and closes a mounted subtree from its nodes; some of its
+    # components made their dicts, see Leaf)
     level = core.logger.level
     core.logger.setLevel(core.logging.CRITICAL)  # a failing cleanup logs a traceback
     try:
-        default_log, default_error = _close_log(False, fail_in_cleanup)
-        fast_log, fast_error = _close_log(True, fail_in_cleanup)
+        default_log, default_error = _close_log(False, fail_in_cleanup, remove)
+        fast_log, fast_error = _close_log(True, fail_in_cleanup, remove)
     finally:
         core.logger.setLevel(level)
     assert "cleanup app" in default_log and "close first" in default_log
+    if remove:
+        assert default_log.index("close b1") < default_log.index("removed")
     assert fast_log == default_log
     assert fast_error == default_error
     if fail_in_cleanup:
@@ -4671,6 +4711,27 @@ def test_dynamic_widget_class_is_freed():
     class_ref = render_and_close()
     gc.collect()
     assert class_ref() is None
+
+
+def test_component_widget_per_class():
+    # one ComponentWidget per widget class, kept on the class: a subclass gets its own
+    class Base(widgets.Button):
+        pass
+
+    class Sub(Base):
+        pass
+
+    base = react.core.ComponentWidget(widget=Base)
+    assert react.core.ComponentWidget(widget=Base) is base
+    sub = react.core.ComponentWidget(widget=Sub)
+    assert sub is not base
+    assert sub.widget is Sub
+    assert react.core.ComponentWidget(widget=Sub) is sub
+    assert react.core.ComponentWidget(widget=Base) is base
+    # a custom mime bundle is not shared
+    custom = react.core.ComponentWidget(widget=Base, mime_bundle={"text/plain": "custom"})
+    assert custom is not base
+    assert react.core.ComponentWidget(widget=Base) is base
 
 
 def test_setter_is_stable():
@@ -4754,3 +4815,205 @@ def test_effect_dependencies_back_to_previous_in_second_pass():
     set_value(3)
     assert runs == ["a"]
     rc.close()
+
+
+def _context_keys(rc):
+    # the keys of the dicts of every component context (the fast renderer makes the dicts of a
+    # mounted component from its nodes here)
+    out = {}
+    todo = [("", rc.context_root)]
+    while todo:
+        path, context = todo.pop()
+        out[path] = (sorted(context.elements), sorted(context.children), sorted(context.widgets), sorted(context.used_keys))
+        todo.extend((f"{path}{key}|", child) for key, child in context.children.items())
+    return out
+
+
+def test_mounted_component_dicts_have_the_same_keys():
+    # a mounted component keeps its tree positionally; the dicts made from it must have the
+    # keys of the two phase walk
+    @react.component
+    def Leaf(i):
+        return w.Button(description=f"leaf {i}")
+
+    @react.component
+    def Wrapper(i):
+        return Leaf(i)
+
+    @react.component
+    def App():
+        return w.VBox(
+            children=[
+                w.Label(value="first"),
+                Wrapper(1),
+                w.HBox(children=[Leaf(2), Leaf(3).key("three"), w.Button(description="x")]),
+                react.Fragment(children=[Leaf(4), w.Label(value="in fragment")]),
+                Leaf(5).key("five"),
+            ],
+            layout=w.Layout(width="10px"),
+        )
+
+    keys = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            box, rc = react.render_fixed(App(), handle_error=False)
+            keys[fast] = _context_keys(rc)
+            rc.close()
+    assert keys[True] == keys[False]
+    assert "three" in keys[True]["/|"][1]
+
+
+def test_state_get_restores_nested_state():
+    set_values: Dict[str, Callable] = {}
+
+    @react.component
+    def Child(name):
+        value, set_value = react.use_state(0)
+        set_values[name] = set_value
+        return w.Button(description=f"{name} {value}")
+
+    @react.component
+    def Parent():
+        value, set_value = react.use_state(0)
+        set_values["parent"] = set_value
+        return w.VBox(children=[w.Label(value=f"parent {value}"), Child("a"), Child("b").key("b")])
+
+    @react.component
+    def App():
+        return w.HBox(children=[Parent()])
+
+    def descriptions(widget):
+        if isinstance(widget, widgets.Box):
+            return [descriptions(child) for child in widget.children]
+        return getattr(widget, "description", None) or widget.value
+
+    states = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            box, rc = react.render_fixed(App(), handle_error=False)
+            set_values["parent"](1)
+            set_values["a"](2)
+            set_values["b"](3)
+            state = states[fast] = rc.state_get()
+            rc.close()
+            # restored: the (mounted) components get their state back, at every level
+            container = widgets.VBox()
+            hbox, rc = react.render(App(), container, initial_state=state, handle_error=False)
+            assert descriptions(container.children[0]) == [["parent 1", "a 2", "b 3"]]
+            rc.close()
+    assert states[True] == states[False]
+
+
+def test_first_render_when_an_effect_or_body_sets_state():
+    # the first render of the fast renderer (_fastcore.render_first) hands over to the loop of
+    # render() when an effect sets state, or a body sets state or raises during the mount
+    events: List[str] = []
+
+    @react.component
+    def EffectSets():
+        value, set_value = react.use_state(0)
+        react.use_effect(lambda: set_value(1), [])
+        events.append(f"effect-sets {value}")
+        return w.Button(description=f"effect {value}")
+
+    @react.component
+    def BodySets():
+        value, set_value = react.use_state(0)
+        if value == 0:
+            set_value(2)
+        events.append(f"body-sets {value}")
+        return w.Button(description=f"body {value}")
+
+    @react.component
+    def Raises():
+        raise ValueError("oops")
+
+    @react.component
+    def Catches():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else Raises()
+
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            del events[:]
+            button, rc = react.render_fixed(EffectSets(), handle_error=False)
+            assert button.description == "effect 1"
+            assert events == ["effect-sets 0", "effect-sets 1"]
+            rc.close()
+            del events[:]
+            container = widgets.VBox()
+            box, rc = react.render(BodySets(), container, handle_error=False)
+            assert container.children[0].description == "body 2"
+            assert events == ["body-sets 0", "body-sets 2"]
+            rc.close()
+            label, rc = react.render_fixed(Catches(), handle_error=False)
+            assert label.value == "caught ValueError('oops')"
+            rc.close()
+            with pytest.raises(ValueError, match="oops"):
+                react.render_fixed(Raises(), handle_error=False)
+
+
+def test_exception_in_cleanup_of_a_removed_child_reaches_the_handler():
+    # an effect cleanup that raises when its component is removed: a component above it that
+    # handles exceptions (use_exception) gets it, in both renderers (the fast renderer removes
+    # a mounted child from its nodes)
+    set_show: Dict[str, Callable] = {}
+
+    @react.component
+    def Child():
+        def effect():
+            def cleanup():
+                raise ValueError("cleanup failed")
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return w.Button(description="child")
+
+    @react.component
+    def Inner():
+        show, set_show["inner"] = react.use_state(True)
+        return w.VBox(children=[Child(), Child()] if show else [])
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else w.HBox(children=[Inner()])
+
+    results = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            container = widgets.VBox()
+            box, rc = react.render(Catcher(), container, handle_error=False)
+            set_show["inner"](False)
+            results[fast] = container.children[0].value
+            rc.close()
+    assert results[True] == results[False] == "caught ValueError('cleanup failed')"
+
+
+def test_exception_in_an_effect_of_a_new_subtree_bubbles_up():
+    # an effect of a component deep in a new (mounted) subtree raises: the exception goes up
+    # through the components that do not handle it, in both renderers
+    @react.component
+    def Failing():
+        def effect():
+            raise ValueError("effect failed")
+
+        react.use_effect(effect, [])
+        return w.Button(description="failing")
+
+    @react.component
+    def Middle():
+        return w.VBox(children=[w.Label(value="middle"), Failing()])
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else w.HBox(children=[Middle()])
+
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            container = widgets.VBox()
+            box, rc = react.render(Catcher(), container, handle_error=False)
+            assert container.children[0].value == "caught ValueError('effect failed')"
+            rc.close()

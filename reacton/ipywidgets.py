@@ -159,12 +159,11 @@ def _Accordion(
 def Accordion(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_selectioncontainer.Accordion
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Accordion_component, kwargs=kwargs)
 
 
 del _Accordion
+_Accordion_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selectioncontainer.Accordion)
 
 
 def _AppLayout(
@@ -257,12 +256,11 @@ def _AppLayout(
 def AppLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_templates.AppLayout
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_AppLayout_component, kwargs=kwargs)
 
 
 del _AppLayout
+_AppLayout_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_templates.AppLayout)
 
 
 def _Audio(
@@ -302,12 +300,11 @@ def _Audio(
 def Audio(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_media.Audio
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Audio_component, kwargs=kwargs)
 
 
 del _Audio
+_Audio_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_media.Audio)
 
 
 def _BoundedFloatText(
@@ -368,12 +365,11 @@ def BoundedFloatText(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.BoundedFloatText
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _BoundedFloatText_component, kwargs=kwargs)
 
 
 del _BoundedFloatText
+_BoundedFloatText_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.BoundedFloatText)
 
 
 def _BoundedIntText(
@@ -419,12 +415,11 @@ def BoundedIntText(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.BoundedIntText
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _BoundedIntText_component, kwargs=kwargs)
 
 
 del _BoundedIntText
+_BoundedIntText_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.BoundedIntText)
 
 
 def _Box(
@@ -466,12 +461,11 @@ def _Box(
 def Box(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_box.Box
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Box_component, kwargs=kwargs)
 
 
 del _Box
+_Box_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_box.Box)
 
 
 def _Button(
@@ -522,12 +516,11 @@ def Button(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_button.Button
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ButtonElement(comp, kwargs=kwargs)
+    return ButtonElement(_Button_component, kwargs=kwargs)
 
 
 del _Button
+_Button_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_button.Button)
 
 
 def _ButtonStyle(
@@ -545,12 +538,11 @@ def _ButtonStyle(
 
 @implements(_ButtonStyle)
 def ButtonStyle(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_button.ButtonStyle
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ButtonStyle_component, kwargs=kwargs)
 
 
 del _ButtonStyle
+_ButtonStyle_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_button.ButtonStyle)
 
 
 def _Checkbox(
@@ -596,12 +588,11 @@ def Checkbox(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_bool.Checkbox
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Checkbox_component, kwargs=kwargs)
 
 
 del _Checkbox
+_Checkbox_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_bool.Checkbox)
 
 
 def _ColorPicker(
@@ -637,12 +628,11 @@ def ColorPicker(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_color.ColorPicker
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _ColorPicker_component, kwargs=kwargs)
 
 
 del _ColorPicker
+_ColorPicker_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_color.ColorPicker)
 
 
 def _Combobox(
@@ -688,12 +678,11 @@ def Combobox(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.Combobox
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Combobox_component, kwargs=kwargs)
 
 
 del _Combobox
+_Combobox_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.Combobox)
 
 
 def _Controller(
@@ -730,12 +719,11 @@ def _Controller(
 def Controller(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_controller.Controller
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Controller_component, kwargs=kwargs)
 
 
 del _Controller
+_Controller_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_controller.Controller)
 
 
 def _CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
@@ -745,12 +733,11 @@ def _CoreWidget() -> Element[ipywidgets.widgets.widget_core.CoreWidget]:
 
 @implements(_CoreWidget)
 def CoreWidget(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_core.CoreWidget
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_CoreWidget_component, kwargs=kwargs)
 
 
 del _CoreWidget
+_CoreWidget_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_core.CoreWidget)
 
 
 def _DOMWidget(
@@ -765,12 +752,11 @@ def _DOMWidget(
 def DOMWidget(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.domwidget.DOMWidget
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DOMWidget_component, kwargs=kwargs)
 
 
 del _DOMWidget
+_DOMWidget_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.domwidget.DOMWidget)
 
 
 def _DatePicker(
@@ -821,12 +807,11 @@ def DatePicker(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_date.DatePicker
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _DatePicker_component, kwargs=kwargs)
 
 
 del _DatePicker
+_DatePicker_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_date.DatePicker)
 
 
 def _Dropdown(
@@ -902,12 +887,11 @@ def Dropdown(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.Dropdown
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Dropdown_component, kwargs=kwargs)
 
 
 del _Dropdown
+_Dropdown_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.Dropdown)
 
 
 def _FileUpload(
@@ -961,12 +945,11 @@ def FileUpload(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ButtonStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_upload.FileUpload
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FileUpload_component, kwargs=kwargs)
 
 
 del _FileUpload
+_FileUpload_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_upload.FileUpload)
 
 
 def _FloatLogSlider(
@@ -1046,12 +1029,11 @@ def FloatLogSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.FloatLogSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FloatLogSlider_component, kwargs=kwargs)
 
 
 del _FloatLogSlider
+_FloatLogSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.FloatLogSlider)
 
 
 def _FloatProgress(
@@ -1109,12 +1091,11 @@ def FloatProgress(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.FloatProgress
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FloatProgress_component, kwargs=kwargs)
 
 
 del _FloatProgress
+_FloatProgress_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.FloatProgress)
 
 
 def _FloatRangeSlider(
@@ -1189,12 +1170,11 @@ def FloatRangeSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.FloatRangeSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FloatRangeSlider_component, kwargs=kwargs)
 
 
 del _FloatRangeSlider
+_FloatRangeSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.FloatRangeSlider)
 
 
 def _FloatSlider(
@@ -1269,12 +1249,11 @@ def FloatSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.FloatSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FloatSlider_component, kwargs=kwargs)
 
 
 del _FloatSlider
+_FloatSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.FloatSlider)
 
 
 def _FloatText(
@@ -1324,12 +1303,11 @@ def FloatText(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_float.FloatText
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _FloatText_component, kwargs=kwargs)
 
 
 del _FloatText
+_FloatText_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_float.FloatText)
 
 
 def _GridBox(
@@ -1367,12 +1345,11 @@ def _GridBox(
 def GridBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_box.GridBox
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_GridBox_component, kwargs=kwargs)
 
 
 del _GridBox
+_GridBox_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_box.GridBox)
 
 
 def _GridspecLayout(
@@ -1447,12 +1424,11 @@ def _GridspecLayout(
 def GridspecLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_templates.GridspecLayout
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_GridspecLayout_component, kwargs=kwargs)
 
 
 del _GridspecLayout
+_GridspecLayout_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_templates.GridspecLayout)
 
 
 def _HBox(
@@ -1492,12 +1468,11 @@ def _HBox(
 def HBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_box.HBox
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_HBox_component, kwargs=kwargs)
 
 
 del _HBox
+_HBox_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_box.HBox)
 
 
 def _HTML(
@@ -1530,12 +1505,11 @@ def HTML(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.HTML
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _HTML_component, kwargs=kwargs)
 
 
 del _HTML
+_HTML_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.HTML)
 
 
 def _HTMLMath(
@@ -1568,12 +1542,11 @@ def HTMLMath(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.HTMLMath
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _HTMLMath_component, kwargs=kwargs)
 
 
 del _HTMLMath
+_HTMLMath_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.HTMLMath)
 
 
 def _Image(
@@ -1610,12 +1583,11 @@ def _Image(
 def Image(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_media.Image
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Image_component, kwargs=kwargs)
 
 
 del _Image
+_Image_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_media.Image)
 
 
 def _IntProgress(
@@ -1657,12 +1629,11 @@ def IntProgress(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ProgressStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.IntProgress
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _IntProgress_component, kwargs=kwargs)
 
 
 del _IntProgress
+_IntProgress_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.IntProgress)
 
 
 def _IntRangeSlider(
@@ -1726,12 +1697,11 @@ def IntRangeSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.IntRangeSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _IntRangeSlider_component, kwargs=kwargs)
 
 
 del _IntRangeSlider
+_IntRangeSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.IntRangeSlider)
 
 
 def _IntSlider(
@@ -1785,12 +1755,11 @@ def IntSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = SliderStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.IntSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _IntSlider_component, kwargs=kwargs)
 
 
 del _IntSlider
+_IntSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.IntSlider)
 
 
 def _IntText(
@@ -1829,12 +1798,11 @@ def IntText(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.IntText
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _IntText_component, kwargs=kwargs)
 
 
 del _IntText
+_IntText_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.IntText)
 
 
 def _Label(
@@ -1871,12 +1839,11 @@ def Label(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.Label
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Label_component, kwargs=kwargs)
 
 
 del _Label
+_Label_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.Label)
 
 
 def _Layout(
@@ -2014,12 +1981,11 @@ def _Layout(
 
 @implements(_Layout)
 def Layout(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_layout.Layout
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Layout_component, kwargs=kwargs)
 
 
 del _Layout
+_Layout_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_layout.Layout)
 
 
 def _Output(
@@ -2068,12 +2034,11 @@ def _Output(
 def Output(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_output.Output
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Output_component, kwargs=kwargs)
 
 
 del _Output
+_Output_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_output.Output)
 
 
 def _Password(
@@ -2112,12 +2077,11 @@ def Password(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.Password
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Password_component, kwargs=kwargs)
 
 
 del _Password
+_Password_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.Password)
 
 
 def _Play(
@@ -2166,12 +2130,11 @@ def Play(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int.Play
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Play_component, kwargs=kwargs)
 
 
 del _Play
+_Play_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.Play)
 
 
 def _RadioButtons(
@@ -2249,12 +2212,11 @@ def RadioButtons(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.RadioButtons
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _RadioButtons_component, kwargs=kwargs)
 
 
 del _RadioButtons
+_RadioButtons_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.RadioButtons)
 
 
 def _Select(
@@ -2337,12 +2299,11 @@ def Select(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.Select
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Select_component, kwargs=kwargs)
 
 
 del _Select
+_Select_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.Select)
 
 
 def _SelectMultiple(
@@ -2432,12 +2393,11 @@ def SelectMultiple(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.SelectMultiple
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _SelectMultiple_component, kwargs=kwargs)
 
 
 del _SelectMultiple
+_SelectMultiple_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.SelectMultiple)
 
 
 def _SelectionRangeSlider(
@@ -2542,12 +2502,11 @@ def SelectionRangeSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.SelectionRangeSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _SelectionRangeSlider_component, kwargs=kwargs)
 
 
 del _SelectionRangeSlider
+_SelectionRangeSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.SelectionRangeSlider)
 
 
 def _SelectionSlider(
@@ -2644,12 +2603,11 @@ def SelectionSlider(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.SelectionSlider
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _SelectionSlider_component, kwargs=kwargs)
 
 
 del _SelectionSlider
+_SelectionSlider_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.SelectionSlider)
 
 
 def _SliderStyle(
@@ -2667,12 +2625,11 @@ def _SliderStyle(
 
 @implements(_SliderStyle)
 def SliderStyle(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_int.SliderStyle
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_SliderStyle_component, kwargs=kwargs)
 
 
 del _SliderStyle
+_SliderStyle_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.SliderStyle)
 
 
 def _Style() -> Element[ipywidgets.widgets.widget_style.Style]:
@@ -2682,12 +2639,11 @@ def _Style() -> Element[ipywidgets.widgets.widget_style.Style]:
 
 @implements(_Style)
 def Style(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_style.Style
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Style_component, kwargs=kwargs)
 
 
 del _Style
+_Style_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_style.Style)
 
 
 def _Tab(
@@ -2712,12 +2668,11 @@ def _Tab(
 def Tab(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_selectioncontainer.Tab
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_Tab_component, kwargs=kwargs)
 
 
 del _Tab
+_Tab_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selectioncontainer.Tab)
 
 
 def _Text(
@@ -2756,12 +2711,11 @@ def Text(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.Text
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Text_component, kwargs=kwargs)
 
 
 del _Text
+_Text_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.Text)
 
 
 def _Textarea(
@@ -2803,12 +2757,11 @@ def Textarea(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_string.Textarea
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Textarea_component, kwargs=kwargs)
 
 
 del _Textarea
+_Textarea_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_string.Textarea)
 
 
 def _ToggleButton(
@@ -2862,12 +2815,11 @@ def ToggleButton(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_bool.ToggleButton
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _ToggleButton_component, kwargs=kwargs)
 
 
 del _ToggleButton
+_ToggleButton_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_bool.ToggleButton)
 
 
 def _ToggleButtons(
@@ -2969,12 +2921,11 @@ def ToggleButtons(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = ToggleButtonsStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_selection.ToggleButtons
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _ToggleButtons_component, kwargs=kwargs)
 
 
 del _ToggleButtons
+_ToggleButtons_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.ToggleButtons)
 
 
 def _ToggleButtonsStyle(
@@ -3006,12 +2957,11 @@ def _ToggleButtonsStyle(
 
 @implements(_ToggleButtonsStyle)
 def ToggleButtonsStyle(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_selection.ToggleButtonsStyle
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ToggleButtonsStyle_component, kwargs=kwargs)
 
 
 del _ToggleButtonsStyle
+_ToggleButtonsStyle_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_selection.ToggleButtonsStyle)
 
 
 def _TwoByTwoLayout(
@@ -3094,12 +3044,11 @@ def _TwoByTwoLayout(
 def TwoByTwoLayout(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_templates.TwoByTwoLayout
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_TwoByTwoLayout_component, kwargs=kwargs)
 
 
 del _TwoByTwoLayout
+_TwoByTwoLayout_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_templates.TwoByTwoLayout)
 
 
 def _VBox(
@@ -3139,12 +3088,11 @@ def _VBox(
 def VBox(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_box.VBox
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_VBox_component, kwargs=kwargs)
 
 
 del _VBox
+_VBox_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_box.VBox)
 
 
 def _Valid(
@@ -3187,12 +3135,11 @@ def Valid(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_bool.Valid
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Valid_component, kwargs=kwargs)
 
 
 del _Valid
+_Valid_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_bool.Valid)
 
 
 def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None) -> ValueElement[ipywidgets.widgets.valuewidget.ValueWidget, Any]:
@@ -3204,12 +3151,11 @@ def _ValueWidget(value: Any = None, on_value: typing.Callable[[Any], Any] = None
 
 @implements(_ValueWidget)
 def ValueWidget(**kwargs):
-    widget_cls = ipywidgets.widgets.valuewidget.ValueWidget
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _ValueWidget_component, kwargs=kwargs)
 
 
 del _ValueWidget
+_ValueWidget_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.valuewidget.ValueWidget)
 
 
 def _Video(
@@ -3255,12 +3201,11 @@ def _Video(
 def Video(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.widget_media.Video
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", _Video_component, kwargs=kwargs)
 
 
 del _Video
+_Video_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_media.Video)
 
 
 def _interactive(
@@ -3301,12 +3246,11 @@ def _interactive(
 def interactive(**kwargs):
     if isinstance(kwargs.get("layout"), dict):
         kwargs["layout"] = Layout(**kwargs["layout"])
-    widget_cls = ipywidgets.widgets.interaction.interactive
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_interactive_component, kwargs=kwargs)
 
 
 del _interactive
+_interactive_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.interaction.interactive)
 
 
 def _DescriptionStyle(
@@ -3320,12 +3264,11 @@ def _DescriptionStyle(
 
 @implements(_DescriptionStyle)
 def DescriptionStyle(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_description.DescriptionStyle
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DescriptionStyle_component, kwargs=kwargs)
 
 
 del _DescriptionStyle
+_DescriptionStyle_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_description.DescriptionStyle)
 
 
 def _DescriptionWidget(
@@ -3352,12 +3295,11 @@ def DescriptionWidget(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_description.DescriptionWidget
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_DescriptionWidget_component, kwargs=kwargs)
 
 
 del _DescriptionWidget
+_DescriptionWidget_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_description.DescriptionWidget)
 
 
 def _ProgressStyle(
@@ -3375,12 +3317,11 @@ def _ProgressStyle(
 
 @implements(_ProgressStyle)
 def ProgressStyle(**kwargs):
-    widget_cls = ipywidgets.widgets.widget_int.ProgressStyle
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return Element(comp, kwargs=kwargs)
+    return Element(_ProgressStyle_component, kwargs=kwargs)
 
 
 del _ProgressStyle
+_ProgressStyle_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int.ProgressStyle)
 
 
 def __BoundedInt(
@@ -3417,12 +3358,11 @@ def _BoundedInt(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int._BoundedInt
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", __BoundedInt_component, kwargs=kwargs)
 
 
 del __BoundedInt
+__BoundedInt_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int._BoundedInt)
 
 
 def __BoundedIntRange(
@@ -3458,12 +3398,11 @@ def _BoundedIntRange(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int._BoundedIntRange
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", __BoundedIntRange_component, kwargs=kwargs)
 
 
 del __BoundedIntRange
+__BoundedIntRange_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int._BoundedIntRange)
 
 
 def __Int(
@@ -3493,12 +3432,11 @@ def _Int(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int._Int
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", __Int_component, kwargs=kwargs)
 
 
 del __Int
+__Int_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int._Int)
 
 
 def __IntRange(
@@ -3528,9 +3466,8 @@ def _IntRange(**kwargs):
         kwargs["layout"] = Layout(**kwargs["layout"])
     if isinstance(kwargs.get("style"), dict):
         kwargs["style"] = DescriptionStyle(**kwargs["style"])
-    widget_cls = ipywidgets.widgets.widget_int._IntRange
-    comp = reacton.core.ComponentWidget(widget=widget_cls)
-    return ValueElement("value", comp, kwargs=kwargs)
+    return ValueElement("value", __IntRange_component, kwargs=kwargs)
 
 
 del __IntRange
+__IntRange_component = reacton.core.ComponentWidget(widget=ipywidgets.widgets.widget_int._IntRange)
