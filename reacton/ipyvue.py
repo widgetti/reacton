@@ -97,7 +97,7 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
 
     handlers = el._event_handlers
     if handler not in handlers:
-        if el._key_frozen:
+        if el._render_count:
             _add_event_handlers(el, (handler,), context, rc)
         else:
             el._event_handlers = (*handlers, handler)

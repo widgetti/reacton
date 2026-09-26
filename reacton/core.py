@@ -383,9 +383,8 @@ class Element(Generic[W]):
     mime_bundle: Dict[str, Any] = mime_bundle_default
     _key: Optional[str] = None
     _meta: Dict[str, Any] = {}
-    # for debugging/testing only
+    # how often the element was rendered (also for testing)
     _render_count = 0
-    _key_frozen: bool = False
     # facts about the kwargs of a widget element, learned when its widget is created or
     # updated (None: not known), so a close of the whole tree can skip work
     _on_kwargs: Optional[bool] = None  # a kwarg starts with on_ (maybe an event listener)
@@ -452,12 +451,18 @@ class Element(Generic[W]):
                     return True
         return False
 
+    @property
+    def _key_frozen(self) -> bool:
+        # rendered at least once. The renderers used to set a flag next to every
+        # _render_count += 1, one attribute write per element render.
+        return self._render_count > 0
+
     def key(self, value: str):
         """Returns the same element with a custom key set.
 
         This can help render performance. See documentation for details.
         """
-        if self._key_frozen:
+        if self._render_count:
             raise RuntimeError("Element keys should not be mutated after rendering")
         self._key = value
         return self
@@ -1017,7 +1022,7 @@ def get_widget(el: Element):
         else:
             if el in context.element_to_widget:
                 return context.element_to_widget[el]
-    if id(el) in rc._old_element_ids or el._key_frozen:
+    if id(el) in rc._old_element_ids or el._render_count:
         # (the fast renderer does not record the ids: every rendered element is frozen)
         raise KeyError(f"Element {el} was found to be in a previous render, you may have used a stale element")
     raise KeyError(f"Element {el} not found in all known widgets")  # for the component {context.widgets}")
@@ -1033,7 +1038,7 @@ def _add_event_handlers(el: Element, handlers: Tuple[Any, ...], context: "Compon
         if handler in current:
             continue
         current = el._event_handlers = (*current, handler)
-        if el._key_frozen:
+        if el._render_count:
             # The element was rendered before, so its widget may exist already and not be created
             # or updated again. E.g. a memoized element, or an element of a parent that a child
             # hooks into (the fast mount makes the parent's widget before the child renders).
@@ -2225,7 +2230,6 @@ class _RenderContext:
         key = el._key
         if key is None:
             key = default_key
-        el._key_frozen = True
 
         logger.debug("Render: (%s,%s)  - %r", parent_key, key, element)
 
@@ -2246,7 +2250,7 @@ class _RenderContext:
         if el_prev is None:
             el_prev = context.elements.get(key)
         context.elements_next[key] = el
-        # used for testing
+        # used for testing, and it freezes the key (see Element._key_frozen)
         el._render_count += 1
 
         if isinstance(el.component, ComponentWidget):
@@ -3083,7 +3087,7 @@ class _RenderContextFast(_RenderContext):
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
-        # (no _old_element_ids: get_widget recognizes a stale element by _key_frozen)
+        # (no _old_element_ids: get_widget recognizes a stale element by _render_count)
         context = self.context
         assert context is not None
 
@@ -3098,7 +3102,6 @@ class _RenderContextFast(_RenderContext):
         key = el._key
         if key is None:
             key = default_key
-        el._key_frozen = True
 
         if key in context.used_keys:
             if DEBUG:
@@ -3119,7 +3122,7 @@ class _RenderContextFast(_RenderContext):
         if el_prev is None:
             el_prev = context.elements.get(key)
         context.elements_next[key] = el
-        el._render_count += 1  # for testing only
+        el._render_count += 1  # (also freezes the key, see Element._key_frozen)
 
         if isinstance(el.component, ComponentWidget):
             assert not el.args, "no positional args supported for widgets"
@@ -3495,7 +3498,6 @@ class _RenderContextFast(_RenderContext):
         key = el._key
         if key is None:
             key = default_key
-        el._key_frozen = True
         used_keys = context.used_keys
         if key in used_keys:
             raise KeyError(f"Duplicate key {key!r}")
@@ -3508,7 +3510,7 @@ class _RenderContextFast(_RenderContext):
                 return None
             self._shared_elements_next.add(el)
         context.elements[key] = el
-        el._render_count += 1  # for testing only
+        el._render_count += 1  # (also freezes the key, see Element._key_frozen)
 
         component = el.component
         if isinstance(component, ComponentWidget):
@@ -3661,7 +3663,7 @@ class _RenderContextFast(_RenderContext):
             assert el is not None
             # reconciliation takes it from there, like after a walk of the element tree
             context.elements_next[key] = el
-            el._render_count += 1  # for testing only
+            el._render_count += 1  # (also freezes the key, see Element._key_frozen)
             self._render_component(el, key, parent_key, el, child.order_in_parent)
 
     def _call_component(self, el: Element) -> Optional[Element]:
@@ -4235,7 +4237,6 @@ class _RenderContextFast(_RenderContext):
             child_key = v._key
             if child_key is None:
                 child_key = f"{key}{k}/"
-            v._key_frozen = True
             used_keys = context.used_keys
             if child_key in used_keys:
                 if DEBUG:
@@ -4247,7 +4248,7 @@ class _RenderContextFast(_RenderContext):
             if el_prev is None:
                 el_prev = context.elements.get(child_key)
             elements_next[child_key] = v
-            v._render_count += 1  # for testing only
+            v._render_count += 1  # (also freezes the key, see Element._key_frozen)
             order = context.child_order_counter
             context.child_order_counter = order + 1
             child = context.children.get(child_key)

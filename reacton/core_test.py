@@ -3325,6 +3325,24 @@ def test_key_mutate_protection(Container):
     rc.close()
 
 
+def test_key_frozen_follows_render_count():
+    # the frozen key is derived from the render count (no flag written per element render)
+    button = w.Button(description="a")
+    assert not button._key_frozen
+    button.key("before-render")
+
+    @react.component
+    def Test():
+        return w.VBox(children=[button])
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert button._render_count == 1
+    assert button._key_frozen
+    with pytest.raises(RuntimeError, match="Element keys should not be mutated after rendering"):
+        button.key("after-render")
+    rc.close()
+
+
 def test_render_nested_pass_widget_to_component_flip():
     # One render() call, two passes: the first pass puts a widget element at a
     # slot, a state write during that pass opens a nested pass, and the nested
