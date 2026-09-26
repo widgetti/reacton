@@ -4691,6 +4691,27 @@ def test_dynamic_widget_class_is_freed():
     assert class_ref() is None
 
 
+def test_component_widget_per_class():
+    # one ComponentWidget per widget class, kept on the class: a subclass gets its own
+    class Base(widgets.Button):
+        pass
+
+    class Sub(Base):
+        pass
+
+    base = react.core.ComponentWidget(widget=Base)
+    assert react.core.ComponentWidget(widget=Base) is base
+    sub = react.core.ComponentWidget(widget=Sub)
+    assert sub is not base
+    assert sub.widget is Sub
+    assert react.core.ComponentWidget(widget=Sub) is sub
+    assert react.core.ComponentWidget(widget=Base) is base
+    # a custom mime bundle is not shared
+    custom = react.core.ComponentWidget(widget=Base, mime_bundle={"text/plain": "custom"})
+    assert custom is not base
+    assert react.core.ComponentWidget(widget=Base) is base
+
+
 def test_setter_is_stable():
     # like React's setState: the same setter every render, so a child that gets it as an
     # argument sees equal arguments and does not render again

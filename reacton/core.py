@@ -800,18 +800,30 @@ class ComponentWidget(Component):
     def __new__(cls, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
         # The generated element factories make one per element. One instance per widget
         # class is cheaper, and makes the component compares of the render walks identity
-        # checks (__eq__ compares the widget classes).
+        # checks (__eq__ compares the widget classes). It is kept on the widget class itself:
+        # a class attribute read is much cheaper than a WeakValueDictionary lookup, and the
+        # class -> instance -> class cycle is freed by gc like any class (a class made at
+        # runtime, e.g. by a hot reload, is not kept alive).
         if cls is ComponentWidget and mime_bundle is mime_bundle_default:
-            self = _component_widgets.get(widget)
-            if self is not None:
-                return self
+            try:
+                self = widget._reacton_component_widget  # type: ignore[attr-defined]
+            except AttributeError:
+                pass
+            else:
+                # (a subclass inherits the attribute of its base class)
+                if self.widget is widget:
+                    return self
         self = super().__new__(cls)
         if mime_bundle is not mime_bundle_default:
             self.mime_bundle = mime_bundle
         self.widget = widget
         self.name = widget.__name__
         if cls is ComponentWidget and mime_bundle is mime_bundle_default:
-            _component_widgets[widget] = self
+            try:
+                widget._reacton_component_widget = self  # type: ignore[attr-defined]
+            except (AttributeError, TypeError):
+                # a class that does not take attributes: no cache
+                pass
         return self
 
     def __eq__(self, rhs):
@@ -831,12 +843,6 @@ class ComponentWidget(Component):
         if self.mime_bundle is not mime_bundle_default:
             el.mime_bundle = self.mime_bundle
         return el
-
-
-# ComponentWidget per widget class (see ComponentWidget.__new__). Weak values: an entry goes
-# away when no element uses it any more, so widget classes made at runtime (e.g. by a hot
-# reload) can be freed.
-_component_widgets: "weakref.WeakValueDictionary[type, ComponentWidget]" = weakref.WeakValueDictionary()
 
 
 class ComponentFunction(Component):
