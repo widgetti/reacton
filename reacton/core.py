@@ -17,6 +17,7 @@ import operator
 import sys
 import threading
 import traceback
+import types
 import typing
 import weakref
 from collections import defaultdict
@@ -52,6 +53,19 @@ import reacton.logging  # noqa: F401  # has sidefx
 import reacton.patch_display  # noqa: F401  # has sidefx
 
 from . import _version, patch, utils  # noqa: F401
+from ._fastcore_import import _fastcore
+
+# the hot building blocks (compiled when reacton was built with Cython, see _fastcore.py)
+if typing.TYPE_CHECKING:
+    from ._fastcore import ContainerAdder, ElementBase, ValueElementBase, find_elements, local, mime_bundle_default, widget_render_error_msg
+else:
+    ContainerAdder = _fastcore.ContainerAdder
+    ElementBase = _fastcore.ElementBase
+    ValueElementBase = _fastcore.ValueElementBase
+    find_elements = _fastcore.find_elements
+    local = _fastcore.local
+    widget_render_error_msg = _fastcore.widget_render_error_msg
+    mime_bundle_default = _fastcore.mime_bundle_default
 
 __version__ = _version.__version__
 
@@ -180,7 +194,6 @@ def _install_batched_hold(cls: type):
 
 
 _last_rc = None  # used for testing
-local = threading.local()
 T = TypeVar("T")
 U = TypeVar("U")
 W = TypeVar("W")  # used for widgets
@@ -200,13 +213,6 @@ DEBUG = 0
 # if True, will show the original stacktrace as cause
 TRACEBACK_ORIGINAL = True
 MIME_WIDGETS = "application/vnd.jupyter.widget-view+json"
-
-
-widget_render_error_msg = (
-    """Cannot show widget. You probably want to rerun the code cell above (<i>Click in the code cell, and press Shift+Enter <kbd>⇧</kbd>+<kbd>↩</kbd></i>)."""
-)
-
-mime_bundle_default = {"text/plain": "Cannot show ipywidgets in text", "text/html": widget_render_error_msg}
 
 
 def element(cls, **kwargs):
@@ -370,123 +376,15 @@ class Component:
         pass
 
 
-class Element(Generic[W]):
+class Element(ElementBase, Generic[W]):
+    # (the data of an element, and the methods the renderers call for every element, are in
+    # _fastcore.ElementBase: component, args, kwargs, _key, is_shared, _meta, _render_count,
+    # key(), meta(), shared(), _arguments_changed())
     child_prop_name = "children"
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
     _callback_wrappers: Dict[Tuple[str, str, Callable], Callable] = {}
     create_lock: ContextManager = threading.Lock()
-    # a plain attribute (not a property): it is read for every element in every walk
-    is_shared: bool = False
-    # Defaults as class attributes: every component body makes elements, most of them
-    # never change these. (_meta is never changed in place, meta() makes a new dict.)
-    mime_bundle: Dict[str, Any] = mime_bundle_default
-    _key: Optional[str] = None
-    _meta: Dict[str, Any] = {}
-    # how often the element was rendered (also for testing)
-    _render_count = 0
-    # facts about the kwargs of a widget element, learned when its widget is created or
-    # updated (None: not known), so a close of the whole tree can skip work
-    _on_kwargs: Optional[bool] = None  # a kwarg starts with on_ (maybe an event listener)
-    _leaf: Optional[bool] = None  # no elements in the kwargs
-    # handlers (of reacton.ipyvue.use_event) to register on the widget of this element when it
-    # is created or updated: objects with _reacton_attach(widget)
-    _event_handlers: Tuple[Any, ...] = ()
-
-    def __init__(self, component, args=None, kwargs=None):
-        self.component = component
-        self.args = args or []
-        self.kwargs = kwargs or {}
-
-        rc = getattr(local, "rc", None)
-        if rc is not None:
-            container_adders = rc.container_adders
-            if container_adders:
-                adder = container_adders[-1]
-                if type(adder) is ContainerAdder:
-                    adder.created.append(self)
-                else:
-                    adder.add(self)
-        if DEBUG:
-            # since we construct widgets or components from a different code path
-            # we want to preserve the original call stack, by manually tracking frames
-            try:
-                assert False
-            except AssertionError:
-                self.traceback = cast(TracebackType, sys.exc_info()[2])
-
-            assert self.traceback is not None
-            assert self.traceback.tb_frame is not None
-            assert self.traceback.tb_frame.f_back is not None
-            frame_py = self.traceback.tb_frame.f_back.f_back
-            assert frame_py is not None
-            self.traceback = TracebackType(tb_frame=frame_py, tb_lasti=self.traceback.tb_lasti, tb_lineno=frame_py.f_lineno, tb_next=None)
-
-    def _arguments_changed(self, other: "Element"):
-        # called for every child of a component that renders again: the same objects
-        # (small ints, interned strings, the same callbacks) need no utils.equals call
-        args = self.args
-        other_args = other.args
-        kwargs = self.kwargs
-        other_kwargs = other.kwargs
-        if args:
-            if len(args) != len(other_args):
-                return True
-        elif other_args:
-            return True
-        if kwargs:
-            if len(kwargs) != len(other_kwargs):
-                return True
-            for k, v in kwargs.items():
-                if k not in other_kwargs:
-                    return True
-                other_v = other_kwargs[k]
-                if v is not other_v and not utils.equals(v, other_v):
-                    return True
-        elif other_kwargs:
-            return True
-        if args:
-            for a, b in zip(args, other_args):
-                if a is not b and not utils.equals(a, b):
-                    return True
-        return False
-
-    @property
-    def _key_frozen(self) -> bool:
-        # rendered at least once. The renderers used to set a flag next to every
-        # _render_count += 1, one attribute write per element render.
-        return self._render_count > 0
-
-    def key(self, value: str):
-        """Returns the same element with a custom key set.
-
-        This can help render performance. See documentation for details.
-        """
-        if self._render_count:
-            raise RuntimeError("Element keys should not be mutated after rendering")
-        self._key = value
-        return self
-
-    def meta(self, **kwargs):
-        """Add metadata to the created widget.
-
-        This can be used to find a widget for testing.
-        """
-        self._meta = {**self._meta, **kwargs}
-        return self
-
-    # the old name of is_shared
-    @property
-    def _shared(self) -> bool:
-        return self.is_shared
-
-    @_shared.setter
-    def _shared(self, value: bool):
-        self.is_shared = value
-
-    def shared(self):
-        self.is_shared = True
-        return self
 
     def __repr__(self):
         def format_arg(value):
@@ -540,7 +438,7 @@ class Element(Generic[W]):
 
     def __enter__(self):
         rc = _get_render_context()
-        ca = ContainerAdder[W](self, "children")
+        ca = ContainerAdder(self, "children")
         assert rc.context is not None
         rc.container_adders.append(ca)
         return self
@@ -712,10 +610,8 @@ class Value(Generic[V], Protocol):
     def set(self, value: V): ...
 
 
-class ValueElement(Generic[W, V], Element[W]):
-    def __init__(self, value_property, component, args=None, kwargs=None):
-        self.value_property = value_property
-        Element.__init__(self, component, args, kwargs)  # type: ignore[arg-type]  # (faster than super())
+class ValueElement(ValueElementBase, Element[W], Generic[W, V]):
+    # (the value_property and __init__ are in _fastcore.ValueElementBase)
 
     # TODO: we want to enable something like this, but requires a good hash function
     # for the key
@@ -749,48 +645,8 @@ class ValueElement(Generic[W, V], Element[W]):
 FuncT = TypeVar("FuncT", bound=Callable[..., Element])
 
 
-def find_elements(value: Union[Element, List, Tuple, Dict]) -> Set[Element]:
-    if isinstance(value, Element):
-        el = value
-        elements = {el}
-        if not isinstance(el.kwargs, dict):
-            raise RuntimeError("keyword arguments for {el} should be a dict, not {el.kwargs}")
-        elements |= find_elements(el.args)
-        elements |= find_elements(el.kwargs)
-        return elements
-    elif isinstance(value, (tuple, list)):
-        elements = set()
-        for child in value:
-            if isinstance(child, (Element, tuple, list, dict)):
-                elements |= find_elements(child)
-        return elements
-    elif isinstance(value, dict):
-        elements = set()
-        for child in value.values():
-            if isinstance(child, (Element, tuple, list, dict)):
-                elements |= find_elements(child)
-        return elements
-
-
 # the list of a ContainerAdder that is not on the stack (never appended to)
 _NO_ELEMENTS: List["Element"] = []
-
-
-class ContainerAdder(Generic[W]):
-    def __init__(self, el: Element[W], prop_name: str):
-        self.el = el
-        self.prop_name = prop_name
-        self.created: List[Element] = []
-
-    def add(self, el):
-        self.created.append(el)
-
-    def collect(self):
-        children = set()
-        for el in self.created:
-            children |= find_elements(el) - {el}
-        top_level = [k for k in self.created if k not in children]
-        return top_level
 
 
 class ComponentWidget(Component):
@@ -835,6 +691,13 @@ class ComponentWidget(Component):
 
     def __repr__(self):
         return f"Component[{self.widget!r}]"
+
+    def __getnewargs__(self):
+        # (pickle/copy: __new__ needs the widget class; the default mime bundle is compared by
+        # identity, so it is not passed on)
+        if self.mime_bundle is mime_bundle_default:
+            return (self.widget,)
+        return (self.widget, self.mime_bundle)
 
     def __call__(self, *args, **kwargs):
         el: Element = Element(self, args, kwargs)
@@ -929,14 +792,8 @@ class ComponentFunction(Component):
     def __repr__(self):
         return f"react.component({self.f.__module__}.{self.f.__name__})"
 
-    def __call__(self, *args, **kwargs):
-        if self.value_name is not None:
-            el: Element = ValueElement(self.value_name, self, args, kwargs)
-        else:
-            el = Element(self, args, kwargs)
-        if self.mime_bundle is not mime_bundle_default:
-            el.mime_bundle = self.mime_bundle
-        return el
+    # make an element of this component (see _fastcore.component_call)
+    __call__ = _fastcore.component_call
 
 
 @overload
@@ -4607,3 +4464,17 @@ _default_container: Optional[Callable[..., Element]] = Fragment
 # not a public api yet, used in solara for now only.
 # lifecycle of context objects are linked to the lifecycle of the component
 _component_context_manager_classes: List[Any] = []
+
+
+_fastcore._register(Element, ValueElement)
+
+
+class _CoreModule(types.ModuleType):
+    # reacton.core.DEBUG = ... also sets it for the elements (made in _fastcore)
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name == "DEBUG":
+            _fastcore.DEBUG = value
+
+
+sys.modules[__name__].__class__ = _CoreModule
