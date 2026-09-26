@@ -39,11 +39,22 @@ memoized-subtree "skip", and a full `force_update` all cost the same (~14ms on a
 renderer (`_RenderContextFast`, `REACTON_FAST=1`) addresses both:
 
 - **Dirty-subtree skipping.** State setters mark `needs_render_descendant` up
-  the parent chain, so a render pass only descends into subtrees that can
+  the parent chain, and record the dirty child in every parent
+  (`dirty_children`), so a render pass only descends into subtrees that can
   contain work. A component subtree whose element is identical to the previous
-  render (`el is el_prev`), is fully reconciled, and has no dirty/excepted
-  contexts is skipped in *both* phases and keeps its previous widgets
-  (`clean_subtree`).
+  render (`el is el_prev`), or a new element with equal arguments, is fully
+  reconciled, and has no dirty/excepted contexts is skipped in *both* phases
+  and keeps its previous widgets (`clean_subtree`). Not while a widget above it
+  at the same key is replaced by another widget type: reconciliation removes
+  that whole subtree first.
+- **Walking the context tree, not the element tree.** A component that does
+  not render again, but has a dirty descendant, has the element tree of its
+  last reconciliation. Its element tree is not walked; only its dirty child
+  contexts are (`partial`), in element order, in both phases. An update costs
+  work proportional to the depth of the dirty component, not to the number of
+  siblings. When the root widget of such a child changes (another widget type,
+  or a fragment with other children), the widgets holding it are updated
+  (`_rewire`). Shared elements and pending exceptions keep the full walk.
 - **Forced full walks** (`force_update()`, `update()`, the first render) set
   `rc._walk_all`, disabling skipping for that pass — faithful to the old
   behavior.
@@ -52,19 +63,37 @@ renderer (`_RenderContextFast`, `REACTON_FAST=1`) addresses both:
   element.
 - **Widget updates** are skipped when an identical element reconciles to
   identical child widget objects (`_values_identical`), avoiding pointless
-  traitlets assignments.
+  traitlets assignments. Container widgets keep the kwargs they were last
+  created or updated with (`resolved_kwargs`) for this compare.
+- **Mount path.** The implicit container is only built when a component body
+  returns `None`; component context managers are entered without an
+  `ExitStack`; the child visitors dispatch on exact types and skip scalars.
 - **Side-effect ("orphan") widgets** (Layout/Style created during construction)
   are tracked via ipywidgets' `on_widget_constructed` hook instead of diffing
   the global widgets dict per creation — the old diff was O(live widgets) per
   widget, so it degraded as an app grew.
 
+Shared by both renderers (cheaper, same behavior): widget creation
+(`Element._create_widget`) installs the render batching of
+`hold_trait_notifications` once per widget class instead of a wrapper per
+widget, records side-effect widgets per thread (no global lock), and only asks
+for the trait names when a kwarg starts with `on_`; `ComponentContext` is a
+plain class that makes its rarely used containers on first use;
+`utils.equals`, the setter, the hooks and `render()` avoid work that is only
+needed with logging on. Only the last two rerender reasons are kept (they held
+every old state value).
+
 ## Renderer contract
 
 What both renderers must preserve (derived from `core.py` + the test suite).
-The fast renderer overrides only `_render`, `_reconsolidate`, `_remove_element`,
-`_visit_children`, `_visit_children_values`; everything else (Element widget
+The fast renderer overrides the tree walking (`_render`, `_reconsolidate`,
+`_remove_element`, the child visitors, `_mark_dirty`, `_discard_aborted_pass`)
+and adds `_render_component`, `_render_dirty_children`,
+`_reconsolidate_partial`, `_rewire`; everything else (Element widget
 create/update/close, hooks storage, `ComponentContext`, exception plumbing, the
 render loop) is shared with the default renderer.
+`test_renderers_agree_on_random_updates` drives both renderers with the same
+random state changes and compares the widgets and the effect order.
 
 **Phases** (inside one `rc.render()` call, under `thread_lock`, with `local.rc` set):
 
@@ -93,7 +122,8 @@ context raises `KeyError`. `el._key_frozen` is set once an element is rendered.
 - `needs_render` = `context.needs_render` (set by setters/force) OR
   `el._arguments_changed(el_prev)` OR `context.exceptions_children`. If false,
   the body is *not* executed (component `render_count` stays put), the previous
-  `root_element` is reused, but it is still walked.
+  `root_element` is reused, but it is still walked (the fast renderer only walks
+  the dirty child contexts, see above).
 - Body execution resets `state_index`/`effect_index`/`memo_index`,
   `user_contexts={}`, `exception_handler=False`, `needs_render=False` before the
   call; wraps in `context_managers` (the solara `ContextManager` hook) and the
@@ -159,6 +189,8 @@ contexts; `provide` notifies listeners only when the value changed.
   assigned (the old code closed them mid-walk, so a closed widget could briefly
   remain in a container's `children`).
 - Per-element debug logging in the hot paths was dropped.
+- Elements of a component that is not walked do not get their (test only)
+  `_render_count` incremented.
 
 ## Known issues worth revisiting (found during the rewrite, not fixed here)
 
@@ -172,6 +204,14 @@ contexts; `provide` notifies listeners only when the value changed.
   likely needs a pandas-3 fix; the test environment pins `pandas<3` for now.
 - `ComponentContext.owns` is dead — never written, only asserted empty in
   `_remove_element`.
+- **Shared elements in a component that does not render again** (both
+  renderers): when such a component is walked because a child is dirty, its
+  shared element (the same object as before) is added to
+  `_shared_elements_next` in the render phase, but reconciliation returns early
+  for an already reconciled shared element, so the render fails with
+  `RuntimeError: Element not reconsolidated`. Example: `App` returns
+  `VBox(children=[HBox(children=[shared, shared]), Child()])` and only `Child`
+  changes state.
 
 ## Where initial-render time goes
 

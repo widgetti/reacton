@@ -1,4 +1,6 @@
 import gc
+import os
+import random
 import sys
 import threading
 import time
@@ -6,7 +8,7 @@ import traceback
 import unittest.mock
 import weakref
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Generic, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, cast
 
 import ipyvuetify
 import ipywidgets
@@ -3110,7 +3112,9 @@ def test_debug_infinite_loop():
         rc.render(rc.element)
 
     assert "Too many renders triggered" in str(e)
-    assert len(rc._rerender_needed_reasons) >= 50
+    assert "Last reason: Reason: state changed" in str(e)
+    assert "Previous reasons: Reason: state changed" in str(e)
+    assert Infinite.render_count >= 50  # type: ignore
 
     rc.close()
 
@@ -3245,6 +3249,36 @@ def test_no_reference_cycles_after_close(component):
         assert weak_rc() is None
     finally:
         gc.enable()
+
+
+def test_state_changes_do_not_keep_old_values_alive():
+    # every state change used to append a RerenderReason with the previous and next
+    # value to the render context, so a long-lived page kept every old state value
+    # alive until it was closed
+    class Big:
+        pass
+
+    set_value: Callable[[Big], None] = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(Big())
+        return w.Button(description=str(id(value)))
+
+    box, rc = react.render(Test(), handle_error=False)
+    refs = []
+    for i in range(20):
+        big = Big()
+        refs.append(weakref.ref(big))
+        set_value(big)
+        del big
+    gc.collect()
+    alive = sum(ref() is not None for ref in refs)
+    # the current value, and the values of the last two rerender reasons
+    assert alive <= 3
+    assert len(rc._rerender_needed_reasons) <= 2
+    rc.close()
 
 
 def test_fragment():
@@ -3534,3 +3568,1189 @@ def test_render_lock_no_false_recursive_render():
     finally:
         thread.join(5)
     assert not thread.is_alive()
+
+
+# Tests for the update path: what a state change re-renders and which widgets it touches.
+# Some of these pin properties of the fast renderer only (REACTON_FAST=1); the default
+# renderer walks and updates the whole tree on every render.
+fast_renderer_only = pytest.mark.skipif(core._render_context_class() is not core._RenderContextFast, reason="a property of the fast renderer (REACTON_FAST=1)")
+
+
+class UpdateSpy:
+    """Records the widgets that get a (re)assignment of their kwargs via Element._update_widget."""
+
+    def __init__(self):
+        self.updated: List[widgets.Widget] = []
+
+    def __enter__(self):
+        original = core.Element._update_widget
+        spy = self
+
+        def _update_widget(self, widget, el_prev, kwargs):
+            spy.updated.append(widget)
+            return original(self, widget, el_prev, kwargs)
+
+        self._patch = unittest.mock.patch.object(core.Element, "_update_widget", _update_widget)
+        self._patch.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        self._patch.__exit__(*args)
+
+    def types(self):
+        return sorted(type(widget).__name__ for widget in self.updated)
+
+
+@fast_renderer_only
+def test_leaf_update_does_not_update_sibling_containers():
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Row(i):
+        return w.HBox(children=[w.Button(description=f"button-{i}"), w.Label(value=f"label-{i}")])
+
+    @react.component
+    def Leaf():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.Button(description=f"leaf-{value}")
+
+    @react.component
+    def App():
+        # the HBox is a container next to the leaf, in the same (not re-rendered) component
+        return w.VBox(children=[w.HBox(children=[w.Label(value="sibling")]), Row(0), Row(1), Leaf()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    children_before = vbox.children
+    with UpdateSpy() as spy:
+        set_value(1)
+    assert rc.find(widgets.Button, description="leaf-1").widget is vbox.children[-1]
+    # only the leaf button gets new kwargs, the containers keep their children
+    assert spy.types() == ["Button"]
+    assert vbox.children == children_before
+    rc.close()
+
+
+def test_container_updates_when_child_widget_changes(Container):
+    # the component holding the containers does not re-render, but the root widget of
+    # a child component changes type: the container must get the new widget
+    setters = {}
+
+    @react.component
+    def Switch(name):
+        label, set_label = react.use_state(False)
+        setters[name] = set_label
+        if label:
+            return w.Label(value=name)
+        return w.Button(description=name)
+
+    @react.component
+    def App():
+        return w.VBox(children=[Container(children=[w.Button(description="sibling"), Switch("inner")]), Switch("outer")])
+
+    def describe(widget):
+        return (type(widget).__name__, widget.value if isinstance(widget, widgets.Label) else widget.description)
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    box = vbox.children[0]
+    assert isinstance(box, widgets.HBox)
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Button", "inner")]
+    assert describe(vbox.children[1]) == ("Button", "outer")
+
+    setters["outer"](True)
+    assert vbox.children[0] is box
+    assert describe(vbox.children[1]) == ("Label", "outer")
+
+    setters["inner"](True)
+    assert vbox.children[0] is box
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Label", "inner")]
+    label = box.children[1]
+
+    setters["inner"](False)
+    assert [describe(child) for child in box.children] == [("Button", "sibling"), ("Button", "inner")]
+    assert label.comm is None  # closed
+    setters["outer"](False)
+    assert describe(vbox.children[1]) == ("Button", "outer")
+    rc.close()
+
+
+def test_container_updates_when_fragment_child_changes():
+    # a child component returns a fragment: its widgets are spliced into the parent
+    # container, which must follow when the fragment changes
+    set_count = lambda x: None  # noqa
+
+    @react.component
+    def Items():
+        nonlocal set_count
+        count, set_count = react.use_state(1)
+        return reacton.Fragment(children=[w.Button(description=str(i)) for i in range(count)])
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="first"), Items(), w.Label(value="last")])
+
+    def describe(vbox):
+        return [child.value if isinstance(child, widgets.Label) else child.description for child in vbox.children]
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert describe(vbox) == ["first", "0", "last"]
+    set_count(3)
+    assert describe(vbox) == ["first", "0", "1", "2", "last"]
+    set_count(0)
+    assert describe(vbox) == ["first", "last"]
+    set_count(2)
+    assert describe(vbox) == ["first", "0", "1", "last"]
+    rc.close()
+
+
+def test_replace_parent_same_child_element():
+    # like test_replace_parent, but the child element is the same object in every render
+    # (it comes from outside): replacing its parent widget removes the child's subtree,
+    # so the child cannot keep its previous widget
+    set_vertical = lambda x: None  # noqa
+    child = ButtonComponentFunction(description="Hi")
+
+    @react.component
+    def Test(child):
+        nonlocal set_vertical
+        vertical, set_vertical = react.use_state(True)
+        Container = w.VBox if vertical else w.HBox
+        with w.VBox() as main:
+            Container(children=[child])
+        return main
+
+    box, rc = react.render(Test(child), handle_error=False)
+    assert len(rc.find(widgets.Button)) == 1
+    set_vertical(False)
+    assert len(rc.find(widgets.HBox).find(widgets.Button)) == 1
+    set_vertical(True)
+    assert len(rc.find(widgets.Button)) == 1
+    rc.close()
+
+
+def test_equal_args_child_get_widget():
+    # the parent re-renders and makes a new element for a child with equal arguments:
+    # get_widget must find the widget for the new element
+    set_value = lambda x: None  # noqa
+    found = []
+
+    @react.component
+    def Child(label):
+        return w.HBox(children=[w.Button(description=label)])
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        child = Child("child")
+
+        def effect():
+            found.append(react.get_widget(child))
+
+        react.use_effect(effect, [value])
+        return w.VBox(children=[w.Label(value=str(value)), child])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    hbox = vbox.children[1]
+    set_value(1)
+    set_value(2)
+    assert found == [hbox, hbox, hbox]
+    assert vbox.children[1] is hbox
+    rc.close()
+
+
+@fast_renderer_only
+def test_equal_args_child_is_not_walked():
+    set_value = lambda x: None  # noqa
+    button = None
+
+    @react.component
+    def Child(label):
+        nonlocal button
+        button = w.Button(description=label)
+        return w.HBox(children=[button])
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.VBox(children=[w.Label(value=str(value)), Child("child")])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert button is not None
+    first_button = button
+    assert first_button._render_count == 1
+    child_render_count = Child.render_count  # type: ignore
+    with UpdateSpy() as spy:
+        set_value(1)
+    assert vbox.children[0].value == "1"
+    # the child did not re-render, and its subtree was not walked or updated
+    assert Child.render_count == child_render_count  # type: ignore
+    assert button is first_button
+    assert first_button._render_count == 1
+    assert spy.types() == ["Label", "VBox"]
+    rc.close()
+
+
+def test_implicit_container_only_for_none():
+    made = []
+
+    def Container(**kwargs):
+        el = w.VBox(**kwargs)
+        made.append(el)
+        return el
+
+    @react.component
+    def Implicit():
+        with w.HBox():
+            w.Button(description="in hbox")
+        w.Label(value="top")
+        w.Button(description="also top")
+
+    @react.component
+    def Explicit():
+        w.Label(value="not used")
+        return w.Button(description="returned")
+
+    @react.component
+    def Single():
+        w.Button(description="single")
+
+    @react.component
+    def App():
+        with w.VBox() as main:
+            Implicit()
+            Explicit()
+            Single()
+        return main
+
+    with unittest.mock.patch.object(reacton.core, "_default_container", Container):
+        vbox, rc = react.render_fixed(App(), handle_error=False)
+        implicit = vbox.children[0]
+        assert [type(child) for child in implicit.children] == [widgets.HBox, widgets.Label, widgets.Button]
+        assert implicit.children[0].children[0].description == "in hbox"
+        assert implicit.children[2].description == "also top"
+        assert vbox.children[1].description == "returned"
+        # a single element becomes the root itself
+        assert vbox.children[2].description == "single"
+        assert len(vbox.children) == 3
+        if core._render_context_class() is core._RenderContextFast:
+            # only the components that return None get a container
+            assert len(made) == 2
+        else:
+            assert len(made) == 4
+        rc.close()
+
+
+def test_fast_child_visitors_match_default():
+    import collections
+
+    Point = collections.namedtuple("Point", "x y")
+
+    class MyList(list):
+        pass
+
+    class MyDict(dict):
+        pass
+
+    button = w.Button(description="a")
+    label = w.Label(value="b")
+    widgets_before = set(_get_widgets_dict())
+    fragment_children = [widgets.Button(), widgets.Button()]
+    fragment = core.FragmentWidget(children=fragment_children)
+    value = {
+        "children": [button, "text", 1, None, True, (label, [button, label]), label],
+        "slots": [{"name": "x", "children": label}, {"name": "y", "children": [button]}],
+        "tuple": (button, 2.0, b"bytes"),
+        "point": Point(button, label),
+        "mylist": MyList([label, "x"]),
+        "mydict": MyDict(a=button, b=1),
+        "callback": print,
+        "widget": fragment,
+        "nested": {"deep": {"el": button, 3: [label]}},
+    }
+
+    def f(el, key, parent_key):
+        # the label becomes a fragment, to check that its children are spliced into lists
+        if el is label:
+            return fragment
+        return (el.component.name, key, parent_key)
+
+    default_rc = core._RenderContext(w.Button())
+    fast_rc = core._RenderContextFast(w.Button())
+    expected = core._RenderContext._visit_children_values(default_rc, value, "K/", "P", f)
+    got = core._RenderContextFast._visit_children_values(fast_rc, value, "K/", "P", f)
+    assert got == expected
+    assert [type(v) for v in got.values()] == [type(v) for v in expected.values()]
+    assert got["children"][-2:] == fragment_children
+
+    calls_default: List[str] = []
+    calls_fast: List[str] = []
+    core._RenderContext._visit_children_values(default_rc, value, "K/", "P", lambda el, key, parent_key: calls_default.append(key))
+    core._RenderContextFast._walk_children_values(fast_rc, value, "K/", "P", lambda el, key, parent_key: calls_fast.append(key))
+    assert calls_fast == calls_default
+    for model_id in set(_get_widgets_dict()) - widgets_before:
+        _get_widgets_dict()[model_id].close()
+
+
+def test_hold_trait_notifications_batches_renders():
+    # a frontend update of several traits holds the trait notifications (Widget.set_state):
+    # the state changes of the listeners must result in a single render
+    @react.component
+    def Test():
+        value, set_value = react.use_state(0)
+        description, set_description = react.use_state("a")
+        return w.IntSlider(value=value, on_value=set_value, description=description, on_description=set_description)
+
+    slider, rc = react.render_fixed(Test(), handle_error=False)
+    render_count = rc.render_count
+    with slider.hold_trait_notifications():
+        slider.value = 3
+        slider.description = "b"
+        assert rc.render_count == render_count
+    assert rc.render_count == render_count + 1
+    assert slider.value == 3
+    assert slider.description == "b"
+
+    # a widget of the same class that reacton did not create is not affected
+    other = widgets.IntSlider()
+    with other.hold_trait_notifications():
+        other.value = 2
+    assert other.value == 2
+    assert rc.render_count == render_count + 1
+
+    rc.close()
+    # a closed widget does not keep the render context alive
+    assert "_reacton_rc" not in slider.__dict__
+    other.close()
+    other.layout.close()
+    other.style.close()
+
+
+def test_orphans_are_recorded_per_thread():
+    # widgets made as a side effect of creating a widget (like its Layout) are closed with
+    # it; renders in other threads construct widgets at the same time, and must not end up
+    # as orphans of our widget (or ours of theirs)
+    class SlowBox(widgets.Box):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # let the other threads construct their widgets now
+            time.sleep(0.01)
+            self._extra = widgets.Layout()
+
+    @react.component
+    def Test(i):
+        return SlowBox.element(children=[w.Button(description=str(i))])
+
+    def worker(i):
+        box, rc = react.render_fixed(Test(i), handle_error=False)
+        return box, rc
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(worker, range(8)))
+    for box, rc in results:
+        orphans = rc._orphans[box.model_id]
+        assert orphans == {box.layout.model_id, box._extra.model_id}
+    for box, rc in results:
+        rc.close()
+        assert box._extra.comm is None
+
+
+@pytest.mark.parametrize("n_managers", [0, 1, 2])
+def test_component_context_managers_count(n_managers):
+    # plain reacton has no component context managers, solara one (this test module
+    # registers one for all other tests)
+    seen: List[tuple] = []
+
+    class Manager:
+        def __init__(self, el):
+            self.name = el.component.name
+
+        def __enter__(self):
+            seen.append(("enter", self.name))
+
+        def __exit__(self, exc_type, *args):
+            seen.append(("exit", self.name, exc_type))
+
+    @react.component
+    def Fail():
+        raise ValueError("fail")
+
+    @react.component
+    def App():
+        value, set_value = react.use_state(0)
+        exception, clear = react.use_exception()
+        if exception:
+            return w.Label(value=str(exception))
+        return Fail()
+
+    saved = list(core._component_context_manager_classes)
+    core._component_context_manager_classes[:] = [Manager] * n_managers
+    try:
+        label, rc = react.render_fixed(App(), handle_error=False)
+        assert label.value == "fail"
+        if n_managers:
+            # every manager is entered and exited, and sees the exception of the component body
+            fail_exits = [entry for entry in seen if entry[:2] == ("exit", "Fail")]
+            assert fail_exits and all(entry[2] is ValueError for entry in fail_exits)
+            assert len(fail_exits) % n_managers == 0
+            assert seen.count(("enter", "Fail")) == len(fail_exits)
+            app_enters = seen.count(("enter", "App"))
+            assert app_enters > 0 and app_enters % n_managers == 0
+            assert seen.count(("exit", "App", None)) == app_enters
+        else:
+            assert seen == []
+        rc.close()
+    finally:
+        core._component_context_manager_classes[:] = saved
+
+
+def test_component_context_containers():
+    context = core.ComponentContext(state={"0": 1})
+    assert context.state == {"0": 1}
+    assert context.parent is None
+    assert context.invoke_element is None
+    assert context.needs_render
+    # the rarely used containers are made on first use, one per context
+    other = core.ComponentContext(parent=context)
+    assert other.parent is context
+    assert other.state == {}
+    assert other.owns == set()
+    assert other.user_contexts is not context.user_contexts
+    listener = unittest.mock.Mock()
+    user_context = react.create_context(1)
+    other.context_listeners[user_context].add(listener)  # a defaultdict(set)
+    assert other.context_listeners == {user_context: {listener}}
+    with pytest.raises(TypeError):
+        core.ComponentContext(no_such_field=1)  # type: ignore
+    with pytest.raises(AttributeError):
+        context.no_such_field  # type: ignore
+
+
+def test_render_logging_when_enabled(caplog):
+    # the hot paths only build their log messages when logging is enabled
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        react.use_memo(lambda: value, [value])
+        react.use_effect(lambda: None, [value])
+        return w.Button(description=str(value))
+
+    button, rc = react.render_fixed(Test(), handle_error=False)
+    with caplog.at_level("DEBUG", logger="reacton"):
+        set_value(1)
+    messages = [record.getMessage() for record in caplog.records if record.name == "reacton"]
+    assert any(message.startswith("Set state = 1 for key '0' (previous value was 0)") for message in messages)
+    assert any(message.startswith("Render phase: ") for message in messages)
+    assert any(message.startswith("Got state = 1 for key '0'") for message in messages)
+    assert any(message.startswith("Replace memo with") for message in messages)
+    assert any(message.startswith("Setting next effect") for message in messages)
+    assert any(message.startswith("Done with render phase") for message in messages)
+    caplog.clear()
+    set_value(2)
+    assert [record for record in caplog.records if record.name == "reacton"] == []
+    rc.close()
+
+
+@fast_renderer_only
+def test_leaf_update_does_not_walk_siblings():
+    # a component that does not render again is not walked: only the path to the dirty
+    # component is, so the cost of an update does not depend on the number of siblings
+    set_value = lambda x: None  # noqa
+    vbox_el = None
+    rows = []
+
+    @react.component
+    def Row(i):
+        el = w.HBox(children=[w.Button(description=f"button-{i}")])
+        rows.append(el)
+        return el
+
+    @react.component
+    def Leaf():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        return w.Button(description=f"leaf-{value}")
+
+    @react.component
+    def App():
+        nonlocal vbox_el
+        vbox_el = w.VBox(children=[Row(0), Row(1), Leaf()])
+        return vbox_el
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert vbox_el is not None
+    assert vbox_el._render_count == 1
+    assert [row._render_count for row in rows] == [1, 1]
+    with UpdateSpy() as spy:
+        set_value(1)
+        set_value(2)
+    assert vbox.children[-1].description == "leaf-2"
+    assert spy.types() == ["Button", "Button"]
+    assert vbox_el._render_count == 1
+    assert [row._render_count for row in rows] == [1, 1]
+    rc.close()
+
+
+def test_dirty_children_render_in_element_order():
+    # several dirty siblings (of a component that does not render again) render, and run
+    # their effects, in the order of the element tree
+    log = []
+    setters = {}
+
+    @react.component
+    def Item(name):
+        value, set_value = react.use_state(0)
+        setters[name] = set_value
+        log.append(("render", name, value))
+
+        def effect():
+            log.append(("effect", name, value))
+
+        react.use_effect(effect, [value])
+        return w.Button(description=f"{name}-{value}")
+
+    @react.component
+    def Other(name):
+        return w.Label(value=name)
+
+    set_middle = lambda x: None  # noqa
+
+    @react.component
+    def App():
+        nonlocal set_middle
+        middle, set_middle = react.use_state(True)
+        return w.VBox(children=[Item("a"), Item("b") if middle else Other("b"), Item("c")])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    # replacing the middle child (and back) changes the order in which the child
+    # contexts were made, not the order of the elements
+    set_middle(False)
+    set_middle(True)
+    log.clear()
+    with rc:
+        setters["c"](1)
+        setters["b"](1)
+        setters["a"](1)
+    assert log == [("render", "a", 1), ("render", "b", 1), ("render", "c", 1), ("effect", "a", 1), ("effect", "b", 1), ("effect", "c", 1)]
+    assert [child.description for child in vbox.children] == ["a-1", "b-1", "c-1"]
+    rc.close()
+
+
+def test_nested_child_widget_changes():
+    # the root widget of a component changes, and the component above it returns it as its
+    # own root: the container of the component above that must get the new widget
+    set_label = lambda x: None  # noqa
+
+    @react.component
+    def Switch():
+        nonlocal set_label
+        label, set_label = react.use_state(False)
+        if label:
+            return w.Label(value="label")
+        return w.Button(description="button")
+
+    @react.component
+    def Wrapper():
+        return Switch()
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="first"), Wrapper()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert isinstance(vbox.children[1], widgets.Button)
+    set_label(True)
+    assert isinstance(vbox.children[1], widgets.Label)
+    assert vbox.children[1].value == "label"
+    set_label(False)
+    assert isinstance(vbox.children[1], widgets.Button)
+    rc.close()
+
+
+def test_setter_of_removed_component():
+    setters = []
+
+    @react.component
+    def Child():
+        value, set_value = react.use_state(0)
+        setters.append(set_value)
+        return w.Button(description=str(value))
+
+    set_show = lambda x: None  # noqa
+
+    @react.component
+    def App():
+        nonlocal set_show
+        show, set_show = react.use_state(True)
+        return w.VBox(children=[w.Label(value="x"), *([Child()] if show else [])])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert len(vbox.children) == 2
+    set_show(False)
+    assert len(vbox.children) == 1
+    widgets_before = set(_get_widgets_dict())
+    setters[0](5)  # the component is gone, nothing should happen
+    assert set(_get_widgets_dict()) == widgets_before
+    assert len(vbox.children) == 1
+    set_show(True)
+    assert vbox.children[1].description == "0"
+    rc.close()
+
+
+def test_exception_in_dirty_child_caught_above():
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Thrower():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        if value == 1:
+            raise ValueError("boom")
+        return w.Button(description=str(value))
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        if exception:
+            return w.Label(value=str(exception))
+        return w.HBox(children=[Thrower()])
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="first"), Catcher()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert isinstance(vbox.children[1], widgets.HBox)
+    set_value(1)
+    assert isinstance(vbox.children[1], widgets.Label)
+    assert vbox.children[1].value == "boom"
+    rc.close()
+
+
+def test_render_sets_state_of_sibling():
+    # a component that sets the state of a sibling during its render: a second render pass
+    setters = {}
+
+    @react.component
+    def Source():
+        value, set_value = react.use_state(0)
+        setters["source"] = set_value
+        if value:
+            setters["target"](value * 10)
+        return w.Button(description=f"source-{value}")
+
+    @react.component
+    def Target():
+        value, set_value = react.use_state(0)
+        setters["target"] = set_value
+        return w.Button(description=f"target-{value}")
+
+    @react.component
+    def App():
+        return w.VBox(children=[Target(), Source()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    setters["source"](1)
+    assert [child.description for child in vbox.children] == ["target-10", "source-1"]
+    setters["source"](2)
+    assert [child.description for child in vbox.children] == ["target-20", "source-2"]
+    rc.close()
+
+
+def _random_app(registry, log):
+    # component trees that change shape with their state (container type flips, a changing
+    # number of children, keys, shuffles, fragments, components whose root is a component,
+    # leaves whose root widget changes type, effects that set state, caught exceptions)
+    def h(*args):
+        return hash(args) & 0xFFFFFFFF
+
+    @react.component
+    def Leaf(id):
+        value, set_value = react.use_state(0)
+        registry[id] = set_value
+        if value == 0 and h(id) % 5 == 0:
+            # state set during the first render (a second render pass)
+            set_value(1)
+        kind = h(id, value) % 4
+        if kind == 0:
+            return w.Label(value=f"leaf {id} {value}")
+        if kind == 1:
+            return reacton.Fragment(children=[w.Button(description=f"f{id}.{i}") for i in range(value % 3)])
+        return w.Button(description=f"leaf {id} {value}")
+
+    @react.component
+    def Wrapper(id):
+        return Leaf(id * 7 + 1)
+
+    @react.component
+    def Thrower(id):
+        value, set_value = react.use_state(0)
+        registry[id] = set_value
+        if value == 7 or (value == 0 and h(id) % 3 == 0):
+            # also raises in its first render (in a new subtree)
+            raise ValueError(f"boom {id}")
+        return w.Button(description=f"thrower {id} {value}")
+
+    @react.component
+    def Catcher(id):
+        exception, clear = react.use_exception()
+        state, set_state = react.use_state(0)
+
+        def set_value(value):
+            clear()
+            set_state(value)
+
+        registry[id] = set_value
+        if exception:
+            return w.Label(value=f"caught {exception}")
+        return w.HBox(children=[Thrower(id * 3 + 2), Leaf(id * 3 + 1)])
+
+    @react.component
+    def Node(id, depth):
+        state, set_state = react.use_state(0)
+        registry[id] = set_state
+        seed = h(id, state)
+        rnd = random.Random(seed)
+
+        def effect():
+            log.append(("effect", id, state))
+            if state % 5 == 4:
+                set_state(state + 1)
+
+        react.use_effect(effect, [state])
+        children: List[Any] = [w.Label(value=f"node {id} {state}")]
+        for i in range(rnd.randint(0, 4)):
+            child_id = id * 10 + i
+            r = rnd.random()
+            if depth < 3 and r < 0.4:
+                child = Node(child_id, depth + 1)
+            elif r < 0.6:
+                child = Wrapper(child_id)
+            elif r < 0.7:
+                child = Catcher(child_id)
+            else:
+                child = Leaf(child_id)
+            if rnd.random() < 0.3:
+                child = child.key(f"k{child_id}")
+            children.append(child)
+        if rnd.random() < 0.2:
+            rnd.shuffle(children)
+        if depth > 0 and seed % 7 == 0:
+            return reacton.Fragment(children=children)
+        return (w.VBox if seed % 3 else w.HBox)(children=children)
+
+    return Node
+
+
+def _widget_signature(widget):
+    if isinstance(widget, widgets.Box):
+        return (type(widget).__name__, [_widget_signature(child) for child in widget.children])
+    return (type(widget).__name__, getattr(widget, "value", None), getattr(widget, "description", None))
+
+
+def _run_random_updates(fast: bool, seed: int, steps: int, batches: Optional[List] = None):
+    registry: Dict[int, Callable] = {}
+    log: List[tuple] = []
+    Node = _random_app(registry, log)
+    record = batches is None
+    batches = [] if batches is None else batches
+    choices = random.Random(seed)
+    results = []
+    with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+        widget, rc = react.render_fixed(Node(1, 0), handle_error=False)
+        assert isinstance(rc, core._RenderContextFast) == fast
+        for step in range(steps):
+            if record:
+                ids = sorted(registry)
+                batches.append([(choices.choice(ids), choices.randint(0, 9)) for _ in range(choices.choice([1, 1, 1, 2, 3]))])
+            batch = batches[step]
+            log.clear()
+            with rc:
+                for id, value in batch:
+                    if id in registry:
+                        registry[id](value)
+            results.append((_widget_signature(rc.last_root_widget), sorted(registry), list(log)))
+        rc.close()
+    return results, batches
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_renderers_agree_on_random_updates(seed):
+    # the fast renderer skips (and only partially walks) parts of the tree: after every
+    # (batch of) state change(s) it must give the same widgets, and run the same effects in
+    # the same order, as the default renderer that walks everything
+    level = core.logger.level
+    core.logger.setLevel(core.logging.CRITICAL)  # the thrower logs tracebacks
+    try:
+        expected, batches = _run_random_updates(False, seed, 25)
+        got, _ = _run_random_updates(True, seed, 25, batches)
+    finally:
+        core.logger.setLevel(level)
+    for step, (a, b) in enumerate(zip(expected, got)):
+        assert a == b, f"step {step}, batch {batches[step]}"
+
+
+# The fast renderer creates the widgets of a new subtree in the render phase (a mount), and
+# goes back to the two phase path when the pass needs another pass or cannot be mounted.
+# These tests pin the behavior of those cases (the same for both renderers).
+
+
+def _effect_log_component(log, name):
+    @react.component
+    def Logged(i):
+        def effect():
+            log.append(("effect", name, i))
+
+            def cleanup():
+                log.append(("cleanup", name, i))
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return w.Button(description=f"{name}-{i}")
+
+    return Logged
+
+
+def test_mount_state_set_during_render():
+    # the last child sets its own state during its first render: the widgets of the siblings
+    # (made before) belong to a pass that is not reconciled
+    log: List[tuple] = []
+    Logged = _effect_log_component(log, "row")
+    set_show = lambda x: None  # noqa
+
+    @react.component
+    def Setter():
+        value, set_value = react.use_state(0)
+        if value == 0:
+            set_value(1)
+        return w.Label(value=f"setter-{value}")
+
+    @react.component
+    def Section():
+        return w.VBox(children=[Logged(0), Logged(1), Setter()])
+
+    @react.component
+    def App():
+        nonlocal set_show
+        show, set_show = react.use_state(False)
+        return w.VBox(children=[Logged(-1), Section()] if show else [Logged(-1)])
+
+    widgets_before = set(_get_widgets_dict())
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert log == [("effect", "row", -1)]
+    set_show(True)
+    section = vbox.children[1]
+    assert [child.description for child in section.children[:2]] == ["row-0", "row-1"]
+    assert section.children[2].value == "setter-1"
+    assert log == [("effect", "row", -1), ("effect", "row", 0), ("effect", "row", 1)]
+    rc.close()
+    # no widgets from the undone pass are left (cleanup_guard checks the others)
+    assert set(_get_widgets_dict()) == widgets_before
+    assert log[-3:] == [("cleanup", "row", -1), ("cleanup", "row", 0), ("cleanup", "row", 1)]
+
+
+def test_mount_state_set_during_first_render():
+    Logged = _effect_log_component([], "row")
+
+    @react.component
+    def Setter():
+        value, set_value = react.use_state(0)
+        if value < 3:
+            set_value(value + 1)
+        return w.Label(value=f"setter-{value}")
+
+    @react.component
+    def App():
+        return w.VBox(children=[Logged(0), w.HBox(children=[Logged(1), Setter()]), Logged(2)])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert vbox.children[1].children[1].value == "setter-3"
+    assert [vbox.children[0].description, vbox.children[1].children[0].description, vbox.children[2].description] == ["row-0", "row-1", "row-2"]
+    rc.close()
+
+
+def test_mount_exception_caught_above():
+    # a new subtree raises after its siblings made widgets; a parent catches it
+    log: List[tuple] = []
+    Logged = _effect_log_component(log, "row")
+
+    @react.component
+    def Thrower():
+        raise ValueError("boom")
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        if exception:
+            return w.Label(value=f"caught {exception}")
+        return w.VBox(children=[Logged(0), Logged(1), Thrower()])
+
+    @react.component
+    def App():
+        return w.VBox(children=[Logged(-1), Catcher()])
+
+    widgets_before = set(_get_widgets_dict())
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    assert vbox.children[0].description == "row--1"
+    assert vbox.children[1].value == "caught boom"
+    assert ("effect", "row", 0) not in log
+    rc.close()
+    assert set(_get_widgets_dict()) == widgets_before
+
+
+def test_mount_shared_element():
+    @react.component
+    def Shared():
+        button = w.Button(description="shared").shared()
+        return w.VBox(children=[w.HBox(children=[button, button]), w.Label(value="after")])
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Label(value="before"), Shared()])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    hbox = vbox.children[1].children[0]
+    assert hbox.children[0] is hbox.children[1]
+    assert hbox.children[0].description == "shared"
+    rc.close()
+
+
+def test_mount_widget_creation_error():
+    class Broken(widgets.Button):
+        def __init__(self, **kwargs):
+            raise ValueError("cannot create")
+
+    @react.component
+    def App():
+        return w.VBox(children=[w.Button(description="fine"), Broken.element(description="broken")])
+
+    widgets_before = set(_get_widgets_dict())
+    rc = core._render_context_class()(App(), handle_error=False)
+    with pytest.raises(RuntimeError, match="Could not create widget"):
+        rc.render(rc.element)
+    # close raises the pending exception too
+    with pytest.raises(RuntimeError, match="Could not create widget"):
+        rc.close()
+    # a constructor that raises leaves the widgets it made (Layout, style) behind, in both
+    # renderers: close those here
+    for model_id in set(_get_widgets_dict()) - widgets_before:
+        _get_widgets_dict()[model_id].close()
+
+
+def _close_log(fast: bool, fail_in_cleanup: bool = False):
+    # close a tree with nested components, effects and listeners; log the order of the
+    # effect cleanups and the widget closes
+    log: List[str] = []
+
+    class LoggedButton(widgets.Button):
+        def close(self):
+            if self.comm is not None:
+                log.append(f"close {self.description}")
+            super().close()
+
+    class LoggedBox(widgets.VBox):
+        def close(self):
+            if self.comm is not None:
+                log.append(f"close box {self.layout.width}")
+            super().close()
+
+    def Box(name, children):
+        return LoggedBox.element(children=children, layout=w.Layout(width=name))
+
+    @react.component
+    def Leaf(name):
+        value, set_value = react.use_state(0)
+
+        def effect():
+            def cleanup():
+                log.append(f"cleanup {name}")
+                if fail_in_cleanup and name == "b1":
+                    raise ValueError(f"cleanup {name} failed")
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return LoggedButton.element(description=name, on_click=lambda: set_value(value + 1))
+
+    @react.component
+    def Group(name, n):
+        def effect():
+            return lambda: log.append(f"cleanup {name}")
+
+        react.use_effect(effect, [])
+        return Box(name, [Leaf(f"{name}{i}") for i in range(n)])
+
+    @react.component
+    def App():
+        def effect():
+            return lambda: log.append("cleanup app")
+
+        react.use_effect(effect, [])
+        return Box("app", [LoggedButton.element(description="first"), Group("a", 2), Box("inner", [Group("b", 2)]), Leaf("last")])
+
+    with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+        box, rc = react.render_fixed(App(), handle_error=False)
+        assert isinstance(rc, core._RenderContextFast) == fast
+        error = None
+        try:
+            rc.close()
+        except ValueError as e:
+            error = str(e)
+    return log, error
+
+
+@pytest.mark.parametrize("fail_in_cleanup", [False, True])
+def test_close_order_same_in_both_renderers(fail_in_cleanup):
+    level = core.logger.level
+    core.logger.setLevel(core.logging.CRITICAL)  # a failing cleanup logs a traceback
+    try:
+        default_log, default_error = _close_log(False, fail_in_cleanup)
+        fast_log, fast_error = _close_log(True, fail_in_cleanup)
+    finally:
+        core.logger.setLevel(level)
+    assert "cleanup app" in default_log and "close first" in default_log
+    assert fast_log == default_log
+    assert fast_error == default_error
+    if fail_in_cleanup:
+        assert default_error == "cleanup b1 failed"
+
+
+def test_get_widget_stale_element_message():
+    stale = []
+    set_value = lambda x: None  # noqa
+    errors: List[str] = []
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        button = w.Button(description=str(value))
+        stale.append(button)
+
+        def effect():
+            if value == 1:
+                try:
+                    react.get_widget(stale[0])
+                except KeyError as e:
+                    errors.append(str(e))
+
+        react.use_effect(effect, [value])
+        return button
+
+    button, rc = react.render_fixed(Test(), handle_error=False)
+    set_value(1)
+    assert len(errors) == 1
+    assert "was found to be in a previous render" in errors[0]
+    rc.close()
+
+
+def test_dynamic_widget_class_is_freed():
+    # one ComponentWidget is shared per widget class: it must not keep a widget class that
+    # was made at runtime (like a hot reload does) alive after its elements are gone
+    def render_and_close():
+        class Dynamic(widgets.Button):
+            pass
+
+        component = react.core.ComponentWidget(widget=Dynamic)
+        assert react.core.ComponentWidget(widget=Dynamic) is component
+
+        @react.component
+        def Test():
+            return component(description="dynamic")
+
+        widget, rc = react.render_fixed(Test(), handle_error=False)
+        assert isinstance(widget, Dynamic)
+        rc.close()
+        return weakref.ref(Dynamic)
+
+    class_ref = render_and_close()
+    gc.collect()
+    assert class_ref() is None
+
+
+def test_setter_is_stable():
+    # like React's setState: the same setter every render, so a child that gets it as an
+    # argument sees equal arguments and does not render again
+    setters: List[Callable] = []
+    child_renders = 0
+
+    @react.component
+    def Child(on_value):
+        nonlocal child_renders
+        child_renders += 1
+        return w.Button(description="child", on_click=lambda: on_value(10))
+
+    @react.component
+    def App():
+        value, set_value = react.use_state(0)
+        setters.append(set_value)
+        return w.VBox(children=[w.Label(value=str(value)), Child(on_value=set_value)])
+
+    vbox, rc = react.render_fixed(App(), handle_error=False)
+    setters[0](1)
+    setters[-1](2)
+    assert vbox.children[0].value == "2"
+    assert len(setters) == 3
+    assert setters[0] is setters[1] is setters[2]
+    assert child_renders == 1
+    # the child calls the setter it got in the first render
+    vbox.children[1].click()
+    assert vbox.children[0].value == "10"
+    rc.close()
+
+
+def test_setter_uses_latest_eq():
+    set_value = lambda x: None  # noqa
+    render_count = 0
+
+    @react.component
+    def App():
+        nonlocal set_value, render_count
+        render_count += 1
+        # the first render compares by identity, later renders say everything is equal
+        eq = (lambda a, b: a is b) if render_count == 1 else (lambda a, b: True)
+        value, set_value = react.use_state([1], eq=eq)
+        return w.Label(value=str(value))
+
+    label, rc = react.render_fixed(App(), handle_error=False)
+    set_value([2])  # not identical: renders again, with the eq that finds all equal
+    assert label.value == "[2]"
+    set_value([3])  # equal for the latest eq: no render
+    assert label.value == "[2]"
+    assert render_count == 2
+    rc.close()
+
+
+def test_effect_dependencies_back_to_previous_in_second_pass():
+    # the dependencies change in a render pass, and change back in the next pass of the same
+    # render call: the effect does not run again (its dependencies at reconciliation are equal)
+    runs: List[str] = []
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+        dependency = "b" if value == 1 else "a"
+        if value == 1:
+            set_value(2)  # a second render pass, where the dependency is "a" again
+
+        def effect():
+            runs.append(dependency)
+
+        react.use_effect(effect, [dependency])
+        return w.Label(value=str(value))
+
+    label, rc = react.render_fixed(Test(), handle_error=False)
+    assert runs == ["a"]
+    set_value(1)
+    assert label.value == "2"
+    assert runs == ["a"]
+    set_value(3)
+    assert runs == ["a"]
+    rc.close()
