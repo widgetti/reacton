@@ -65,3 +65,66 @@ def test_debug_keeps_the_frame_that_made_the_element():
     this_function = sys._getframe(0).f_code.co_name
     assert button.traceback.tb_frame.f_code.co_name == this_function
     assert child.traceback.tb_frame.f_code.co_name == this_function
+
+
+def test_solara_context_manager_and_default_container():
+    # solara appends a context manager class to reacton.core._component_context_manager_classes
+    # after importing reacton (solara/toestand.py), and assigns reacton.core._default_container
+    # (solara/components/__init__.py). The compiled mount reads both as its own globals.
+    log = []
+
+    class Manager:
+        def __init__(self, el):
+            self.name = el.component.name
+
+        def __enter__(self):
+            log.append(("enter", self.name))
+
+        def __exit__(self, *args):
+            log.append(("exit", self.name))
+
+    @reacton.component
+    def MyColumn(children=[]):
+        log.append(("column", len(children)))
+        return w.VBox(children=children)
+
+    set_value = lambda value: None  # noqa
+
+    @reacton.component
+    def Child(name):
+        # returns None: the implicit container gets the elements it made
+        w.Button(description=f"{name} a")
+        w.Button(description=f"{name} b")
+
+    @reacton.component
+    def App():
+        nonlocal set_value
+        value, set_value = reacton.use_state(0)
+        return w.HBox(children=[Child(f"child{value}").key(f"child{value}")])
+
+    previous_container = reacton.core._default_container
+    reacton.core._component_context_manager_classes.append(Manager)
+    reacton.core._default_container = MyColumn
+    try:
+        assert _fastcore._default_container is MyColumn
+        assert Manager in _fastcore._component_context_manager_classes
+        hbox, rc = reacton.render_fixed(App(), handle_error=False)
+        column = hbox.children[0]
+        assert isinstance(column, widgets.VBox)
+        assert [button.description for button in column.children] == ["child0 a", "child0 b"]
+        assert ("enter", "App") in log and ("exit", "App") in log
+        assert ("enter", "Child") in log and ("exit", "Child") in log
+        assert ("column", 2) in log
+        # a later update mounts a new child: the same container and manager
+        log.clear()
+        set_value(1)
+        column = hbox.children[0]
+        assert [button.description for button in column.children] == ["child1 a", "child1 b"]
+        assert ("enter", "Child") in log and ("exit", "Child") in log
+        assert ("column", 2) in log
+        rc.close()
+    finally:
+        reacton.core._component_context_manager_classes.remove(Manager)
+        reacton.core._default_container = previous_container
+    assert _fastcore._default_container is previous_container
+    assert Manager not in _fastcore._component_context_manager_classes

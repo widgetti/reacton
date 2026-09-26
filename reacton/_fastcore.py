@@ -1023,7 +1023,6 @@ class _Undo:
     # the keys of the two phase walk
     def __init__(self, rc):
         self.rc = rc
-        self.widgets_dict = _core._get_widgets_dict()
         self.shared_seen = set()
 
     def component(self, c):
@@ -1031,7 +1030,7 @@ class _Undo:
         c.nodes = None
         for node in nodes:
             if not isinstance(node, _ComponentContext):
-                _close_widget_node(self.rc, node, self.widgets_dict)
+                _close_widget_node(self.rc, node)
         state = _UndoContext([node for node in nodes if isinstance(node, _ComponentContext)])
         root = c.root_element
         if root is not None:
@@ -1105,7 +1104,7 @@ class _UndoContext:
         self.used_keys = set()
 
 
-def _close_widget_node(rc, node, widgets_dict):
+def _close_widget_node(rc, node):
     # close the widget of a node (and the widgets it made as a side effect)
     if type(node) is tuple:
         el, widget = node
@@ -1114,6 +1113,7 @@ def _close_widget_node(rc, node, widgets_dict):
         widget = node
     orphans = rc._orphans.pop(widget.model_id, None) if rc._orphans else None
     if orphans:
+        widgets_dict = _core._get_widgets_dict()
         for orphan in orphans:
             orphan_widget = widgets_dict.get(orphan)
             if orphan_widget:
@@ -1139,7 +1139,6 @@ def remove_mounted(rc, child_context, closing):
     child_context.exceptions_self = []
     child_context.exceptions_children = []
     rc.context = child_context
-    widgets_dict = _core._get_widgets_dict()
     try:
         for effect in child_context.effects:
             if not effect._cleaned_up:
@@ -1175,7 +1174,7 @@ def remove_mounted(rc, child_context, closing):
                 else:
                     rc._remove_component_context(node)
             else:
-                _close_widget_node(rc, node, widgets_dict)
+                _close_widget_node(rc, node)
     finally:
         rc.context = context
     if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:

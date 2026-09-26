@@ -1,5 +1,10 @@
 # Cython declarations for _fastcore.py (pure Python mode). Everything that makes the compiled
 # module fast is declared here, so the .py runs as plain Python without paying for it.
+#
+# Do NOT declare these module globals here (keep them plain module globals): reacton.core
+# assigns them from Python when solara writes reacton.core._default_container and
+# reacton.core._component_context_manager_classes (see reacton.core._CoreModule), and
+# reacton.core.DEBUG; and reacton.core writes _provides and _log_debug.
 cimport cython
 
 
@@ -98,10 +103,10 @@ cdef class _Materialize:
     cpdef object value(self, object value, object key)
 
 
-@cython.locals(el=object, widget=object, orphans=object, orphan=object, orphan_widget=object, close=object)
-cdef object _close_widget_node(object rc, object node, object widgets_dict)
+@cython.locals(el=object, widget=object, orphans=object, orphan=object, orphan_widget=object, close=object, widgets_dict=object)
+cdef object _close_widget_node(object rc, object node)
 
-@cython.locals(context=object, widgets_dict=object, effect=object, cleanup=object, handler=object, nodes=list, node=object)
+@cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object)
 cpdef object remove_mounted(object rc, object child_context, bint closing)
 
 
