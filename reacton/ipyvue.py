@@ -3,7 +3,7 @@ from typing import Any, Callable, Optional
 import ipyvue
 
 import reacton as react
-from reacton.core import ComponentWidget, _add_event_handlers, get_render_context
+from reacton.core import ComponentWidget, _add_event_handlers, local
 
 
 class _EventHandler:
@@ -64,7 +64,9 @@ class _EventHandler:
 
 
 def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[Any], Any]):
-    rc = get_render_context()
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
     context = rc.context
     assert context is not None
     ref = rc.use_ref(None)
@@ -93,5 +95,9 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
             # do not mutate the list, it could be shared with a previous element
             el.kwargs["_events"] = [*events, event_and_modifiers]
 
-    if handler not in el._event_handlers:
-        _add_event_handlers(el, (handler,), context, rc)
+    handlers = el._event_handlers
+    if handler not in handlers:
+        if el._key_frozen:
+            _add_event_handlers(el, (handler,), context, rc)
+        else:
+            el._event_handlers = (*handlers, handler)

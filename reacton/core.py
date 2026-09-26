@@ -767,6 +767,10 @@ def find_elements(value: Union[Element, List, Tuple, Dict]) -> Set[Element]:
         return elements
 
 
+# the list of a ContainerAdder that is not on the stack (never appended to)
+_NO_ELEMENTS: List["Element"] = []
+
+
 class ContainerAdder(Generic[W]):
     def __init__(self, el: Element[W], prop_name: str):
         self.el = el
@@ -2916,6 +2920,9 @@ class _RenderContextFast(_RenderContext):
         self._mount_recording: List[widgets.Widget] = []
         # something in this pass cannot be mounted: undo the mounts at the end of the pass
         self._mount_failed = False
+        # records the elements a component body makes (see _call_component): one for all bodies,
+        # bodies of one render context do not nest
+        self._body_adder: ContainerAdder = ContainerAdder(None, "children")  # type: ignore[arg-type]
         super().__init__(*args, **kwargs)
 
     def _set_rerender_needed(self, reason: str):
@@ -3659,7 +3666,7 @@ class _RenderContextFast(_RenderContext):
 
     def _call_component(self, el: Element) -> Optional[Element]:
         """Run the component function, with an implicit container when it returns None."""
-        component = cast(ComponentFunction, el.component)
+        component: ComponentFunction = el.component  # type: ignore[assignment]
         default_container = _default_container
         if default_container is None:
             component.render_count += 1
@@ -3668,7 +3675,9 @@ class _RenderContextFast(_RenderContext):
         # body (an extra element, and collecting the top level elements from all elements the
         # body made) costs more than a typical component body, so first only record the
         # elements the body makes, like the container would.
-        adder: ContainerAdder = ContainerAdder(cast(Element, None), "children")
+        adder = self._body_adder
+        created: List[Element] = []
+        adder.created = created
         container_adders = self.container_adders
         container_adders.append(adder)
         try:
@@ -3676,10 +3685,11 @@ class _RenderContextFast(_RenderContext):
             root_element = component.f(*el.args, **el.kwargs)
         finally:
             container_adders.pop()
+            adder.created = _NO_ELEMENTS
         if root_element is None:
             with default_container() as container:
                 # the container collects the same elements, the same way
-                self.container_adders[-1].created.extend(adder.created)
+                self.container_adders[-1].created.extend(created)
             if len(container.kwargs["children"]) == 1:
                 root_element = container.kwargs["children"][0]
             else:
