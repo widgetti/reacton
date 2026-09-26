@@ -4155,8 +4155,18 @@ if not typing.TYPE_CHECKING:
         _fast_hook.__doc__ = _python_hook.__doc__
     use_state = _fastcore.use_state
     use_effect = _fastcore.use_effect
-    use_memo = _fastcore.use_memo
     use_ref = _fastcore.use_ref
+    if _fastcore.__file__.endswith(".py"):
+        use_memo = _fastcore.use_memo
+    else:
+        _use_memo = _fastcore.use_memo
+
+        def use_memo(f, dependencies=None, debug_name=None):
+            # A Python frame named use_memo: a compiled function has none, and solara.tasks
+            # looks for it on the stack (task() called inside use_memo does not warn).
+            return _use_memo(f, dependencies, debug_name)
+
+        use_memo.__doc__ = _use_memo.__doc__
 
 
 # what _fastcore reads as its own globals (assignments to reacton.core are forwarded)

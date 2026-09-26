@@ -4,6 +4,8 @@ import copy
 import pickle
 import sys
 import weakref
+from types import FrameType
+from typing import Optional
 
 import ipywidgets as widgets
 
@@ -128,3 +130,29 @@ def test_solara_context_manager_and_default_container():
         reacton.core._default_container = previous_container
     assert _fastcore._default_container is previous_container
     assert Manager not in _fastcore._component_context_manager_classes
+
+
+def test_use_memo_has_a_frame():
+    # solara.tasks: task() called inside use_memo does not warn. It checks the 5 frames above
+    # the user code that calls task() for a function named use_memo in a reacton module.
+    found = []
+
+    def make():
+        frame: Optional[FrameType] = sys._getframe(2)  # the frame above the lambda
+        for _ in range(5):
+            if frame is None:
+                break
+            if frame.f_code.co_name == "use_memo" and frame.f_globals.get("__name__", "").startswith("reacton."):
+                found.append(frame.f_globals["__name__"])
+                break
+            frame = frame.f_back
+        return 1
+
+    @reacton.component
+    def Test():
+        reacton.use_memo(lambda: make(), [])
+        return w.Button()
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    rc.close()
+    assert len(found) == 1
