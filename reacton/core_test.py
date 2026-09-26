@@ -4951,3 +4951,41 @@ def test_first_render_when_an_effect_or_body_sets_state():
             rc.close()
             with pytest.raises(ValueError, match="oops"):
                 react.render_fixed(Raises(), handle_error=False)
+
+
+def test_exception_in_cleanup_of_a_removed_child_reaches_the_handler():
+    # an effect cleanup that raises when its component is removed: a component above it that
+    # handles exceptions (use_exception) gets it, in both renderers (the fast renderer removes
+    # a mounted child from its nodes)
+    set_show: Dict[str, Callable] = {}
+
+    @react.component
+    def Child():
+        def effect():
+            def cleanup():
+                raise ValueError("cleanup failed")
+
+            return cleanup
+
+        react.use_effect(effect, [])
+        return w.Button(description="child")
+
+    @react.component
+    def Inner():
+        show, set_show["inner"] = react.use_state(True)
+        return w.VBox(children=[Child(), Child()] if show else [])
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else w.HBox(children=[Inner()])
+
+    results = {}
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            container = widgets.VBox()
+            box, rc = react.render(Catcher(), container, handle_error=False)
+            set_show["inner"](False)
+            results[fast] = container.children[0].value
+            rc.close()
+    assert results[True] == results[False] == "caught ValueError('cleanup failed')"

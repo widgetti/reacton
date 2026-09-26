@@ -70,6 +70,10 @@ cdef class _Mount:
 
 cdef object _new_instance(object cls)
 
+# (only _fastcore uses these)
+cdef dict _plain_classes
+cdef frozenset _SCALAR_TYPES
+
 cdef int _plain_class(object cls) except -1
 cdef class _WidgetInfo:
     cdef public object widget
@@ -94,7 +98,7 @@ cdef object _call_body(_Mount m, ElementBase el, object managers)
 @cython.locals(component=object, default_container=object, created=list, root_element=object, kwargs=dict, container=object)
 cpdef object call_component(list container_adders, ContainerAdder adder, ElementBase el)
 
-@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, added=object, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
+@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, added=object, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object, maybe_listener=bint, t=object)
 cdef object _mount_node(_Mount m, ElementBase el, object c, list nodes, object dkey)
 
 @cython.locals(values=list, index=Py_ssize_t, x=object, w=object)
@@ -146,8 +150,11 @@ cdef class _Materialize:
 @cython.locals(el=object, widget=object, added=object, mounted_listeners=bint, listener=object, orphans=object, orphan=object, orphan_widget=object, close=object, widgets_dict=object)
 cdef object _close_widget_node(object rc, object node)
 
-@cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object, switched=bint, effects=object, handlers=object)
+@cython.locals(errors=list)
 cpdef object remove_mounted(object rc, object child_context, bint closing)
+
+@cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object, switched=bint, effects=object, handlers=object, errors=list, errors_children=list, sub=list)
+cdef list _remove_mounted(object rc, object child_context, bint closing)
 
 
 # ---- the hooks

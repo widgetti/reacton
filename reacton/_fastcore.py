@@ -508,7 +508,8 @@ def mount_component(rc, el, key, parent_context, order, context):
         c = m.top
         c.order_in_parent = order
     finally:
-        _core._stop_recording_constructed(previous_recording)
+        # (reacton.core._stop_recording_constructed, inline)
+        _core._construction_local.recording = previous_recording
     if widget is not None and not m.failed:
         c.mount_order = m.order
         rc._mount_roots[c] = None
@@ -733,9 +734,13 @@ def _mount_node(m, el, c, nodes, dkey):
     assert not el.args, "no positional args supported for widgets"
     kwargs = el.kwargs
     resolved = None
+    # a value that can be an event listener (on_<trait>): a callable, or None
+    maybe_listener = False
     for name, value in kwargs.items():
         t = type(value)
         if t in _SCALAR_TYPES:
+            if value is None:
+                maybe_listener = True
             continue
         if t is list:
             new_value = _mount_list(m, value, c, nodes, None if key is None else f"{key}{name}/")
@@ -744,6 +749,7 @@ def _mount_node(m, el, c, nodes, dkey):
         elif t is tuple or t is dict or isinstance(value, (list, tuple, dict)):
             new_value = _mount_value(m, value, c, nodes, None if key is None else f"{key}{name}/")
         else:
+            maybe_listener = True
             continue
         if resolved is None:
             resolved = dict(kwargs)
@@ -766,11 +772,13 @@ def _mount_node(m, el, c, nodes, dkey):
         listeners = None
         info = _widget_info(component)
         traits = info.trait_names
-        for name in resolved:
-            if name not in traits:
-                break
-        else:
-            name = None
+        name = None
+        if maybe_listener:
+            for name in resolved:
+                if name not in traits:
+                    break
+            else:
+                name = None
         if name is not None:
             # a kwarg that is not a trait: an event listener (on_<trait>)
             for name in list(resolved):
@@ -1422,9 +1430,19 @@ def remove_mounted(rc, child_context, closing):
     """Remove a mounted component (rc.context is its parent): the same order of effect
     cleanups, handler removals and widget closes as reacton.core's _remove_element (or
     _close_element when closing), from its nodes."""
+    errors = _remove_mounted(rc, child_context, closing)
+    if errors:
+        rc.context.exceptions_children.extend(errors)
+
+
+def _remove_mounted(rc, child_context, closing):
+    # Returns the exceptions that bubble up to the parent (None when there are none): the
+    # exceptions of the cleanups of this component, and those of its children when this
+    # component does not handle exceptions. (Local lists: most mounted components never have
+    # exceptions, and their contexts do not get the exception lists.)
     context = rc.context
-    child_context.exceptions_self = []
-    child_context.exceptions_children = []
+    errors = None
+    errors_children = None
     # (rc.context is only switched to child_context when an effect cleanup, a handler or a
     # child component can use it: most mounted components have none)
     switched = False
@@ -1441,7 +1459,9 @@ def remove_mounted(rc, child_context, closing):
                         cleanup()
                 except BaseException as e:
                     _logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
-                    child_context.exceptions_self.append(e)
+                    if errors is None:
+                        errors = []
+                    errors.append(e)
                     if not closing:
                         rc._set_rerender_needed("Exception ocurred during effect")
                         rc._mark_dirty(child_context)
@@ -1456,32 +1476,49 @@ def remove_mounted(rc, child_context, closing):
                     handler._reacton_detach()
                 except BaseException as e:
                     _logger.exception("Removing event handler %r raised exception %r", handler, e)
-                    child_context.exceptions_self.append(e)
+                    if errors is None:
+                        errors = []
+                    errors.append(e)
                     rc._set_rerender_needed("Exception ocurred during effect")
                     rc._mark_dirty(child_context)
         nodes = child_context.nodes
         child_context.nodes = None
         for node in nodes:
-            if isinstance(node, _ComponentContext):
+            if type(node) is _MountedContext or (type(node) is not tuple and isinstance(node, _ComponentContext)):
                 if not switched:
                     rc.context = child_context
                     switched = True
                 if node.nodes is not None:
-                    remove_mounted(rc, node, closing)
-                elif closing:
-                    # (its dicts were made, e.g. by get_widget): as the two phase walk does
-                    rc._close_component_context(node)
+                    sub = _remove_mounted(rc, node, closing)
+                    if sub:
+                        if errors_children is None:
+                            errors_children = []
+                        errors_children.extend(sub)
                 else:
-                    rc._remove_component_context(node)
+                    # (its dicts were made, e.g. by get_widget): as the two phase walk does,
+                    # which puts the exceptions that bubble up on rc.context (child_context)
+                    sub = child_context.exceptions_children = []
+                    if closing:
+                        rc._close_component_context(node)
+                    else:
+                        rc._remove_component_context(node)
+                    if sub:
+                        if errors_children is None:
+                            errors_children = []
+                        errors_children.extend(sub)
             else:
                 _close_widget_node(rc, node)
     finally:
         if switched:
             rc.context = context
-    if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
-        # child does not handle exceptions, so bubble up
-        context.exceptions_children.extend(child_context.exceptions_self)
-        context.exceptions_children.extend(child_context.exceptions_children)
+    if errors is None:
+        if errors_children is not None and child_context.exception_handler:
+            # (a component that handles exceptions keeps those of its children)
+            return None
+        return errors_children
+    if errors_children is not None:
+        errors.extend(errors_children)
+    return errors
 
 
 # ============================================================================================
