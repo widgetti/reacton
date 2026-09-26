@@ -4989,3 +4989,31 @@ def test_exception_in_cleanup_of_a_removed_child_reaches_the_handler():
             results[fast] = container.children[0].value
             rc.close()
     assert results[True] == results[False] == "caught ValueError('cleanup failed')"
+
+
+def test_exception_in_an_effect_of_a_new_subtree_bubbles_up():
+    # an effect of a component deep in a new (mounted) subtree raises: the exception goes up
+    # through the components that do not handle it, in both renderers
+    @react.component
+    def Failing():
+        def effect():
+            raise ValueError("effect failed")
+
+        react.use_effect(effect, [])
+        return w.Button(description="failing")
+
+    @react.component
+    def Middle():
+        return w.VBox(children=[w.Label(value="middle"), Failing()])
+
+    @react.component
+    def Catcher():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else w.HBox(children=[Middle()])
+
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            container = widgets.VBox()
+            box, rc = react.render(Catcher(), container, handle_error=False)
+            assert container.children[0].value == "caught ValueError('effect failed')"
+            rc.close()

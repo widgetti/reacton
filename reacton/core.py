@@ -1488,6 +1488,10 @@ class Effect:
         self.executed = True
 
 
+# (makes the batch counter of a render context, once)
+_batch_counter_lock = threading.Lock()
+
+
 class _RenderContext:
     context: Optional[ComponentContext] = None
     # the ident of the thread that holds thread_lock (render)
@@ -1504,14 +1508,16 @@ class _RenderContext:
     last_root_widget: widgets.Widget
     _is_rendering: bool
     _rerender_needed: bool
-    # (only the last two reasons are read: the "too many renders" error message)
-    _rerender_needed_reasons: Deque[RerenderReason]
+    # (only the last two reasons are read: the "too many renders" error message; made by the
+    # first one, see _add_rerender_reason)
+    _rerender_needed_reasons: Deque[RerenderReason] = _fastcore._NO_REASONS  # type: ignore[assignment]
     thread_lock: Any
     _closing: bool
     tracebacks: List[TracebackType]
     handle_error: bool
     reconsolidating: bool
-    _batch_counter: utils.ThreadSafeCounter
+    # (made by the first batch, see __enter__)
+    _batch_counter: Optional[utils.ThreadSafeCounter] = None
     # when set, the next render phase walks the whole tree instead of skipping subtrees in
     # which no state changed (see _render)
     _walk_all: bool
@@ -1532,12 +1538,22 @@ class _RenderContext:
         if initial_state:
             self.state_set(self.context_root, initial_state)
 
+    def _add_rerender_reason(self, reason: RerenderReason):
+        _fastcore.add_rerender_reason(self, reason)
+
     def __enter__(self):
-        counter = self._batch_counter.increment()
+        batch_counter = self._batch_counter
+        if batch_counter is None:
+            with _batch_counter_lock:
+                batch_counter = self._batch_counter
+                if batch_counter is None:
+                    batch_counter = self._batch_counter = utils.ThreadSafeCounter()
+        counter = batch_counter.increment()
         if counter == 1:
             logger.info("entering batch render")
 
     def __exit__(self, exc_type, exc_value, traceback):
+        assert self._batch_counter is not None
         counter = self._batch_counter.decrement()
         if counter == 0:
             logger.info("finishing batch render (%s)", "needs rerender" if self._rerender_needed else "no rerender needed")
@@ -1714,7 +1730,7 @@ class _RenderContext:
                     if DEBUG:
                         trigger_stack = traceback.format_stack()
 
-                        self._rerender_needed_reasons.append(
+                        self._add_rerender_reason(
                             RerenderReason(
                                 reason=f"state changed with key {key}",
                                 prev_value=prev_value,
@@ -1724,7 +1740,7 @@ class _RenderContext:
                             )
                         )
                     else:
-                        self._rerender_needed_reasons.append(RerenderReason(reason=f"state changed with key {key}", prev_value=prev_value, next_value=value))
+                        self._add_rerender_reason(RerenderReason(reason=f"state changed with key {key}", prev_value=prev_value, next_value=value))
                     self._rerender_needed = True
                 self._possible_rerender()
 
@@ -1752,13 +1768,14 @@ class _RenderContext:
         self._walk_all = True
         if self._is_rendering:
             self.element = element
-            self._rerender_needed_reasons.append(RerenderReason(reason="root element changed"))
+            self._add_rerender_reason(RerenderReason(reason="root element changed"))
             self._rerender_needed = True
         else:
             self.render(element, self.container)
 
     def _possible_rerender(self):
-        if not self._is_rendering and self._batch_counter.current() == 0:
+        batch_counter = self._batch_counter
+        if not self._is_rendering and (batch_counter is None or batch_counter.current() == 0):
             self.render(self.element, self.container)
         elif logger.isEnabledFor(logging.INFO):
             logger.info("No render phase triggered, already rendering")
@@ -2181,7 +2198,7 @@ class _RenderContext:
                             self.tracebacks.append(el.traceback)
                         logger.exception("Component %r raised exception %r", el.component, e)
                         context.exceptions_self.append(e)
-                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during render"))
+                        self._add_rerender_reason(RerenderReason(reason="Exception ocurred during render"))
                         self._rerender_needed = True
                         context.needs_render = True
 
@@ -2220,7 +2237,7 @@ class _RenderContext:
                 except RuntimeError as e:
                     logger.exception("Exception in hook count check")
                     context.exceptions_self.append(e)
-                    self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during render (hook count check)"))
+                    self._add_rerender_reason(RerenderReason(reason="Exception ocurred during render (hook count check)"))
                     self._rerender_needed = True
                     context.needs_render = True
                 # only expose to parent when no error occurs
@@ -2242,7 +2259,7 @@ class _RenderContext:
                         # this happens when an exception was added from an event handler
                         # this means no exception was raised during the render phase
                         # but we still need to rerender, until someone catches the exception
-                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during render"))
+                        self._add_rerender_reason(RerenderReason(reason="Exception ocurred during render"))
                         self._rerender_needed = True
                         self.context.needs_render = True
 
@@ -2342,7 +2359,7 @@ class _RenderContext:
                                     except BaseException as e:
                                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                                         context.exceptions_self.append(e)
-                                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                                        self._add_rerender_reason(RerenderReason(reason="Exception ocurred during effect"))
                                         self._rerender_needed = True
                                         context.needs_render = True
                                 effect = child_context.effects[effect_index] = effect.next
@@ -2354,7 +2371,7 @@ class _RenderContext:
                                 except BaseException as e:
                                     logger.exception("Effect %r raised exception %r", effect.callable, e)
                                     context.exceptions_self.append(e)
-                                    self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                                    self._add_rerender_reason(RerenderReason(reason="Exception ocurred during effect"))
                                     self._rerender_needed = True
                                     context.needs_render = True
                         else:
@@ -2366,7 +2383,7 @@ class _RenderContext:
                             except BaseException as e:
                                 logger.exception("Effect %r raised exception %r", effect.callable, e)
                                 context.exceptions_self.append(e)
-                                self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                                self._add_rerender_reason(RerenderReason(reason="Exception ocurred during effect"))
                                 self._rerender_needed = True
                                 context.needs_render = True
 
@@ -2430,7 +2447,7 @@ class _RenderContext:
                                 widget, orphan_ids = el._create_widget(kwargs)
                             except BaseException as e:
                                 context.exceptions_self.append(e)
-                                self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (creating widget)"))
+                                self._add_rerender_reason(RerenderReason(reason="Exception ocurred during reconciliation (creating widget)"))
                                 self._rerender_needed = True
                         if el.is_shared:
                             self._shared_widgets[el] = widget
@@ -2447,7 +2464,7 @@ class _RenderContext:
                             el._update_widget(widget_previous, el_prev, kwargs)
                         except BaseException as e:
                             context.exceptions_self.append(e)
-                            self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
+                            self._add_rerender_reason(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
                             self._rerender_needed = True
                     if el.is_shared:
                         self._shared_widgets[el] = widget_previous
@@ -2464,7 +2481,7 @@ class _RenderContext:
                             widget, orphan_ids = el._create_widget(kwargs)
                         except BaseException as e:
                             context.exceptions_self.append(e)
-                            self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
+                            self._add_rerender_reason(RerenderReason(reason="Exception ocurred during reconciliation (updating widget)"))
                             self._rerender_needed = True
                     if el.is_shared:
                         self._shared_widgets[el] = widget
@@ -2580,7 +2597,7 @@ class _RenderContext:
                     except BaseException as e:
                         logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
-                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                        self._add_rerender_reason(RerenderReason(reason="Exception ocurred during effect"))
                         self._rerender_needed = True
                 for handler in child_context.event_handlers:
                     try:
@@ -2588,7 +2605,7 @@ class _RenderContext:
                     except BaseException as e:
                         logger.exception("Removing event handler %r raised exception %r", handler, e)
                         child_context.exceptions_self.append(e)
-                        self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
+                        self._add_rerender_reason(RerenderReason(reason="Exception ocurred during effect"))
                         self._rerender_needed = True
                 assert self.context.root_element is not None
                 new_parent_key = join_key(parent_key, key)
@@ -2741,7 +2758,7 @@ class _RenderContextFast(_RenderContext):
             self.state_set(self.context_root, initial_state)
 
     def _set_rerender_needed(self, reason: str):
-        self._rerender_needed_reasons.append(RerenderReason(reason=reason))
+        self._add_rerender_reason(RerenderReason(reason=reason))
         self._rerender_needed = True
 
     def _mark_dirty(self, context: ComponentContext):

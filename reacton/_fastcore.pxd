@@ -72,6 +72,7 @@ cdef object _new_instance(object cls)
 
 # (only _fastcore uses these)
 cdef dict _plain_classes
+cdef dict _logger_cache
 cdef frozenset _SCALAR_TYPES
 
 cdef int _plain_class(object cls) except -1
@@ -108,12 +109,15 @@ cdef object _mount_value(_Mount m, object value, object c, list nodes, object dk
 
 cpdef object init_context(object c)
 
-@cython.locals(root=object, counter=object)
+@cython.locals(root=object)
 cpdef object init_render_context(object rc, object element, object container, object children_trait, object handle_error, bint fast)
+
+@cython.locals(reasons=object)
+cpdef add_rerender_reason(object rc, object reason)
 
 cpdef bint fast_selected()
 
-@cython.locals(cache=object, enabled=object)
+@cython.locals(enabled=object)
 cdef object _info_enabled()
 
 @cython.locals(rc=object, widget=object)
@@ -124,6 +128,9 @@ cpdef object render_first(object rc, object element, object container)
 
 @cython.locals(order=list, raised=bint, context=object, effects=object, parent=object, effect=object, widget=object, el=ElementBase, key=object)
 cpdef object finish_mount(object rc, object root)
+
+@cython.locals(node=object, parent=object)
+cdef object _bubble_exceptions(object c)
 
 @cython.locals(nodes=list, w=_Materialize, root=object)
 cpdef object materialize(object c)

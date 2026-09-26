@@ -388,8 +388,8 @@ _ComponentContext: Any = None
 _MountedContext: Any = None
 _FragmentWidget: Any = None
 _logger: Any = None
+_logger_cache: Any = None
 _RenderContextFast: Any = None
-_ThreadSafeCounter = utils.ThreadSafeCounter
 # values that cannot hold elements (the child visitors skip them)
 _SCALAR_TYPES = frozenset([str, int, float, bool, complex, bytes, type(None)])
 # the dicts of a component context that are made from its nodes (see materialize)
@@ -421,7 +421,7 @@ def _new_instance(cls):
 
 
 def _register_core(core):
-    global _core, _ComponentFunction, _ComponentWidget, _ComponentContext, _MountedContext, _FragmentWidget, _logger, _RenderContextFast
+    global _core, _ComponentFunction, _ComponentWidget, _ComponentContext, _MountedContext, _FragmentWidget, _logger, _RenderContextFast, _logger_cache
     _core = core
     _ComponentFunction = core.ComponentFunction
     _ComponentWidget = core.ComponentWidget
@@ -429,6 +429,7 @@ def _register_core(core):
     _MountedContext = core._MountedContext
     _FragmentWidget = core.FragmentWidget
     _logger = core.logger
+    _logger_cache = getattr(_logger, "_cache", None)
     _RenderContextFast = core._RenderContextFast
     _register_hooks(core)
 
@@ -616,7 +617,9 @@ def _mount_component(m, el, parent, parent_nodes, context, key):
                 parent.needs_render = True
     if widget is not None:
         context.compact_widget = widget
-    m.order.append(context)
+    if context.effects:
+        # (read now: the context is in the cache; finish_mount only visits these)
+        m.order.append(context)
     return widget
 
 
@@ -945,17 +948,11 @@ def init_render_context(rc, element, container, children_trait, handle_error, fa
     rc.last_root_widget = None
     rc._is_rendering = False
     rc._rerender_needed = False
-    rc._rerender_needed_reasons = deque(maxlen=2)
     rc.thread_lock = threading.Lock()
     rc._closing = False
     rc.tracebacks = []
     rc.handle_error = handle_error
     rc.reconsolidating = False
-    # utils.ThreadSafeCounter() without its __init__ frame
-    counter = _ThreadSafeCounter.__new__(_ThreadSafeCounter)
-    counter._value = 0
-    counter._lock = threading.Lock()
-    rc._batch_counter = counter
     rc._walk_all = True
     rc._shared_widgets = {}
     rc._shared_elements_next = set()
@@ -971,14 +968,11 @@ def init_render_context(rc, element, container, children_trait, handle_error, fa
 
 def _info_enabled():
     # _logger.isEnabledFor(logging.INFO) without its frame: logging keeps the answer in
-    # Logger._cache (cleared when a level changes)
-    if _logger.disabled:
-        return False
-    cache = getattr(_logger, "_cache", None)
-    enabled = cache.get(20) if cache is not None else None
+    # Logger._cache (the same dict, cleared when a level changes); Logger.disabled is not in it
+    enabled = _logger_cache.get(20) if _logger_cache is not None else None
     if enabled is None:
         return _logger.isEnabledFor(20)
-    return enabled
+    return enabled and not _logger.disabled
 
 
 def render_fixed(element, handle_error=True):
@@ -993,6 +987,19 @@ def render_fixed(element, handle_error=True):
         widget = rc.render(element)
     local.last_rc = weakref.ref(rc)
     return widget, rc
+
+
+# (the class default of _RenderContext._rerender_needed_reasons: no reasons yet)
+_NO_REASONS: tuple = ()
+
+
+def add_rerender_reason(rc, reason):
+    """rc._rerender_needed_reasons.append(reason); the deque is made by the first reason (making
+    it costs more than the rest of a render context, and most never need one)."""
+    reasons = rc._rerender_needed_reasons
+    if reasons is _NO_REASONS:
+        reasons = rc._rerender_needed_reasons = deque(maxlen=2)
+    reasons.append(reason)
 
 
 def fast_selected():
@@ -1020,7 +1027,7 @@ def render_first(rc, element, container):
         or rc._closing
         or not isinstance(element, ElementBase)
         or element.is_shared
-        or isinstance(element.component, _ComponentWidget)
+        or (type(element.component) is not _ComponentFunction and isinstance(element.component, _ComponentWidget))
         # (state_set made contexts for the initial state)
         or root.children_next
         # (render() logs its phases)
@@ -1112,32 +1119,30 @@ def finish_mount(rc, root):
     """Reconciliation of a mounted subtree (rc.context is the parent of root): run the effects,
     children first, and hook the root widget into the parent."""
     parent_context = rc.context
+    # (the contexts of the mount that have effects, children first)
     order = root.mount_order
     raised = False
     try:
         for context in order:
             effects = context.effects
             parent = context.parent
-            if effects:
-                rc.context = context
-                for effect in effects:
-                    if effect.next is not None or effect.executed:
-                        rc._process_effects(context, parent)
-                        break
-                    try:
-                        effect._cleanup = effect.callable()
-                        effect.executed = True
-                    except BaseException as e:
-                        _logger.exception("Effect %r raised exception %r", effect.callable, e)
-                        parent.exceptions_self.append(e)
-                        rc._set_rerender_needed("Exception ocurred during effect")
-                        rc._mark_dirty(parent)
-                        parent.needs_render = True
-                        raised = True
-            if raised:
-                if context.exceptions_self or context.exceptions_children and not context.exception_handler:
-                    parent.exceptions_children.extend(context.exceptions_self)
-                    parent.exceptions_children.extend(context.exceptions_children)
+            rc.context = context
+            for effect in effects:
+                if effect.next is not None or effect.executed:
+                    rc._process_effects(context, parent)
+                    break
+                try:
+                    effect._cleanup = effect.callable()
+                    effect.executed = True
+                except BaseException as e:
+                    _logger.exception("Effect %r raised exception %r", effect.callable, e)
+                    parent.exceptions_self.append(e)
+                    rc._set_rerender_needed("Exception ocurred during effect")
+                    rc._mark_dirty(parent)
+                    parent.needs_render = True
+                    raised = True
+        if raised:
+            _bubble_exceptions(root)
         widget = root.compact_widget
         el = root.invoke_element
         key = root.key_in_parent
@@ -1149,6 +1154,18 @@ def finish_mount(rc, root):
         rc.context = parent_context
         root.mount_order = None
         rc._mount_roots.pop(root, None)
+
+
+def _bubble_exceptions(c):
+    # an effect of the mount raised: the exceptions go up to the top of the mount, children
+    # first (as in _render_component), through the contexts that do not handle them
+    for node in c.nodes:
+        if type(node) is _MountedContext:
+            _bubble_exceptions(node)
+    if c.exceptions_self or c.exceptions_children and not c.exception_handler:
+        parent = c.parent
+        parent.exceptions_children.extend(c.exceptions_self)
+        parent.exceptions_children.extend(c.exceptions_children)
 
 
 def materialize(c):
@@ -2008,7 +2025,7 @@ class _Setter:
                     )
                 else:
                     reason = _RerenderReason(reason=f"state changed with key {key}", prev_value=prev_value, next_value=value)
-                rc._rerender_needed_reasons.append(reason)
+                add_rerender_reason(rc, reason)
                 rc._rerender_needed = True
             rc._possible_rerender()
 
