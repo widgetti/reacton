@@ -44,6 +44,15 @@ _NO_META: dict = {}
 # reacton.core's Element and ValueElement (see _register)
 _Element: Any = None
 _ValueElement: Any = None
+# reacton.core._default_container (solara sets it; reacton.core forwards the assignment)
+_default_container: Any = None
+# reacton.core._component_context_manager_classes (the same list)
+_component_context_manager_classes: list = []
+# the list of a ContainerAdder that is not on the stack (never appended to)
+_NO_ELEMENTS: list = []
+# counts provide() calls (UserContext.provide): a mounted component only looks at its
+# user_contexts when its body provided something
+_provides = 0
 
 
 def _register(element_class, value_element_class):
@@ -298,13 +307,53 @@ def component_call(self, *args, **kwargs):
     if self.value_name is not None:
         el = _ValueElement(self.value_name, self, args, kwargs)
     else:
-        el = _Element(self, args, kwargs)
+        # ElementBase.__init__, inline (no type call). (A local annotation: not evaluated
+        # without Cython; the .pxd cannot declare a function with *args.)
+        new: ElementBase = ElementBase.__new__(_Element)
+        new.component = self
+        new.args = args or []
+        new.kwargs = kwargs
+        rc = getattr(local, "rc", None)
+        if rc is not None:
+            container_adders = rc.container_adders
+            if container_adders:
+                adder = container_adders[-1]
+                if type(adder) is ContainerAdder:
+                    adder.created.append(new)
+                else:
+                    adder.add(new)
+        el = new
     if self.mime_bundle is not mime_bundle_default:
         el.mime_bundle = self.mime_bundle
     if DEBUG:
         # the code that called the component (see _keep_traceback)
         _keep_traceback(el, 0 if cython.compiled else 2)
     return el
+
+
+def component_widget_new(cls, widget, mime_bundle=mime_bundle_default):
+    """ComponentWidget.__new__ (see there)."""
+    if cls is _ComponentWidget and mime_bundle is mime_bundle_default:
+        try:
+            self = widget._reacton_component_widget
+        except AttributeError:
+            pass
+        else:
+            # (a subclass inherits the attribute of its base class)
+            if self.widget is widget:
+                return self
+    self = object.__new__(cls)
+    if mime_bundle is not mime_bundle_default:
+        self.mime_bundle = mime_bundle
+    self.widget = widget
+    self.name = widget.__name__
+    if cls is _ComponentWidget and mime_bundle is mime_bundle_default:
+        try:
+            widget._reacton_component_widget = self
+        except (AttributeError, TypeError):
+            # a class that does not take attributes: no cache
+            pass
+    return self
 
 
 # ============================================================================================
@@ -364,27 +413,32 @@ def _register_core(core):
     _MountedContext = core._MountedContext
     _FragmentWidget = core.FragmentWidget
     _logger = core.logger
+    _register_hooks(core)
 
 
 def _plain_class(cls):
-    # an element class that makes, updates and removes its widget with the Element methods: the
-    # mount does that inline (a subclass that overrides one of them gets its own method called)
-    plain = _plain_classes.get(cls)
-    if plain is None:
+    # 0: an element class that overrides how its widget is made or removed (its own methods are
+    # called); 1: it makes and removes its widget with the Element methods (the mount does that
+    # inline); 2: also its event listeners
+    plain = _plain_classes.get(cls, -1)
+    if plain == -1:
         element = _core.Element
-        plain = _plain_classes[cls] = (
+        plain = 0
+        if (
             cls._create_widget is element._create_widget
             and cls._close_widget is element._close_widget
             and cls._cleanup_callbacks is element._cleanup_callbacks
             and cls._split_kwargs is element._split_kwargs
             and cls._get_widget_args is element._get_widget_args
-        )
+        ):
+            plain = 2 if cls._add_widget_event_listener is element._add_widget_event_listener else 1
+        _plain_classes[cls] = plain
     return plain
 
 
 def _trait_names(component):
     # the trait names of the widget class of a ComponentWidget (kept on it)
-    names = component.__dict__.get("_reacton_trait_names")
+    names = component._reacton_trait_names
     if names is None:
         names = component._reacton_trait_names = frozenset(component.widget.class_trait_names())
     return names
@@ -407,6 +461,10 @@ class _Mount:
         self.shared_next = rc._shared_elements_next
         # context -> the explicit keys in its tree (the duplicate check)
         self.keys = None
+        self.adders = rc.container_adders
+        self.body_adder = rc._body_adder
+        # the context of the top of the mount
+        self.top = None  # type: Any
 
 
 def mount_component(rc, el, key, parent_context, order, context):
@@ -418,11 +476,11 @@ def mount_component(rc, el, key, parent_context, order, context):
     m = _Mount(rc)
     previous_recording = _core._start_recording_constructed(m.recording)
     try:
-        c = _mount_component(m, el, parent_context, context, key)
+        widget = _mount_component(m, el, parent_context, None, context, key)
+        c = m.top
         c.order_in_parent = order
     finally:
         _core._stop_recording_constructed(previous_recording)
-    widget = c.compact_widget
     if widget is not None and not m.failed:
         c.mount_order = m.order
         rc._mount_roots[c] = None
@@ -433,10 +491,10 @@ def mount_component(rc, el, key, parent_context, order, context):
 
 
 def _new_context(parent):
+    # (compact_widget is set when the root widget is made)
     c = _MountedContext.__new__(_MountedContext)
     c.parent = parent
     c.nodes = []
-    c.compact_widget = None
     return c
 
 
@@ -447,18 +505,24 @@ def _adopt(precreated, parent):
     context.state = precreated.state
     context.setters = precreated.setters
     precreated_children = precreated.__dict__.get("children_next")
-    if precreated_children:
-        context.precreated_children = precreated_children
+    context.precreated_children = precreated_children if precreated_children else None
     return context
 
 
-def _mount_component(m, el, parent, context, key):
-    # key: the key of the top of a mount (in a parent that renders in two phases), else None
+def _mount_component(m, el, parent, parent_nodes, context, key):
+    # Returns the root widget (None when this pass cannot keep the mount). parent_nodes: the
+    # nodes of the parent (None for the top of a mount: key is its key in a parent that renders
+    # in two phases)
     rc = m.rc
+    precreated_children = None
     if context is None:
-        context = _new_context(parent)
+        context = _MountedContext.__new__(_MountedContext)
+        context.parent = parent
+        nodes = context.nodes = []
     else:
         context = _adopt(context, parent)
+        precreated_children = context.precreated_children
+        nodes = context.nodes
     context.invoke_element = el
     m.contexts.append(context)
     if key is not None:
@@ -466,44 +530,47 @@ def _mount_component(m, el, parent, context, key):
         context.key_in_parent = key
         parent.children_next[key] = context
         rc._mount_tops.append(context)
+        m.top = context
     else:
-        parent.nodes.append(context)
-    manager_classes = _core._component_context_manager_classes
-    if manager_classes:
-        context.context_managers = [cm(el) for cm in manager_classes]
-    adders = rc.container_adders
+        parent_nodes.append(context)
+    managers = None
+    if _component_context_manager_classes:
+        managers = context.context_managers = [cm(el) for cm in _component_context_manager_classes]
+    adders = m.adders
     if adders:
         del adders[:]
     rc.context = context
-    render_count = rc.render_count
     raised = m.raised
+    provides = _provides
     root = None
     try:
-        root = _call_body(rc, el, context)
+        root = _call_body(m, el, managers)
     except BaseException as e:
         _logger.exception("Component %r raised exception %r", el.component, e)
         context.exceptions_self.append(e)
         rc._set_rerender_needed("Exception ocurred during render")
         context.needs_render = True
         m.raised += 1
-    if rc.render_count != render_count:
-        raise RuntimeError("Recursive render detected, possible a bug in react")
+    # (a nested render() from a body is refused by render() itself: it holds the lock)
     widget = None
     if root is not None:
+        if not isinstance(root, ElementBase):
+            raise TypeError(f"Expected element, not {root}")
         if el._event_handlers:
             _core._add_event_handlers(root, el._event_handlers, context, rc)
         context.root_element = root
-        widget = _mount_node(m, root, context, "/" if context.precreated_children else None)
+        widget = _mount_node(m, root, context, nodes, "/" if precreated_children else None)
     elif el.is_shared:
         m.shared_next.discard(el)
     rc.context = parent
-    if context.precreated_children is not None:
+    if precreated_children is not None:
         # pre-made (state_set) children that were not used
         context.precreated_children = None
-    user_contexts = context.user_contexts
-    if user_contexts is not _EMPTY:
-        # (provide() made them)
-        context.user_contexts_prev = user_contexts
+    if _provides != provides:
+        user_contexts = context.user_contexts
+        if user_contexts is not _EMPTY:
+            # (provide() made them)
+            context.user_contexts_prev = user_contexts
     if m.raised != raised:
         # exceptions in this subtree: as in _render_component
         if context.exceptions_self or context.exceptions_children and not context.exception_handler:
@@ -518,18 +585,17 @@ def _mount_component(m, el, parent, context, key):
     if widget is not None:
         context.compact_widget = widget
     m.order.append(context)
-    return context
+    return widget
 
 
-def _call_body(rc, el, context):
+def _call_body(m, el, managers):
     # the component function, inside its context managers (solara registers one)
-    managers = context.context_managers
     if not managers:
-        root = _call_component(rc, el)
+        root = _call_component(m, el)
         assert root is not None
     elif len(managers) == 1:
         with managers[0]:
-            root = _call_component(rc, el)
+            root = _call_component(m, el)
             assert root is not None
     else:
         import contextlib
@@ -537,15 +603,15 @@ def _call_body(rc, el, context):
         with contextlib.ExitStack() as stack:
             for manager in managers:
                 stack.enter_context(manager)
-            root = _call_component(rc, el)
+            root = _call_component(m, el)
             assert root is not None
     return root
 
 
-def _call_component(rc, el):
+def _call_component(m, el):
     """Run the component function, with an implicit container when it returns None."""
     component = el.component
-    default_container = _core._default_container
+    default_container = _default_container
     if default_container is None:
         component.render_count += 1
         return component.f(*el.args, **el.kwargs)
@@ -553,21 +619,25 @@ def _call_component(rc, el):
     # (an extra element, and collecting the top level elements from all elements the body
     # made) costs more than a typical component body, so first only record the elements the
     # body makes, like the container would.
-    adder = rc._body_adder
+    adder = m.body_adder
     created = []  # type: List[Any]
     adder.created = created
-    container_adders = rc.container_adders
+    container_adders = m.adders
     container_adders.append(adder)
     try:
         component.render_count += 1
-        root_element = component.f(*el.args, **el.kwargs)
+        kwargs = el.kwargs
+        if kwargs:
+            root_element = component.f(*el.args, **kwargs)
+        else:
+            root_element = component.f(*el.args)
     finally:
         container_adders.pop()
-        adder.created = _core._NO_ELEMENTS
+        adder.created = _NO_ELEMENTS
     if root_element is None:
         with default_container() as container:
             # the container collects the same elements, the same way
-            rc.container_adders[-1].created.extend(created)
+            container_adders[-1].created.extend(created)
         if len(container.kwargs["children"]) == 1:
             root_element = container.kwargs["children"][0]
         else:
@@ -575,12 +645,11 @@ def _call_component(rc, el):
     return root_element
 
 
-def _mount_node(m, el, c, dkey):
-    # The mount walk of an element in the tree of the component context c; returns its widget
-    # (None when this pass does not make widgets any more). dkey: the positional key of el,
-    # only in a context with pre-made children (else None: keys are made when needed).
-    if not isinstance(el, ElementBase):
-        raise TypeError(f"Expected element, not {el}")
+def _mount_node(m, el, c, nodes, dkey):
+    # The mount walk of an element in the tree of the component context c (nodes: its nodes);
+    # returns its widget (None when this pass does not make widgets any more). dkey: the
+    # positional key of el, only in a context with pre-made children (else None: keys are
+    # made when needed).
     key = el._key
     if key is not None:
         all_keys = m.keys
@@ -611,14 +680,15 @@ def _mount_node(m, el, c, dkey):
         # a component element
         if el.is_shared and (el.args or el.kwargs):
             # the arguments of a shared element belong to the context it is rendered in
-            _mount_value(m, el.kwargs, c, key)
-            _mount_value(m, el.args, c, key)
+            _mount_value(m, el.kwargs, c, nodes, key)
+            _mount_value(m, el.args, c, nodes, key)
         precreated = None
-        precreated_children = c.precreated_children
-        if precreated_children:
-            precreated = precreated_children.pop(key, None)
-        child = _mount_component(m, el, c, precreated, None)
-        widget = child.compact_widget
+        if dkey is not None:
+            # (a context with pre-made children, see _adopt)
+            precreated_children = c.precreated_children
+            if precreated_children:
+                precreated = precreated_children.pop(key, None)
+        widget = _mount_component(m, el, c, nodes, precreated, None)
         if widget is not None and el._meta:
             widget._react_meta = {**getattr(widget, "_react_meta", {}), **el._meta}
         return widget
@@ -632,11 +702,11 @@ def _mount_node(m, el, c, dkey):
         if t in _SCALAR_TYPES:
             continue
         if t is list:
-            new_value = _mount_list(m, value, c, None if key is None else f"{key}{name}/")
+            new_value = _mount_list(m, value, c, nodes, None if key is None else f"{key}{name}/")
         elif isinstance(value, ElementBase):
-            new_value = _mount_node(m, value, c, None if key is None else f"{key}{name}/")
+            new_value = _mount_node(m, value, c, nodes, None if key is None else f"{key}{name}/")
         elif t is tuple or t is dict or isinstance(value, (list, tuple, dict)):
-            new_value = _mount_value(m, value, c, None if key is None else f"{key}{name}/")
+            new_value = _mount_value(m, value, c, nodes, None if key is None else f"{key}{name}/")
         else:
             continue
         if resolved is None:
@@ -650,12 +720,12 @@ def _mount_node(m, el, c, dkey):
         # (no copy: the constructor gets the kwargs unpacked)
         resolved = kwargs
     element_class = type(el)
-    plain = _plain_classes.get(element_class)
-    if plain is None:
+    plain = _plain_classes.get(element_class, -1)
+    if plain == -1:
         plain = _plain_class(element_class)
     recording = m.recording
     count = len(recording)
-    if plain:
+    if plain != 0:
         # Element._create_widget, with the recording of this mount
         listeners = None
         traits = _trait_names(component)
@@ -674,7 +744,7 @@ def _mount_node(m, el, c, dkey):
             m.failed = True
             return None
         widget_class = type(widget)
-        if component.__dict__.get("_reacton_batched") is not widget_class:
+        if component._reacton_batched is not widget_class:
             if not getattr(widget_class.hold_trait_notifications, "_reacton_batched", False):
                 _core._install_batched_hold(widget_class)
             component._reacton_batched = widget_class
@@ -682,12 +752,21 @@ def _mount_node(m, el, c, dkey):
         if el._meta:
             widget._react_meta = dict(el._meta)
         if listeners is None:
-            c.nodes.append(widget)
+            nodes.append(widget)
         else:
-            for name, callback in listeners.items():
-                if callback is not None:
-                    el._add_widget_event_listener(widget, name, callback)  # type: ignore[attr-defined]
-            c.nodes.append((el, widget))
+            if plain == 2:
+                # Element._add_widget_event_listener, inline (rc.context is c)
+                callback_wrappers = _Element._callback_wrappers
+                for name, callback in listeners.items():
+                    if callback is not None:
+                        listener = _Listener(rc, c, name, widget, callback)
+                        callback_wrappers[(widget.model_id, name, callback)] = listener
+                        widget.observe(listener, name[3:])
+            else:
+                for name, callback in listeners.items():
+                    if callback is not None:
+                        el._add_widget_event_listener(widget, name, callback)  # type: ignore[attr-defined]
+            nodes.append((el, widget))
         handlers = el._event_handlers
         if handlers:
             for handler in handlers:
@@ -702,7 +781,7 @@ def _mount_node(m, el, c, dkey):
         except BaseException:
             m.failed = True
             return None
-        c.nodes.append((el, widget))
+        nodes.append((el, widget))
     if orphan_ids:
         widgets_dict = _core._get_widgets_dict()
         for orphan_widget in [widgets_dict[k] for k in orphan_ids]:
@@ -713,12 +792,12 @@ def _mount_node(m, el, c, dkey):
     return widget
 
 
-def _mount_list(m, value, c, dkey):
+def _mount_list(m, value, c, nodes, dkey):
     values = []
     index = 0
     for x in value:
         if isinstance(x, ElementBase):
-            w = _mount_node(m, x, c, None if dkey is None else f"{dkey}{index}/")
+            w = _mount_node(m, x, c, nodes, None if dkey is None else f"{dkey}{index}/")
             if type(w) is _FragmentWidget:
                 values.extend(w.children)
             else:
@@ -726,7 +805,7 @@ def _mount_list(m, value, c, dkey):
         elif type(x) in _SCALAR_TYPES:
             values.append(x)
         else:
-            w = _mount_value(m, x, c, None if dkey is None else f"{dkey}{index}/")
+            w = _mount_value(m, x, c, nodes, None if dkey is None else f"{dkey}{index}/")
             if type(w) is _FragmentWidget:
                 values.extend(w.children)
             else:
@@ -735,24 +814,24 @@ def _mount_list(m, value, c, dkey):
     return values
 
 
-def _mount_value(m, value, c, dkey):
+def _mount_value(m, value, c, nodes, dkey):
     # (as core._visit_children_values: lists, tuples and dicts become new plain ones)
     t = type(value)
     if t is list:
-        return _mount_list(m, value, c, dkey)
+        return _mount_list(m, value, c, nodes, dkey)
     if t is tuple:
-        return tuple(_mount_list(m, value, c, dkey))
+        return tuple(_mount_list(m, value, c, nodes, dkey))
     if t is dict:
-        return {k: _mount_value(m, v, c, None if dkey is None else f"{dkey}{k}/") for k, v in value.items()}
+        return {k: _mount_value(m, v, c, nodes, None if dkey is None else f"{dkey}{k}/") for k, v in value.items()}
     if t in _SCALAR_TYPES:
         return value
     if isinstance(value, ElementBase):
-        return _mount_node(m, value, c, dkey)
+        return _mount_node(m, value, c, nodes, dkey)
     if isinstance(value, (list, tuple)):
-        values = _mount_list(m, value, c, dkey)
+        values = _mount_list(m, value, c, nodes, dkey)
         return tuple(values) if isinstance(value, tuple) else values
     if isinstance(value, dict):
-        return {k: _mount_value(m, v, c, None if dkey is None else f"{dkey}{k}/") for k, v in value.items()}
+        return {k: _mount_value(m, v, c, nodes, None if dkey is None else f"{dkey}{k}/") for k, v in value.items()}
     return value
 
 
@@ -1103,3 +1182,419 @@ def remove_mounted(rc, child_context, closing):
         # child does not handle exceptions, so bubble up
         context.exceptions_children.extend(child_context.exceptions_self)
         context.exceptions_children.extend(child_context.exceptions_children)
+
+
+# ============================================================================================
+# The hooks. reacton.core's use_state, use_ref, use_memo, use_effect and reacton.ipyvue's
+# use_event are these functions: for the fast renderer they do the work here (the same as the
+# methods of reacton.core._RenderContext); any other render context gets its own methods.
+# ============================================================================================
+
+_FastRC: Any = None  # reacton.core._RenderContextFast
+_Ref: Any = None
+_Effect: Any = None
+_logging_debug = 10
+# logging.DEBUG enabled for reacton (set at the start of every render, see core.render)
+_log_debug = False
+_STATE_KEYS = [str(i) for i in range(64)]
+_VueWidget: Any = None
+
+
+class RefBase:
+    """The data of reacton.core.Ref (use_ref)."""
+
+    if not cython.compiled:
+        current: Any
+
+    def __init__(self, initial_value):
+        self.current = initial_value
+
+
+def _register_hooks(core):
+    global _FastRC, _Ref, _Effect, _RerenderReason
+    _FastRC = core._RenderContextFast
+    _Ref = core.Ref
+    _Effect = core.Effect
+    _RerenderReason = core.RerenderReason
+
+
+def use_state(initial, key=None, eq=None):
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    if type(rc) is not _FastRC:
+        return rc.use_state(initial, key, eq)
+    context = rc.context
+    if key is None:
+        index = context.state_index
+        key = _STATE_KEYS[index] if index < 64 else str(index)
+        context.state_index = index + 1
+    state = context.state
+    if state is None:
+        # (a mounted component: made on first use)
+        state = context.state = {}
+        context.setters = {}
+    if key not in state:
+        state[key] = initial
+        if type(initial) not in _SCALAR_TYPES:
+            if isinstance(initial, (list, dict, set)):
+                context.state_metadata[key] = len(initial)
+            elif utils.isinstance_lazy(initial, "pandas.DataFrame"):
+                context.state_metadata[key] = utils.dataframe_fingerprint(initial)
+        if _log_debug:
+            _logger.debug("Initial state = %r for key %r (%r)", initial, key, id(context))
+        value = initial
+    else:
+        value = state[key]
+        if _log_debug:
+            _logger.debug("Got state = %r for key %r (%r)", value, key, id(context))
+    # one setter per state key, made once (see core._RenderContext.use_state)
+    setters = context.setters
+    setter = setters.get(key)
+    if setter is None:
+        setter = setters[key] = _Setter(rc, context, key, eq)
+    else:
+        eq_cell = setter._reacton_eq
+        if eq_cell[0] is not eq:
+            # the latest eq, as when a setter was made every render
+            eq_cell[0] = eq
+    return value, setter
+
+
+def use_ref(initial_value):
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    if type(rc) is not _FastRC:
+        return rc.use_ref(initial_value)
+    return _use_ref(rc.context, initial_value)
+
+
+def _use_ref(context, initial_value):
+    # use_memo(lambda: Ref(initial_value), []), without the closure and the extra calls
+    memo = context.memo
+    index = context.memo_index
+    if index < len(memo):
+        value, dependencies_previous = memo[index]
+        if type(dependencies_previous) is not list or dependencies_previous:
+            # not the memo of a use_ref (e.g. conditional hooks): what use_memo would do
+            if not utils.equals(dependencies_previous, []):
+                value = _Ref(initial_value)
+                memo[index] = (value, [])
+    else:
+        value = _Ref(initial_value)
+        if type(memo) is tuple:
+            # (a mounted component: made on first use)
+            memo = context.memo = []
+        memo.append((value, []))
+    context.memo_index = index + 1
+    return value
+
+
+def use_memo(f, dependencies=None, debug_name=None):
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    if debug_name is None:
+        debug_name = f.__name__
+    if dependencies is None:
+        import inspect
+
+        dependencies = inspect.getclosurevars(f).nonlocals
+        dependencies = {k: v for k, v in dependencies.items() if not k.startswith("__")}
+    if type(rc) is not _FastRC:
+        return rc.use_memo(f, dependencies, debug_name)
+    context = rc.context
+    name = debug_name or "no-name"
+    memo = context.memo
+    index = context.memo_index
+    if len(memo) <= index:
+        value = f()
+        entry = (value, dependencies)
+        if type(memo) is tuple:
+            # (a mounted component: made on first use)
+            memo = context.memo = []
+        memo.append(entry)
+        context.memo_index = index + 1
+        if _log_debug:
+            _logger.debug("Initial memo = %r for index %r (debug-name: %r)", entry, index, name)
+        return value
+    entry = memo[index]
+    value, dependencies_previous = entry
+    if utils.equals(dependencies_previous, dependencies):
+        if _log_debug:
+            _logger.debug("Got memo hit = %r for index %r (debug-name: %r)", entry, index, name)
+    else:
+        if _log_debug:
+            _logger.debug("Replace memo with = %r for index %r (debug-name: %r)", entry, index, name)
+        value = f()
+        memo[index] = (value, dependencies)
+    context.memo_index = index + 1
+    return value
+
+
+def use_effect(effect, dependencies=None):
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    if type(rc) is not _FastRC:
+        return rc.use_effect(effect, dependencies)
+    context = rc.context
+    effects = context.effects
+    index = context.effect_index
+    context.effect_index = index + 1
+    if len(effects) <= index:
+        if type(effects) is tuple:
+            # (a mounted component: made on first use)
+            effects = context.effects = []
+        effects.append(_Effect(effect, dependencies))
+        if _log_debug:
+            _logger.debug("Initial effect = %r for index %r (%r)", effect, index, dependencies)
+    else:
+        previous_effect = effects[index]
+        if _log_debug:
+            _logger.debug("Setting next effect = %r for index %r (%r)", effect, index, dependencies)
+        if previous_effect.executed:
+            if dependencies is not None and utils.equals(previous_effect.dependencies, dependencies):
+                # the same dependencies: the effect does not run again
+                previous_effect.next = None
+            else:
+                # line up, reconciliation cleans up the previous one and runs this one
+                previous_effect.next = _Effect(effect, dependencies)
+        else:
+            # replace
+            effects[index] = _Effect(effect, dependencies)
+
+
+class _EventHandler:
+    """The handler of one use_event hook, made once (like a stable setter).
+
+    The renderer registers it on the widget of the element when that widget is created or
+    updated (Element._event_handlers), and removes it when the component of the hook goes
+    away. It calls the latest callback given to use_event.
+    """
+
+    def __init__(self, rc, context, event_and_modifiers, callback):
+        self.rc = rc
+        self.context = context
+        self.callback = callback
+        self.event = event_and_modifiers
+        self.widget = None
+        self.registered_event = None
+        # the hook is gone: never register again (an element can outlive the hook, e.g. a
+        # memoized element of a parent that gets a new widget later)
+        self.removed = False
+
+    def __call__(self, *args):
+        try:
+            self.callback(*args)
+        except Exception as e:
+            # because widgets don't have a context, but are a child of a component
+            # we add it to exceptions_children, not exception_self
+            # this allows a component to catch the exception of a direct child
+            self.context.exceptions_children.append(e)
+            self.rc.force_update()
+
+    def _reacton_attach(self, widget):
+        if self.removed:
+            return
+        event = self.event
+        previous = self.widget
+        if widget is previous and event == self.registered_event:
+            return
+        if previous is not None and previous.comm is not None and self.registered_event is not None:
+            previous.on_event(self.registered_event, self, remove=True)
+        widget.on_event(event, self)
+        self.widget = widget
+        self.registered_event = event
+
+    def _reacton_detach(self):
+        self.removed = True
+        widget = self.widget
+        self.widget = None
+        if widget is None or self.rc._closing:
+            # the whole tree is going away: removing the handler would sync
+            # the _events trait to the frontend (one message per widget)
+            # right before the comm is closed anyway
+            return
+        if widget.comm is not None:
+            widget.on_event(self.registered_event, self, remove=True)
+
+
+def _is_vue(component):
+    # the widget class of a ComponentWidget is an ipyvue widget (kept on the component)
+    vue = component._reacton_vue
+    if vue is None:
+        global _VueWidget
+        if _VueWidget is None:
+            import ipyvue
+
+            _VueWidget = ipyvue.VueWidget
+        vue = component._reacton_vue = issubclass(component.widget, _VueWidget)
+    return vue
+
+
+def use_event(el, event_and_modifiers, callback):
+    """reacton.ipyvue.use_event (see there)."""
+    rc = getattr(local, "rc", None)
+    if rc is None:
+        raise RuntimeError("No render context")
+    context = rc.context
+    if type(rc) is _FastRC:
+        ref = _use_ref(context, None)
+    else:
+        ref = rc.use_ref(None)
+    handler = ref.current
+    if handler is None:
+        handler = ref.current = _EventHandler(rc, context, event_and_modifiers, callback)
+        context.event_handlers = (*context.event_handlers, handler)
+    else:
+        handler.callback = callback
+        if event_and_modifiers != handler.event:
+            handler.event = event_and_modifiers
+            if handler.widget is not None:
+                handler._reacton_attach(handler.widget)
+
+    # Put the event name in the widget constructor arguments: the synced _events
+    # trait then goes along with the comm open message. The later on_event call
+    # only updates _events when the event set differs, so this saves one update
+    # message per widget per event. When the element is reused from a previous
+    # render (memoized) and the widget already exists, on_event falls back to
+    # syncing _events itself.
+    component = el.component
+    if isinstance(component, _ComponentWidget) and _is_vue(component):
+        events = el.kwargs.get("_events")
+        if events is None:
+            el.kwargs["_events"] = [event_and_modifiers]
+        elif event_and_modifiers not in events:
+            # do not mutate the list, it could be shared with a previous element
+            el.kwargs["_events"] = [*events, event_and_modifiers]
+
+    handlers = el._event_handlers
+    if handler not in handlers:
+        if el._render_count:
+            _core._add_event_handlers(el, (handler,), context, rc)
+        else:
+            el._event_handlers = (*handlers, handler)
+
+
+class _Listener:
+    """The observer of an on_<trait> event listener (Element._add_widget_event_listener).
+
+    It calls the callback with the new value. An exception goes to the component that
+    rendered the element (a component can catch the exception of a direct child).
+    """
+
+    def __init__(self, rc, context, name, widget, callback):
+        self.rc = rc
+        self.context = context
+        self.name = name
+        self.widget = widget
+        self.callback = callback
+
+    def __call__(self, change):
+        if getattr(local, "events_supressed", False):
+            return
+        _logger.info("event %r on %r with %r", self.name, self.widget, change)
+        try:
+            self.callback(change["new"])
+        except Exception as e:
+            # because widgets don't have a context, but are a child of a component
+            # we add it to exceptions_children, not exception_self
+            self.context.exceptions_children.append(e)
+            self.rc.force_update()
+
+
+class _Setter:
+    """The setter of one use_state key of the fast renderer, made once per key (like React's
+    setState). The same as the set_ closure of reacton.core._RenderContext.make_setter."""
+
+    def __init__(self, rc, context, key, eq):
+        # NOTE: rc and context are held strongly, and that is a requirement: a setter may be
+        # the ONLY reference keeping its component context alive. close() empties the
+        # contexts to break the cycles.
+        self.rc = rc
+        self.context = context
+        self.key = key
+        # (the latest eq, updated by use_state; a list, as the closure version had)
+        self._reacton_eq = [eq]
+        self.created_stack = None
+        if DEBUG:
+            import traceback
+
+            self.created_stack = traceback.format_stack()
+
+    def __call__(self, value):
+        rc = self.rc
+        if rc._closing:
+            # the render context is closed (or closing) and the tree is (being) torn down:
+            # nothing to update. (After close, context.state is empty.)
+            return
+        context = self.context
+        key = self.key
+        eq = self._reacton_eq[0]
+        state = context.state
+        if callable(value):
+            value = value(state[key])
+        if _logger.isEnabledFor(20):
+            _logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, state[key], id(rc.context))
+        should_update = False
+        new_metadata = None
+        if eq is None:
+            previous = state[key]
+            if previous is value and isinstance(value, (list, dict, set)):
+                new_metadata = len(value)
+                if context.state_metadata[key] != new_metadata:
+                    _warn_mutated(
+                        "You are setting the state with the same object, this will usually not trigger a rerender. "
+                        f"The length of {value} changed compared to the previous time it was set. Are you mutating an existing state object? "
+                        "A common mistake is appending to a list, mutating a dict or set, etc."
+                    )
+                    should_update = True
+            if previous is value and utils.isinstance_lazy(value, "pandas.DataFrame"):
+                new_metadata = utils.dataframe_fingerprint(value)
+                if context.state_metadata[key] != new_metadata:
+                    _warn_mutated(
+                        "You are setting the state with the dataframe, this will usually not trigger a rerender. "
+                        "We noticed the ids of the dataframe series are changed. Are you mutating an dataframe? "
+                        "Consider making a copy of the dataframe."
+                    )
+                    should_update = True
+        equals = eq or utils.equals
+        should_update = not equals(state[key], value) or should_update
+        if should_update:
+            prev_value = state[key]
+            state[key] = value
+            if isinstance(value, (list, dict, set)) and new_metadata is None:
+                new_metadata = len(value)
+            if new_metadata is None and utils.isinstance_lazy(value, "pandas.DataFrame"):
+                new_metadata = utils.dataframe_fingerprint(value)
+            context.state_metadata[key] = new_metadata
+            context.needs_render = True
+            rc._mark_dirty(context)
+            if rc._rerender_needed is False:
+                if DEBUG:
+                    import traceback
+
+                    reason = _RerenderReason(
+                        reason=f"state changed with key {key}",
+                        prev_value=prev_value,
+                        next_value=value,
+                        created_stack=self.created_stack,
+                        trigger_stack=traceback.format_stack(),
+                    )
+                else:
+                    reason = _RerenderReason(reason=f"state changed with key {key}", prev_value=prev_value, next_value=value)
+                rc._rerender_needed_reasons.append(reason)
+                rc._rerender_needed = True
+            rc._possible_rerender()
+
+
+_RerenderReason: Any = None
+
+
+def _warn_mutated(message):
+    import warnings
+
+    # (point at the code that called the setter: a compiled function has no frame of its own)
+    warnings.warn(message, UserWarning, stacklevel=2 if cython.compiled else 3)

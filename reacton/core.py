@@ -57,8 +57,9 @@ from ._fastcore_import import _fastcore
 
 # the hot building blocks (compiled when reacton was built with Cython, see _fastcore.py)
 if typing.TYPE_CHECKING:
-    from ._fastcore import ContainerAdder, ElementBase, ValueElementBase, find_elements, local, mime_bundle_default, widget_render_error_msg
+    from ._fastcore import ContainerAdder, ElementBase, RefBase, ValueElementBase, find_elements, local, mime_bundle_default, widget_render_error_msg
 else:
+    RefBase = _fastcore.RefBase
     ContainerAdder = _fastcore.ContainerAdder
     ElementBase = _fastcore.ElementBase
     ValueElementBase = _fastcore.ValueElementBase
@@ -571,18 +572,15 @@ class Element(ElementBase, Generic[W]):
             self._add_widget_event_listener(widget, name, callback)
 
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
-        target_name = name[3:]
-        callback_exception_safe = _event_handler_exception_wrapper(callback)
-
-        def on_change(change):
-            if are_events_supressed():
-                return
-            logger.info("event %r on %r with %r", name, widget, change)
-            callback_exception_safe(change["new"])
-
+        # the observer calls the callback with the new value (exceptions go to the component
+        # that renders this element, see _fastcore._Listener)
+        rc = get_render_context()
+        context = rc.context
+        assert context is not None
+        on_change = _fastcore._Listener(rc, context, name, widget, callback)
         key = (widget.model_id, name, callback)
         self._callback_wrappers[key] = on_change
-        widget.observe(on_change, target_name)
+        widget.observe(on_change, name[3:])
 
     def _remove_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
@@ -646,41 +644,31 @@ FuncT = TypeVar("FuncT", bound=Callable[..., Element])
 
 
 # the list of a ContainerAdder that is not on the stack (never appended to)
-_NO_ELEMENTS: List["Element"] = []
+_NO_ELEMENTS: List["Element"] = _fastcore._NO_ELEMENTS
 
 
 class ComponentWidget(Component):
     mime_bundle: Dict[str, Any] = mime_bundle_default
     widget: Type[widgets.Widget]
+    # (for the mount, see _fastcore: the trait names, and the widget class whose
+    # hold_trait_notifications batches renders)
+    _reacton_trait_names: Optional[frozenset] = None
+    _reacton_batched: Optional[type] = None
+    # (for use_event: the widget class is an ipyvue widget)
+    _reacton_vue: Optional[bool] = None
 
-    def __new__(cls, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default):
-        # The generated element factories make one per element. One instance per widget
-        # class is cheaper, and makes the component compares of the render walks identity
-        # checks (__eq__ compares the widget classes). It is kept on the widget class itself:
-        # a class attribute read is much cheaper than a WeakValueDictionary lookup, and the
-        # class -> instance -> class cycle is freed by gc like any class (a class made at
-        # runtime, e.g. by a hot reload, is not kept alive).
-        if cls is ComponentWidget and mime_bundle is mime_bundle_default:
-            try:
-                self = widget._reacton_component_widget  # type: ignore[attr-defined]
-            except AttributeError:
-                pass
-            else:
-                # (a subclass inherits the attribute of its base class)
-                if self.widget is widget:
-                    return self
-        self = super().__new__(cls)
-        if mime_bundle is not mime_bundle_default:
-            self.mime_bundle = mime_bundle
-        self.widget = widget
-        self.name = widget.__name__
-        if cls is ComponentWidget and mime_bundle is mime_bundle_default:
-            try:
-                widget._reacton_component_widget = self  # type: ignore[attr-defined]
-            except (AttributeError, TypeError):
-                # a class that does not take attributes: no cache
-                pass
-        return self
+    # The generated element factories make one per element. One instance per widget class is
+    # cheaper, and makes the component compares of the render walks identity checks (__eq__
+    # compares the widget classes). It is kept on the widget class itself: a class attribute
+    # read is much cheaper than a WeakValueDictionary lookup, and the class -> instance ->
+    # class cycle is freed by gc like any class (a class made at runtime, e.g. by a hot reload,
+    # is not kept alive). (see _fastcore.component_widget_new)
+    if typing.TYPE_CHECKING:
+
+        def __new__(cls, widget: Type[widgets.Widget], mime_bundle=mime_bundle_default): ...
+
+    else:
+        __new__ = staticmethod(_fastcore.component_widget_new)
 
     def __eq__(self, rhs):
         if self is rhs:
@@ -1075,9 +1063,9 @@ def use_exception() -> Tuple[Optional[BaseException], Callable[[], None]]:
     return exception, clear
 
 
-class Ref(Generic[T]):
-    def __init__(self, initial_value: T):
-        self.current = initial_value
+class Ref(RefBase, Generic[T]):
+    # (current, and __init__(initial_value), are in _fastcore.RefBase)
+    current: T
 
 
 def use_ref(initial_value: T) -> Ref[T]:
@@ -1102,6 +1090,7 @@ class UserContext(Generic[T]):
             # (a mounted component shares one empty dict until it provides something)
             user_contexts = context.user_contexts = {}
         user_contexts[self] = obj
+        _fastcore._provides += 1
         if not utils.equals(prev, obj):
             for listener in context.context_listeners.get(self, []):
                 listener()
@@ -1432,7 +1421,7 @@ class _MountedContext(ComponentContext):
 
 
 # use_state keys of the first 64 hooks of a component (str(index))
-_STATE_KEYS = [str(i) for i in range(64)]
+_STATE_KEYS = _fastcore._STATE_KEYS
 
 
 TEffect = TypeVar("TEffect", bound="Effect")
@@ -1460,10 +1449,9 @@ def _teardown_component_context(context: ComponentContext):
     context.__dict__.clear()
     if type(context) is _MountedContext:
         for name in _fastcore._MOUNTED_SLOTS:
-            try:
-                delattr(context, name)
-            except AttributeError:
-                pass
+            # (set first: deleting an unset slot raises)
+            setattr(context, name, None)
+            delattr(context, name)
 
 
 class RerenderReason:
@@ -1969,6 +1957,8 @@ class _RenderContext:
                 # the logging calls below cost a noticeable part of a small update when logging is off
                 log_info = logger.isEnabledFor(logging.INFO)
                 log_debug = logger.isEnabledFor(logging.DEBUG)
+                # (the hooks of the fast renderer check this, see _fastcore)
+                _fastcore._log_debug = log_debug
                 if log_info:
                     logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
@@ -4282,13 +4272,34 @@ _component_context_manager_classes: List[Any] = []
 
 _fastcore._register(Element, ValueElement)
 
+if not typing.TYPE_CHECKING:
+    # The hooks: for the fast renderer the work is done in _fastcore (compiled when reacton was
+    # built with Cython); any other render context gets its own methods, as above.
+    for _python_hook, _fast_hook in [
+        (use_state, _fastcore.use_state),
+        (use_effect, _fastcore.use_effect),
+        (use_memo, _fastcore.use_memo),
+        (use_ref, _fastcore.use_ref),
+    ]:
+        _fast_hook.__doc__ = _python_hook.__doc__
+    use_state = _fastcore.use_state
+    use_effect = _fastcore.use_effect
+    use_memo = _fastcore.use_memo
+    use_ref = _fastcore.use_ref
+
+
+# what _fastcore reads as its own globals (assignments to reacton.core are forwarded)
+_FORWARDED = ("DEBUG", "_default_container", "_component_context_manager_classes")
+_fastcore._default_container = _default_container
+_fastcore._component_context_manager_classes = _component_context_manager_classes
+
 
 class _CoreModule(types.ModuleType):
-    # reacton.core.DEBUG = ... also sets it for the elements (made in _fastcore)
+    # reacton.core.DEBUG = ... (and the others in _FORWARDED) also sets it in _fastcore
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if name == "DEBUG":
-            _fastcore.DEBUG = value
+        if name in _FORWARDED:
+            setattr(_fastcore, name, value)
 
 
 sys.modules[__name__].__class__ = _CoreModule
