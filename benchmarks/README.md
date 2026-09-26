@@ -78,7 +78,10 @@ renderer (`_RenderContextFast`, `REACTON_FAST=1`) addresses both:
   widget that fails to be made) undoes them into the two phase bookkeeping. The
   implicit container is only built when a component body returns `None`.
 - **Compiled core (optional).** `reacton/_fastcore.py` holds the element base
-  classes, the mount, the hooks and the listener/setter objects. It is plain
+  classes, `render_fixed` and the first render of a new render context
+  (`render_first`: it mounts the root without the walks of `render()`, whose loop
+  takes over when more passes are needed), the mount, the hooks and the
+  listener/setter objects. It is plain
   Python; `python setup_cython.py build_ext --inplace` compiles it with Cython
   (pure Python mode, types in `_fastcore.pxd`). `REACTON_CYTHON=0` forces the
   plain version when a compiled one is present.
