@@ -65,9 +65,23 @@ renderer (`_RenderContextFast`, `REACTON_FAST=1`) addresses both:
   identical child widget objects (`_values_identical`), avoiding pointless
   traitlets assignments. Container widgets keep the kwargs they were last
   created or updated with (`resolved_kwargs`) for this compare.
-- **Mount path.** The implicit container is only built when a component body
-  returns `None`; component context managers are entered without an
-  `ExitStack`; the child visitors dispatch on exact types and skip scalars.
+- **Mount path.** A new component (first render, new list item, another
+  component type at a key) is mounted in one walk (`_fastcore.mount_component`):
+  bodies run as in the render phase, widgets are made children first. A mounted
+  component (`_MountedContext`) keeps its element tree positionally (`nodes`:
+  the widgets and child contexts in the order they were made); the dicts of the
+  update paths (`elements`, `widgets`, `children`, `element_to_widget`,
+  `used_keys`, `resolved_kwargs`, ...) are made from it, with the same keys, when
+  they are first used (`_fastcore.materialize`), and a mounted subtree that goes
+  away is removed from it (`_fastcore.remove_mounted`). A pass that cannot keep
+  its mounts (state set or an exception during the mount, shared elements, a
+  widget that fails to be made) undoes them into the two phase bookkeeping. The
+  implicit container is only built when a component body returns `None`.
+- **Compiled core (optional).** `reacton/_fastcore.py` holds the element base
+  classes, the mount, the hooks and the listener/setter objects. It is plain
+  Python; `python setup_cython.py build_ext --inplace` compiles it with Cython
+  (pure Python mode, types in `_fastcore.pxd`). `REACTON_CYTHON=0` forces the
+  plain version when a compiled one is present.
 - **Side-effect ("orphan") widgets** (Layout/Style created during construction)
   are tracked via ipywidgets' `on_widget_constructed` hook instead of diffing
   the global widgets dict per creation — the old diff was O(live widgets) per
@@ -107,7 +121,8 @@ random state changes and compares the widgets and the effect order.
 **Keys.** `el._key` or a positional default. A context's root key is `"/"`.
 Children of an element with key `K`: list → `f"{K}{i}/"`, dict → `f"{K}{k}/"`.
 Component child contexts live in `context.children[key]`. A duplicate key in one
-context raises `KeyError`. `el._key_frozen` is set once an element is rendered.
+context raises `KeyError`. `el._key_frozen` is true once an element is rendered
+(`el._render_count > 0`).
 
 **Render phase, per element:**
 - `el._render_count += 1` (a shared element is visited once; a non-shared one
