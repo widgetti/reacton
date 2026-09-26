@@ -7,7 +7,6 @@ ReactJS - ipywidgets relation:
 
 """
 
-import collections
 import contextlib
 import copy
 import functools
@@ -1318,22 +1317,7 @@ class ComponentContext:
         if context_managers is not None:
             self.context_managers = context_managers
         # the containers every rendered component uses
-        self.elements_next = {}
-        self.elements = {}
-        self.children_next = {}
-        self.children = {}
-        self.widgets = {}
-        self.element_to_widget = {}
-        self.effects = []
-        self.memo = []
-        self.used_keys = set()
-        self.exceptions_self = []
-        self.exceptions_children = []
-        # most components use state (solara: every component), and have a container widget:
-        # making these on first use (see __getattr__) costs more than an empty dict
-        self.state = {}
-        self.setters = {}
-        self.resolved_kwargs = {}
+        _fastcore.init_context(self)
         # the dataclass constructor took every field as a keyword argument
         for name, value in fields.items():
             if name not in _COMPONENT_CONTEXT_FIELDS:
@@ -1506,53 +1490,47 @@ class Effect:
 
 class _RenderContext:
     context: Optional[ComponentContext] = None
+    # the ident of the thread that holds thread_lock (render)
+    _lock_thread: Optional[int] = None
+
+    # the fields (set by _fastcore.init_render_context)
+    element: Element
+    container: Optional[widgets.Widget]
+    children_next_trait: str
+    first_render: bool
+    container_adders: List[ContainerAdder]
+    context_root: ComponentContext
+    render_count: int
+    last_root_widget: widgets.Widget
+    _is_rendering: bool
+    _rerender_needed: bool
+    # (only the last two reasons are read: the "too many renders" error message)
+    _rerender_needed_reasons: Deque[RerenderReason]
+    thread_lock: Any
+    _closing: bool
+    tracebacks: List[TracebackType]
+    handle_error: bool
+    reconsolidating: bool
+    _batch_counter: utils.ThreadSafeCounter
+    # when set, the next render phase walks the whole tree instead of skipping subtrees in
+    # which no state changed (see _render)
+    _walk_all: bool
+    # shared elements outlive their component context: their widgets are kept here
+    _shared_widgets: Dict[Element, widgets.Widget]
+    # the shared elements a render pass processed (one widget per element), and after
+    # reconciliation
+    _shared_elements_next: Set[Element]
+    _shared_elements: Set[Element]
+    # widgets created as side effect (like Layout and Style), by the model id of the widget
+    # that made them (not all widgets are hashable, like plotly), to close them
+    _orphans: Dict[str, Set[str]]
+    # for detecting stale elements used get_widget
+    _old_element_ids: Set[int]
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
-        self.element = element
-        self.container = container
-        self.children_next_trait = children_trait
-        self.first_render = True
-        self.container_adders: List[ContainerAdder] = []
-        self.context = ComponentContext()
-        self.context_root = self.context
-        self.render_count = 0
-        self._lock_thread = cast(Optional[threading.Thread], None)
-        self.last_root_widget: widgets.Widget = None
-        self._is_rendering = False
-        self._rerender_needed = False
-        # only the last two reasons are ever read (the "too many renders" error message),
-        # and a reason holds the previous and next state value: keeping all of them kept
-        # every old state value alive until close()
-        self._rerender_needed_reasons: Deque[RerenderReason] = collections.deque(maxlen=2)
-        self.thread_lock = threading.Lock()
-        self._closing = False
-        self.tracebacks: List[TracebackType] = []
-        self.handle_error = handle_error
-        self.reconsolidating = False
-        self._batch_counter = utils.ThreadSafeCounter()
-        # when set, the next render phase walks the whole tree instead of
-        # skipping subtrees in which no state changed (see _render)
-        self._walk_all = True
+        _fastcore.init_render_context(self, element, container, children_trait, handle_error, False)
         if initial_state:
             self.state_set(self.context_root, initial_state)
-
-        # element that are shared outlive the ComponentContext, so we
-        # store them in the RenderContext
-        self._shared_widgets: Dict[Element, widgets.Widget] = {}
-
-        # each render phase, we track which (shared) elements we proccessed
-        # so we don't render them twice (only 1 widget per element)
-        self._shared_elements_next: Set[Element] = set()
-
-        # once reconcilidated, shared elements move here.
-        self._shared_elements: Set[Element] = set()
-
-        # widgets created as side effect (like Layout and Style)
-        # key is the widget model id (because some widgets are not hashable, like plotly)
-        # We keep track of this to make sure we clean up all widgets.
-        self._orphans: Dict[str, Set[str]] = {}
-        # for detecting stale elements used get_widget
-        self._old_element_ids: Set[int] = set()
 
     def __enter__(self):
         counter = self._batch_counter.increment()
@@ -1821,16 +1799,17 @@ class _RenderContext:
             container = self.container
         was_locked = False
         if self.thread_lock.locked():
-            if self._lock_thread == threading.current_thread():
+            if self._lock_thread == threading.get_ident():
                 raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
             logger.info(
-                "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
+                "Render phase still in progress, waiting for mutex to release (locked by thread %r, we are in thread %r)",
                 self._lock_thread,
-                threading.current_thread(),
+                threading.get_ident(),
             )
             was_locked = True
         with self.thread_lock:
-            self._lock_thread = threading.current_thread()
+            # (the ident of the thread: threading.current_thread() is a Python call)
+            self._lock_thread = threading.get_ident()
             if was_locked:
                 logger.info("Mutex released, continuing render phase")
             if self._closing or self.context is None:
@@ -1840,8 +1819,6 @@ class _RenderContext:
                 logger.info("Render requested on a closing/closed render context, ignoring")
                 return container
             prev_rc = getattr(local, "rc", None)
-            # an exception that escapes while this is True aborted a render pass (see the except below)
-            in_render_phase = True
             try:
                 local.rc = self
                 self.element = element
@@ -1878,111 +1855,7 @@ class _RenderContext:
                     raise
 
                 if main_render_phase:
-                    stable = False
-                    render_counts = 0
-                    while not stable and not self.context_root.exceptions_children:
-                        # we started the rendering loop (main_render_phase is True), so we keep going
-                        # but if an exception bubbled up, we should stop
-                        while self._rerender_needed and not self.context_root.exceptions_children:
-                            if render_counts > 50:
-
-                                def format(reason: RerenderReason):
-                                    f = f"Reason: {reason.reason}\nValue changed from {reason.prev_value} to {reason.next_value}\n"
-                                    if reason.created_stack:
-                                        f += f"Created at: {''.join(reason.created_stack)}\n"
-                                    if reason.trigger_stack:
-                                        f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
-                                    return f
-
-                                self._rerender_needed_reasons[-1]
-                                msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
-                                if len(self._rerender_needed_reasons) >= 2:
-                                    msg += f"Previous reasons: {format(self._rerender_needed_reasons[-2])}\n"
-                                raise RuntimeError(msg)
-                            if log_info:
-                                logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
-                            self._rerender_needed = False
-                            self._shared_elements_next = set()
-                            self.context.exception_handler = False
-                            self.context.exceptions_children = []
-                            self.context.exceptions_self = []
-
-                            self._render(self.element, "/", parent_key=ROOT_KEY)
-                            self._end_render_pass()
-                            self._walk_all = False
-                            if log_info:
-                                logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
-                            assert self.context is self.context_root
-                            render_counts += 1
-                        if log_debug:
-                            logger.debug("Render phase resulted in (next) elements:")
-                            for el in self._shared_elements_next:
-                                logger.debug("\t%r %x", el, id(el))
-
-                            logger.debug("Current elements:")
-                            for el in self._shared_elements:
-                                logger.debug("\t %r %x", el, id(el))
-                        if self.context_root.exceptions_children:
-                            # an exception bubbled up render
-                            break
-
-                        if log_info:
-                            logger.info("Render reconsolidate...")
-                        self.reconsolidating = True
-                        in_render_phase = False
-                        try:
-                            widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
-                        finally:
-                            self.reconsolidating = False
-                        in_render_phase = True
-                        if log_info:
-                            logger.info("Render reconsolidate done")
-                        self.context.root_element = self.context.root_element_next
-                        self.context.root_element_next = None
-
-                        # remove stale elements of the root context itself
-                        # (child contexts are swept during their reconciliation)
-                        self._remove_stale_root_elements(ROOT_KEY)
-
-                        if self._shared_elements_next:
-                            raise RuntimeError(f"Element not reconsolidated: {self._shared_elements_next}")
-                        if log_debug:
-                            logger.debug("Reconsolidate phase resulted in elements:")
-                            for el in self._shared_elements:
-                                logger.debug("\t%r %x", el, id(el))
-                        # RESET
-                        assert self.context is self.context_root
-                        if self.element.is_shared:
-                            assert widget in self._shared_widgets.values()
-                        else:
-                            assert widget in self.context_root.widgets.values()
-                        if self.last_root_widget is None:
-                            self.last_root_widget = widget
-                        else:
-                            if container is None:
-                                if self.last_root_widget != widget:
-                                    raise ValueError(
-                                        "You are not using a container, and the root component returned a new widget,"
-                                        "make sure your root component always returns the same component type"
-                                    )
-                        if container:
-                            if widget is None:
-                                # Exception occurred, and we cannot render the widget
-                                container.children = []
-                            else:
-                                container.children = [widget]
-
-                        if self.context_root.exceptions_children or self.context_root.exceptions_self:
-                            # an exception bubbled up during reconsolidate
-                            break
-
-                        if self._rerender_needed:
-                            if log_info:
-                                logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
-                            stable = False
-                        else:
-                            stable = True
-
+                    widget = self._render_loop(container, widget, log_info, log_debug)
                     self._is_rendering = False
                 self.context = context_prev
                 if log_info:
@@ -1995,7 +1868,10 @@ class _RenderContext:
                 # committed elements, but runs the effects the aborted pass chained, closed
                 # over elements that were never reconciled (get_widget then fails with
                 # "found in a previous render").
-                if in_render_phase:
+                if self.reconsolidating:
+                    # (reconciliation raised halfway: the widgets it made need the normal removal)
+                    self.reconsolidating = False
+                else:
                     self._discard_aborted_pass()
                 if DEBUG:
                     # construct a fake traceback (showing how the elements were constructed)
@@ -2015,26 +1891,135 @@ class _RenderContext:
                 self._lock_thread = None
                 assert self.context is self.context_root
 
-        exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
-        if exceptions:
-            exc = exceptions[0]
-            if DEBUG:
-                exc = _with_tracebacks(exc, self.tracebacks)
+        if self.context_root.exceptions_children or self.context_root.exceptions_self:
+            return self._render_error()
+        return widget
 
-            if self.handle_error:
-                logger.info("Exception occurred, rendering error message")
-                if exc.__traceback__ is None:
-                    value = "Exception occurred, but no traceback available"
-                else:
-                    error = "".join(traceback.format_exception(None, exc, exc.__traceback__))
-                    import html
+    def _render_error(self):
+        # the end of render() when a component raised (and no component handled it)
+        exc = [*self.context_root.exceptions_children, *self.context_root.exceptions_self][0]
+        if DEBUG:
+            exc = _with_tracebacks(exc, self.tracebacks)
 
-                    value = html.escape(error)
-                from . import ipywidgets as w
-
-                return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
+        if self.handle_error:
+            logger.info("Exception occurred, rendering error message")
+            if exc.__traceback__ is None:
+                value = "Exception occurred, but no traceback available"
             else:
-                raise exc
+                error = "".join(traceback.format_exception(None, exc, exc.__traceback__))
+                import html
+
+                value = html.escape(error)
+            from . import ipywidgets as w
+
+            return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
+        else:
+            raise exc
+
+    def _render_loop(self, container, widget, log_info, log_debug):
+        # the passes and reconciliations of render() after its first pass, until stable
+        stable = False
+        render_counts = 0
+        while not stable and not self.context_root.exceptions_children:
+            # we started the rendering loop (main_render_phase is True), so we keep going
+            # but if an exception bubbled up, we should stop
+            while self._rerender_needed and not self.context_root.exceptions_children:
+                if render_counts > 50:
+
+                    def format(reason: RerenderReason):
+                        f = f"Reason: {reason.reason}\nValue changed from {reason.prev_value} to {reason.next_value}\n"
+                        if reason.created_stack:
+                            f += f"Created at: {''.join(reason.created_stack)}\n"
+                        if reason.trigger_stack:
+                            f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
+                        return f
+
+                    self._rerender_needed_reasons[-1]
+                    msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
+                    if len(self._rerender_needed_reasons) >= 2:
+                        msg += f"Previous reasons: {format(self._rerender_needed_reasons[-2])}\n"
+                    raise RuntimeError(msg)
+                if log_info:
+                    logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
+                self._rerender_needed = False
+                self._shared_elements_next = set()
+                self.context_root.exception_handler = False
+                self.context_root.exceptions_children = []
+                self.context_root.exceptions_self = []
+
+                self._render(self.element, "/", parent_key=ROOT_KEY)
+                self._end_render_pass()
+                self._walk_all = False
+                if log_info:
+                    logger.info("Render done: %r %r", self._rerender_needed, self._rerender_needed_reasons[-1])
+                assert self.context is self.context_root
+                render_counts += 1
+            if log_debug:
+                logger.debug("Render phase resulted in (next) elements:")
+                for el in self._shared_elements_next:
+                    logger.debug("\t%r %x", el, id(el))
+
+                logger.debug("Current elements:")
+                for el in self._shared_elements:
+                    logger.debug("\t %r %x", el, id(el))
+            if self.context_root.exceptions_children:
+                # an exception bubbled up render
+                break
+
+            if log_info:
+                logger.info("Render reconsolidate...")
+            # (reconsolidating stays True when it raises, see render())
+            self.reconsolidating = True
+            widget = self._reconsolidate(self.element, default_key="/", parent_key=ROOT_KEY)
+            self.reconsolidating = False
+            if log_info:
+                logger.info("Render reconsolidate done")
+            self.context_root.root_element = self.context_root.root_element_next
+            self.context_root.root_element_next = None
+
+            # remove stale elements of the root context itself
+            # (child contexts are swept during their reconciliation)
+            self._remove_stale_root_elements(ROOT_KEY)
+
+            if self._shared_elements_next:
+                raise RuntimeError(f"Element not reconsolidated: {self._shared_elements_next}")
+            if log_debug:
+                logger.debug("Reconsolidate phase resulted in elements:")
+                for el in self._shared_elements:
+                    logger.debug("\t%r %x", el, id(el))
+            # RESET
+            assert self.context is self.context_root
+            if self.element.is_shared:
+                assert widget in self._shared_widgets.values()
+            else:
+                assert widget in self.context_root.widgets.values()
+            if self.last_root_widget is None:
+                self.last_root_widget = widget
+            else:
+                if container is None:
+                    if self.last_root_widget != widget:
+                        raise ValueError(
+                            "You are not using a container, and the root component returned a new widget,"
+                            "make sure your root component always returns the same component type"
+                        )
+            if container:
+                if widget is None:
+                    # Exception occurred, and we cannot render the widget
+                    container.children = []
+                else:
+                    container.children = [widget]
+
+            if self.context_root.exceptions_children or self.context_root.exceptions_self:
+                # an exception bubbled up during reconsolidate
+                break
+
+            if self._rerender_needed:
+                if log_info:
+                    logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
+                stable = False
+            else:
+                stable = True
+
         return widget
 
     def _render(self, element: Element, default_key: str, parent_key: str):
@@ -2740,19 +2725,20 @@ class _RenderContextFast(_RenderContext):
     # set to False to disable the fused mount (e.g. to compare)
     _mount_enabled = True
 
-    def __init__(self, *args, **kwargs):
-        # the mounted subtrees (their first component) that reconciliation still has to finish
-        self._mount_roots: Dict[ComponentContext, None] = {}
-        # the first components of the subtrees mounted in this render pass (see _unmount)
-        self._mount_tops: List[ComponentContext] = []
-        # every component context made by mounts in this render pass
-        self._mount_contexts: List[ComponentContext] = []
-        # something in this pass cannot be mounted: undo the mounts at the end of the pass
-        self._mount_failed = False
-        # records the elements a component body makes (see _call_component): one for all bodies,
-        # bodies of one render context do not nest
-        self._body_adder: ContainerAdder = ContainerAdder(None, "children")  # type: ignore[arg-type]
-        super().__init__(*args, **kwargs)
+    # the mounted subtrees (their first component) that reconciliation still has to finish
+    _mount_roots: Dict[ComponentContext, None]
+    # the first components of the subtrees mounted in this render pass (see _unmount)
+    _mount_tops: List[ComponentContext]
+    # something in this pass cannot be mounted: undo the mounts at the end of the pass
+    _mount_failed: bool
+    # records the elements a component body makes (see _call_component): one for all bodies,
+    # bodies of one render context do not nest
+    _body_adder: ContainerAdder
+
+    def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
+        _fastcore.init_render_context(self, element, container, children_trait, handle_error, True)
+        if initial_state:
+            self.state_set(self.context_root, initial_state)
 
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
@@ -2777,14 +2763,13 @@ class _RenderContextFast(_RenderContext):
             parent = parent.parent
 
     def _end_render_pass(self):
-        if self._mount_contexts:
+        if self._mount_tops:
             if self._rerender_needed or self._mount_failed or self.context_root.exceptions_children:
                 # another pass (or no reconciliation at all) follows: go back to the plain two
                 # phase state, as if the widgets were never created
                 self._unmount()
             else:
                 self._mount_tops = []
-                self._mount_contexts = []
         self._mount_failed = False
 
     def _unmount(self):
@@ -2792,7 +2777,7 @@ class _RenderContextFast(_RenderContext):
         _fastcore.undo_mounts(self)
 
     def _before_close(self):
-        if self._mount_contexts or self._mount_roots:
+        if self._mount_tops or self._mount_roots:
             # a reconciliation that raised did not finish them
             self._unmount()
 
@@ -3991,9 +3976,7 @@ _element_close_widget = Element._close_widget
 
 
 def _render_context_class():
-    import os
-
-    return _RenderContextFast if os.environ.get("REACTON_FAST") == "1" else _RenderContext
+    return _RenderContextFast if _fastcore.fast_selected() else _RenderContext
 
 
 @overload
@@ -4010,15 +3993,22 @@ def render(
 
 def render(element: Element[T], container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
     container = container or widgets.VBox()
-    _rc = _render_context_class()(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
-    _rc.render(element, _rc.container)
+    cls = _render_context_class()
+    _rc = cls(element, container, children_trait=children_trait, handle_error=handle_error, initial_state=initial_state)
+    if cls is _RenderContextFast:
+        _fastcore.render_first(_rc, element, _rc.container)
+    else:
+        _rc.render(element, _rc.container)
     local.last_rc = weakref.ref(_rc)
     return container, _rc
 
 
 def render_fixed(element: Element[T], handle_error: bool = True) -> Tuple[T, _RenderContext]:
-    _rc = _render_context_class()(element, handle_error=handle_error)
-    widget = _rc.render(element)
+    """Render element, without a container widget: returns its widget and the render context."""
+    # (the implementation used is _fastcore.render_fixed, see the end of this module)
+    cls = _render_context_class()
+    _rc = cls(element, handle_error=handle_error)
+    widget = _fastcore.render_first(_rc, element, None) if cls is _RenderContextFast else _rc.render(element)
     local.last_rc = weakref.ref(_rc)
     return widget, _rc
 
@@ -4153,6 +4143,11 @@ if not typing.TYPE_CHECKING:
         (use_ref, _fastcore.use_ref),
     ]:
         _fast_hook.__doc__ = _python_hook.__doc__
+    # (the same, with the render context made and the first render done without Python frames)
+    _fastcore.render_fixed.__doc__ = render_fixed.__doc__
+    render_fixed = _fastcore.render_fixed
+    _fastcore.use_context.__doc__ = use_context.__doc__
+    use_context = _fastcore.use_context
     use_state = _fastcore.use_state
     use_effect = _fastcore.use_effect
     use_ref = _fastcore.use_ref

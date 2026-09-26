@@ -6,6 +6,23 @@
 # reacton.core._component_context_manager_classes (see reacton.core._CoreModule), and
 # reacton.core.DEBUG; and reacton.core writes _provides and _log_debug.
 cimport cython
+from libc.stdlib cimport getenv
+from cpython.object cimport PyTypeObject
+from cpython.ref cimport PyObject
+
+
+cdef tuple _EMPTY_TUPLE = ()
+
+
+cdef inline object _object_new(object cls):
+    # object.__new__(cls), directly (cls must not override __new__)
+    return (<PyTypeObject*>cls).tp_new(cls, <PyObject*>_EMPTY_TUPLE, NULL)
+
+
+cdef inline bint _getenv_fast():
+    # REACTON_FAST=1
+    cdef const char* value = getenv(b"REACTON_FAST")
+    return value != NULL and value[0] == 49 and value[1] == 0
 
 
 cdef class ContainerAdder:
@@ -15,9 +32,9 @@ cdef class ContainerAdder:
     cdef public list created
 
 
+# (no __dict__ and __weakref__ here: the Python subclasses in reacton.core get them, and make
+# the dict when an attribute is first set; a dict declared here is made for every element)
 cdef class ElementBase:
-    cdef dict __dict__
-    cdef object __weakref__
     cdef public object component
     cdef public object args
     cdef public object kwargs
@@ -41,7 +58,6 @@ cdef class ValueElementBase(ElementBase):
 cdef class _Mount:
     cdef public object rc
     cdef public list recording
-    cdef public list contexts
     cdef public list order
     cdef public bint failed
     cdef public Py_ssize_t raised
@@ -51,6 +67,8 @@ cdef class _Mount:
     cdef public ContainerAdder body_adder
     cdef public object top
 
+
+cdef object _new_instance(object cls)
 
 cdef int _plain_class(object cls) except -1
 cdef class _WidgetInfo:
@@ -73,16 +91,32 @@ cdef object _mount_component(_Mount m, ElementBase el, object parent, list paren
 @cython.locals(root=object)
 cdef object _call_body(_Mount m, ElementBase el, object managers)
 
-@cython.locals(component=object, default_container=object, created=list, root_element=object, kwargs=dict)
+@cython.locals(component=object, default_container=object, created=list, root_element=object, kwargs=dict, container=object)
 cpdef object call_component(list container_adders, ContainerAdder adder, ElementBase el)
 
-@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, callback_wrappers=dict, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
+@cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, added=object, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
 cdef object _mount_node(_Mount m, ElementBase el, object c, list nodes, object dkey)
 
 @cython.locals(values=list, index=Py_ssize_t, x=object, w=object)
 cdef list _mount_list(_Mount m, object value, object c, list nodes, object dkey)
 
 cdef object _mount_value(_Mount m, object value, object c, list nodes, object dkey)
+
+cpdef object init_context(object c)
+
+@cython.locals(root=object, counter=object)
+cpdef object init_render_context(object rc, object element, object container, object children_trait, object handle_error, bint fast)
+
+cpdef bint fast_selected()
+
+@cython.locals(cache=object, enabled=object)
+cdef object _info_enabled()
+
+@cython.locals(rc=object, widget=object)
+cpdef object render_fixed(object element, object handle_error=*)
+
+@cython.locals(root=object, lock=object, widget=object, prev_rc=object, key=object, more=bint)
+cpdef object render_first(object rc, object element, object container)
 
 @cython.locals(order=list, raised=bint, context=object, effects=object, parent=object, effect=object, widget=object, el=ElementBase, key=object)
 cpdef object finish_mount(object rc, object root)
@@ -102,14 +136,14 @@ cdef class _Materialize:
     cdef public set used_keys
     cdef public dict resolved_kwargs
 
-    @cython.locals(key=object, component=object, child=object, widget=object, resolved=dict, start=Py_ssize_t, name=object, value=object, new_value=object, node=object, traits=frozenset)
+    @cython.locals(key=object, component=object, child=object, widget=object, resolved=dict, start=Py_ssize_t, name=object, value=object, new_value=object, node=object, traits=frozenset, callback_wrappers=dict, listener=object, added=object)
     cpdef object node(self, ElementBase el, object default_key)
 
     @cython.locals(t=object, values=list, index=Py_ssize_t, x=object, w=object)
     cpdef object value(self, object value, object key)
 
 
-@cython.locals(el=object, widget=object, orphans=object, orphan=object, orphan_widget=object, close=object, widgets_dict=object)
+@cython.locals(el=object, widget=object, added=object, mounted_listeners=bint, listener=object, orphans=object, orphan=object, orphan_widget=object, close=object, widgets_dict=object)
 cdef object _close_widget_node(object rc, object node)
 
 @cython.locals(context=object, effect=object, cleanup=object, handler=object, nodes=list, node=object, switched=bint, effects=object, handlers=object)
@@ -119,8 +153,6 @@ cpdef object remove_mounted(object rc, object child_context, bint closing)
 # ---- the hooks
 
 cdef class RefBase:
-    cdef dict __dict__
-    cdef object __weakref__
     cdef public object current
 
 
@@ -152,6 +184,18 @@ cpdef rc_use_memo(rc, f, dependencies, debug_name)
 @cython.locals(rc=object)
 cpdef use_effect(effect, dependencies=*)
 
+@cython.locals(new=object)
+cdef object _new_effect(object callable, object dependencies)
+
+@cython.locals(rc=object, context=object, value=object, user_contexts=object)
+cpdef use_context(user_context)
+
+cdef class _ContextListener:
+    cdef public object set_counter
+
+cdef class _ContextConnect:
+    cdef public object context, user_context, listener
+
 @cython.locals(context=object, effects=object, index=Py_ssize_t, previous_effect=object)
 cpdef rc_use_effect(rc, effect, dependencies)
 
@@ -168,5 +212,5 @@ cdef class _Listener:
 
 cdef class _Setter:
     cdef public object rc, context, key
-    cdef public list _reacton_eq
+    cdef public object eq
     cdef public object created_stack

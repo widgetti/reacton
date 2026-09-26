@@ -210,6 +210,7 @@ def environment() -> str:
 
 
 class ThreadSafeCounter:
+    # (reacton._fastcore.init_render_context makes one without calling __init__)
     def __init__(self):
         self._value = 0
         self._lock = threading.Lock()

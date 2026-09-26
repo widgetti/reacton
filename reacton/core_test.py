@@ -4902,3 +4902,52 @@ def test_state_get_restores_nested_state():
             assert descriptions(container.children[0]) == [["parent 1", "a 2", "b 3"]]
             rc.close()
     assert states[True] == states[False]
+
+
+def test_first_render_when_an_effect_or_body_sets_state():
+    # the first render of the fast renderer (_fastcore.render_first) hands over to the loop of
+    # render() when an effect sets state, or a body sets state or raises during the mount
+    events: List[str] = []
+
+    @react.component
+    def EffectSets():
+        value, set_value = react.use_state(0)
+        react.use_effect(lambda: set_value(1), [])
+        events.append(f"effect-sets {value}")
+        return w.Button(description=f"effect {value}")
+
+    @react.component
+    def BodySets():
+        value, set_value = react.use_state(0)
+        if value == 0:
+            set_value(2)
+        events.append(f"body-sets {value}")
+        return w.Button(description=f"body {value}")
+
+    @react.component
+    def Raises():
+        raise ValueError("oops")
+
+    @react.component
+    def Catches():
+        exception, clear = react.use_exception()
+        return w.Label(value=f"caught {exception!r}") if exception else Raises()
+
+    for fast in [False, True]:
+        with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
+            del events[:]
+            button, rc = react.render_fixed(EffectSets(), handle_error=False)
+            assert button.description == "effect 1"
+            assert events == ["effect-sets 0", "effect-sets 1"]
+            rc.close()
+            del events[:]
+            container = widgets.VBox()
+            box, rc = react.render(BodySets(), container, handle_error=False)
+            assert container.children[0].description == "body 2"
+            assert events == ["body-sets 0", "body-sets 2"]
+            rc.close()
+            label, rc = react.render_fixed(Catches(), handle_error=False)
+            assert label.value == "caught ValueError('oops')"
+            rc.close()
+            with pytest.raises(ValueError, match="oops"):
+                react.render_fixed(Raises(), handle_error=False)
