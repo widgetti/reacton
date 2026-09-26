@@ -1657,94 +1657,18 @@ class _RenderContext:
             context.children_next[name] = ComponentContext(parent=context)
             self.state_set(context.children_next[name], state)
 
+    # the hooks (the same for both renderers, see _fastcore: compiled when reacton was built
+    # with Cython). The setter is made by make_setter (a closure here; the fast renderer has
+    # its own setter object).
+
     def use_memo(self, f, dependencies, debug_name: str = None, use_nonlocals=False):
-        assert self.context is not None
-        name = debug_name or "no-name"
-        if len(self.context.memo) <= self.context.memo_index:
-            value = f()
-            memo = (value, dependencies)
-            if type(self.context.memo) is tuple:
-                # (a mounted component: made on first use)
-                self.context.memo = []
-            self.context.memo.append(memo)
-            self.context.memo_index += 1
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Initial memo = %r for index %r (debug-name: %r)", memo, self.context.memo_index - 1, name)
-            return value
-        else:
-            memo = self.context.memo[self.context.memo_index]
-            value, dependencies_previous = memo
-            if utils.equals(dependencies_previous, dependencies):
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Got memo hit = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
-            else:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Replace memo with = %r for index %r (debug-name: %r)", memo, self.context.memo_index, name)
-                value = f()
-                memo = (value, dependencies)
-                self.context.memo[self.context.memo_index] = memo
-            self.context.memo_index += 1
-            return value
+        return _fastcore.rc_use_memo(self, f, dependencies, debug_name)
 
     def use_ref(self, initial_value):
-        # use_memo(lambda: Ref(initial_value), []), without the closure and the extra calls
-        context = self.context
-        assert context is not None
-        memo = context.memo
-        index = context.memo_index
-        if index < len(memo):
-            value, dependencies_previous = memo[index]
-            if type(dependencies_previous) is not list or dependencies_previous:
-                # not the memo of a use_ref (e.g. conditional hooks): what use_memo would do
-                if not utils.equals(dependencies_previous, []):
-                    value = Ref(initial_value)
-                    memo[index] = (value, [])
-        else:
-            value = Ref(initial_value)
-            if type(memo) is tuple:
-                # (a mounted component: made on first use)
-                memo = context.memo = []
-            memo.append((value, []))
-        context.memo_index = index + 1
-        return value
+        return _fastcore.rc_use_ref(self, initial_value)
 
     def use_state(self, initial, key: str = None, eq: Callable[[Any, Any], bool] = None) -> Tuple[T, Callable[[Union[T, Callable[[T], T]]], None]]:
-        assert self.context is not None
-        if key is None:
-            index = self.context.state_index
-            key = _STATE_KEYS[index] if index < 64 else str(index)
-            self.context.state_index = index + 1
-        if self.context.state is None:
-            # (a mounted component: made on first use)
-            self.context.state = {}
-            self.context.setters = {}
-        if key not in self.context.state:
-            self.context.state[key] = initial
-            if isinstance(initial, (list, dict, set)):
-                self.context.state_metadata[key] = len(initial)
-            elif utils.isinstance_lazy(initial, "pandas.DataFrame"):
-                self.context.state_metadata[key] = utils.dataframe_fingerprint(initial)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Initial state = %r for key %r (%r)", initial, key, id(self.context))
-            state = initial
-        else:
-            state = self.context.state[key]
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Got state = %r for key %r (%r)", state, key, id(self.context))
-        # the setter is made once per state key and kept (like React's setState): it compares
-        # equal to itself, so a child that gets it as an argument, or an effect that has it as
-        # a dependency, sees no change (utils.equals already found the setters of two renders
-        # equal, by comparing their code and closures)
-        setters = self.context.setters
-        setter = setters.get(key)
-        if setter is None:
-            setter = setters[key] = self.make_setter(key, self.context, eq)
-        else:
-            eq_cell = setter._reacton_eq  # type: ignore
-            if eq_cell[0] is not eq:
-                # the latest eq, as when a setter was made every render
-                eq_cell[0] = eq
-        return state, setter
+        return _fastcore.rc_use_state(self, initial, key, eq)
 
     def make_setter(self, key, context: ComponentContext, eq: Callable[[Any, Any], bool] = None):
         if DEBUG:
@@ -1844,34 +1768,7 @@ class _RenderContext:
             self.render(self.element, self.container)
 
     def use_effect(self, effect: EffectCallable, dependencies=None):
-        context = self.context
-        assert context is not None
-        effects = context.effects
-        index = context.effect_index
-        context.effect_index = index + 1
-        if len(effects) <= index:
-            if type(effects) is tuple:
-                # (a mounted component: made on first use)
-                effects = context.effects = []
-            effects.append(Effect(effect, dependencies))
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Initial effect = %r for index %r (%r)", effect, index, dependencies)
-        else:
-            previous_effect = effects[index]
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Setting next effect = %r for index %r (%r)", effect, index, dependencies)
-            if previous_effect.executed:
-                if dependencies is not None and utils.equals(previous_effect.dependencies, dependencies):
-                    # The same dependencies: the effect does not run again. Reconciliation made
-                    # this same compare on a new Effect (and dropped it); now no Effect is made
-                    # (and one from an earlier render pass of this call is dropped).
-                    previous_effect.next = None
-                else:
-                    # line up, reconciliation cleans up the previous one and runs this one
-                    previous_effect.next = Effect(effect, dependencies)
-            else:
-                # replace
-                effects[index] = Effect(effect, dependencies)
+        _fastcore.rc_use_effect(self, effect, dependencies)
 
     def update(self, element: Element):
         self._walk_all = True
@@ -3323,35 +3220,7 @@ class _RenderContextFast(_RenderContext):
 
     def _call_component(self, el: Element) -> Optional[Element]:
         """Run the component function, with an implicit container when it returns None."""
-        component: ComponentFunction = el.component  # type: ignore[assignment]
-        default_container = _default_container
-        if default_container is None:
-            component.render_count += 1
-            return component.f(*el.args, **el.kwargs)
-        # Only a body that returns None needs the implicit container. Building it for every
-        # body (an extra element, and collecting the top level elements from all elements the
-        # body made) costs more than a typical component body, so first only record the
-        # elements the body makes, like the container would.
-        adder = self._body_adder
-        created: List[Element] = []
-        adder.created = created
-        container_adders = self.container_adders
-        container_adders.append(adder)
-        try:
-            component.render_count += 1
-            root_element = component.f(*el.args, **el.kwargs)
-        finally:
-            container_adders.pop()
-            adder.created = _NO_ELEMENTS
-        if root_element is None:
-            with default_container() as container:
-                # the container collects the same elements, the same way
-                self.container_adders[-1].created.extend(created)
-            if len(container.kwargs["children"]) == 1:
-                root_element = container.kwargs["children"][0]
-            else:
-                root_element = container
-        return root_element
+        return _fastcore.call_component(self.container_adders, self._body_adder, el)
 
     def _reconsolidate(self, el: Element, default_key: str, parent_key: str):
         key = el._key

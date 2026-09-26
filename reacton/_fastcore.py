@@ -611,11 +611,11 @@ def _mount_component(m, el, parent, parent_nodes, context, key):
 def _call_body(m, el, managers):
     # the component function, inside its context managers (solara registers one)
     if not managers:
-        root = _call_component(m, el)
+        root = call_component(m.adders, m.body_adder, el)
         assert root is not None
     elif len(managers) == 1:
         with managers[0]:
-            root = _call_component(m, el)
+            root = call_component(m.adders, m.body_adder, el)
             assert root is not None
     else:
         import contextlib
@@ -623,13 +623,17 @@ def _call_body(m, el, managers):
         with contextlib.ExitStack() as stack:
             for manager in managers:
                 stack.enter_context(manager)
-            root = _call_component(m, el)
+            root = call_component(m.adders, m.body_adder, el)
             assert root is not None
     return root
 
 
-def _call_component(m, el):
-    """Run the component function, with an implicit container when it returns None."""
+def call_component(container_adders, adder, el):
+    """Run the component function, with an implicit container when it returns None.
+
+    container_adders: rc.container_adders, adder: the ContainerAdder of the bodies of the render
+    context (reacton.core._RenderContextFast._call_component).
+    """
     component = el.component
     default_container = _default_container
     if default_container is None:
@@ -639,10 +643,8 @@ def _call_component(m, el):
     # (an extra element, and collecting the top level elements from all elements the body
     # made) costs more than a typical component body, so first only record the elements the
     # body makes, like the container would.
-    adder = m.body_adder
     created = []  # type: List[Any]
     adder.created = created
-    container_adders = m.adders
     container_adders.append(adder)
     try:
         component.render_count += 1
@@ -1261,6 +1263,11 @@ def use_state(initial, key=None, eq=None):
         raise RuntimeError("No render context")
     if type(rc) is not _FastRC:
         return rc.use_state(initial, key, eq)
+    return rc_use_state(rc, initial, key, eq)
+
+
+def rc_use_state(rc, initial, key, eq):
+    # reacton.core._RenderContext.use_state (both renderers)
     context = rc.context
     if key is None:
         index = context.state_index
@@ -1289,7 +1296,11 @@ def use_state(initial, key=None, eq=None):
     setters = context.setters
     setter = setters.get(key)
     if setter is None:
-        setter = setters[key] = _Setter(rc, context, key, eq)
+        if type(rc) is _FastRC:
+            setter = _Setter(rc, context, key, eq)
+        else:
+            setter = rc.make_setter(key, context, eq)
+        setters[key] = setter
     else:
         eq_cell = setter._reacton_eq
         if eq_cell[0] is not eq:
@@ -1304,6 +1315,11 @@ def use_ref(initial_value):
         raise RuntimeError("No render context")
     if type(rc) is not _FastRC:
         return rc.use_ref(initial_value)
+    return _use_ref(rc.context, initial_value)
+
+
+def rc_use_ref(rc, initial_value):
+    # reacton.core._RenderContext.use_ref (both renderers)
     return _use_ref(rc.context, initial_value)
 
 
@@ -1341,6 +1357,11 @@ def use_memo(f, dependencies=None, debug_name=None):
         dependencies = {k: v for k, v in dependencies.items() if not k.startswith("__")}
     if type(rc) is not _FastRC:
         return rc.use_memo(f, dependencies, debug_name)
+    return rc_use_memo(rc, f, dependencies, debug_name)
+
+
+def rc_use_memo(rc, f, dependencies, debug_name):
+    # reacton.core._RenderContext.use_memo (both renderers)
     context = rc.context
     name = debug_name or "no-name"
     memo = context.memo
@@ -1376,6 +1397,11 @@ def use_effect(effect, dependencies=None):
         raise RuntimeError("No render context")
     if type(rc) is not _FastRC:
         return rc.use_effect(effect, dependencies)
+    rc_use_effect(rc, effect, dependencies)
+
+
+def rc_use_effect(rc, effect, dependencies):
+    # reacton.core._RenderContext.use_effect (both renderers)
     context = rc.context
     effects = context.effects
     index = context.effect_index

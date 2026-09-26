@@ -73,8 +73,8 @@ cdef object _mount_component(_Mount m, ElementBase el, object parent, list paren
 @cython.locals(root=object)
 cdef object _call_body(_Mount m, ElementBase el, object managers)
 
-@cython.locals(component=object, default_container=object, adder=ContainerAdder, created=list, container_adders=list, root_element=object, kwargs=dict)
-cdef object _call_component(_Mount m, ElementBase el)
+@cython.locals(component=object, default_container=object, created=list, root_element=object, kwargs=dict)
+cpdef object call_component(list container_adders, ContainerAdder adder, ElementBase el)
 
 @cython.locals(key=object, all_keys=dict, keys=set, component=object, precreated=object, precreated_children=object, child=object, widget=object, kwargs=dict, resolved=dict, name=object, value=object, new_value=object, rc=object, element_class=object, plain=int, callback_wrappers=dict, listener=object, info=_WidgetInfo, recording=list, count=Py_ssize_t, listeners=dict, traits=frozenset, callback=object, widget_class=object, handlers=tuple, handler=object, orphan_ids=object, widgets_dict=object)
 cdef object _mount_node(_Mount m, ElementBase el, object c, list nodes, object dkey)
@@ -129,8 +129,13 @@ cdef class _EventHandler:
     cdef public bint removed
 
 
-@cython.locals(rc=object, context=object, index=Py_ssize_t, state=dict, value=object, setters=dict, setter=object, eq_cell=list)
+@cython.locals(rc=object)
 cpdef use_state(initial, key=*, eq=*)
+
+@cython.locals(context=object, index=Py_ssize_t, state=dict, value=object, setters=dict, setter=object, eq_cell=list)
+cpdef rc_use_state(rc, initial, key, eq)
+
+cpdef rc_use_ref(rc, initial_value)
 
 @cython.locals(rc=object)
 cpdef use_ref(initial_value)
@@ -138,11 +143,17 @@ cpdef use_ref(initial_value)
 @cython.locals(memo=object, index=Py_ssize_t, value=object, dependencies_previous=object)
 cdef object _use_ref(object context, object initial_value)
 
-@cython.locals(rc=object, context=object, name=object, memo=object, index=Py_ssize_t, value=object, entry=tuple, dependencies_previous=object)
+@cython.locals(rc=object)
 cpdef use_memo(f, dependencies=*, debug_name=*)
 
-@cython.locals(rc=object, context=object, effects=object, index=Py_ssize_t, previous_effect=object)
+@cython.locals(context=object, name=object, memo=object, index=Py_ssize_t, value=object, entry=tuple, dependencies_previous=object)
+cpdef rc_use_memo(rc, f, dependencies, debug_name)
+
+@cython.locals(rc=object)
 cpdef use_effect(effect, dependencies=*)
+
+@cython.locals(context=object, effects=object, index=Py_ssize_t, previous_effect=object)
+cpdef rc_use_effect(rc, effect, dependencies)
 
 @cython.locals(vue=object)
 cdef object _is_vue(object component)
