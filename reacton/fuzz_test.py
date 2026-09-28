@@ -16,6 +16,7 @@ import reacton as react
 
 from . import core
 from . import ipywidgets as w
+from .core_test import cleanup_guard  # noqa: F401  (autouse: no leaked widgets or callbacks)
 
 
 def _random_app(registry, log):
@@ -110,9 +111,11 @@ def _random_app(registry, log):
 
 
 def _widget_signature(widget):
+    # a closed widget still has its traits: compare that it is open too
+    closed = widget.comm is None
     if isinstance(widget, widgets.Box):
-        return (type(widget).__name__, [_widget_signature(child) for child in widget.children])
-    return (type(widget).__name__, getattr(widget, "value", None), getattr(widget, "description", None))
+        return (type(widget).__name__, closed, [_widget_signature(child) for child in widget.children])
+    return (type(widget).__name__, closed, getattr(widget, "value", None), getattr(widget, "description", None))
 
 
 def _run_random_updates(fast: bool, seed: int, steps: int, batches: Optional[List] = None):
