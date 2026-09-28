@@ -1324,9 +1324,12 @@ class _RenderContext:
         # An explicit key is the same in any container of a component, so a child with an
         # explicit key that the new tree still uses (it moved out of the replaced element, or
         # stays under the new one) is not removed with the replaced element: reconciliation
-        # updates it where the new tree has it.
+        # updates it where the new tree has it. Shared elements keep the old behavior: their
+        # bookkeeping (_shared_elements, _shared_widgets) needs the removal.
         replaced = self._replaced
-        return replaced is not None and context is replaced[0] and el is not replaced[1] and el._key is not None and key in context.used_keys
+        return (
+            replaced is not None and context is replaced[0] and el is not replaced[1] and el._key is not None and not el.is_shared and key in context.used_keys
+        )
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element

@@ -4225,3 +4225,23 @@ def test_keyed_child_moves_out_of_replaced_container(from_first):
     assert rc.find(widgets.Button).widget.comm is not None
     assert button.comm is not None
     rc.close()
+
+
+def test_shared_keyed_child_in_replaced_container():
+    # a shared element keeps the old behavior: it is removed with the replaced container
+    # and made again, and no old shared mappings stay behind
+    set_flip = lambda x: None  # noqa
+
+    @react.component
+    def Test():
+        nonlocal set_flip
+        flip, set_flip = react.use_state(False)
+        child = w.Button(description="shared").key("x").shared()
+        return w.VBox(children=[(w.HBox if flip else w.VBox)(children=[child])])
+
+    box, rc = react.render(Test(), handle_error=False)
+    for flip in [True, False, True]:
+        set_flip(flip)
+        assert rc.find(widgets.Button).widget.comm is not None
+    assert len(rc._shared_widgets) == 1
+    rc.close()
