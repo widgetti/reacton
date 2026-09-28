@@ -3794,3 +3794,28 @@ def test_container_updates_when_fragment_children_are_replaced():
     set_offset(0)
     assert [child.description for child in vbox.children[1:]] == ["0", "1"]
     rc.close()
+
+
+def test_replace_parent_same_child_element():
+    # like test_replace_parent, but the child element is the same object in every render
+    # (it comes from outside): replacing its parent widget removes the child's subtree,
+    # so the child cannot keep its previous widget
+    set_vertical = lambda x: None  # noqa
+    child = ButtonComponentFunction(description="Hi")
+
+    @react.component
+    def Test(child):
+        nonlocal set_vertical
+        vertical, set_vertical = react.use_state(True)
+        Container = w.VBox if vertical else w.HBox
+        with w.VBox() as main:
+            Container(children=[child])
+        return main
+
+    box, rc = react.render(Test(child), handle_error=False)
+    assert len(rc.find(widgets.Button)) == 1
+    set_vertical(False)
+    assert len(rc.find(widgets.HBox).find(widgets.Button)) == 1
+    set_vertical(True)
+    assert len(rc.find(widgets.Button)) == 1
+    rc.close()
