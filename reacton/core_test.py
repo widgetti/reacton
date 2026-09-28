@@ -3794,3 +3794,144 @@ def test_container_updates_when_fragment_children_are_replaced():
     set_offset(0)
     assert [child.description for child in vbox.children[1:]] == ["0", "1"]
     rc.close()
+
+
+# A controlled widget (the element gives the value, a handler maps a new value to state)
+# must show the value of its element after an event that caused a render, in both
+# renderers. Without a render, the widget keeps what the user entered.
+# See https://github.com/vuejs/vue/issues/13237 for the same problem in Vue.
+
+
+def test_controlled_widget_no_render_keeps_user_value():
+    # solara's inputs with continuous_update=False pass the old value, ignore v_model
+    # changes, and take the new value on blur: typing must not snap back
+    @react.component
+    def Test():
+        value, set_value = react.use_state("AA")
+        # add layout to make sure kwargs are transformed from elements to widgets
+        return w.Text(value=value, on_value=lambda new_value: None, layout=w.Layout(width="100%"))
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    text.value = "Bb"
+    assert text.value == "Bb"
+    rc.close()
+
+
+def test_controlled_widget_no_state_change_parent_renders():
+    # the parent renders on every event, and re-renders the child with the same props
+
+    @react.component
+    def UpperCaseText(on_value):
+        value, set_value = react.use_state("AA")
+
+        def on_value_self(new_value):
+            set_value(new_value.upper())
+            on_value(new_value)
+
+        return w.Text(value=value, on_value=on_value_self)
+
+    @react.component
+    def Test():
+        count, set_count = react.use_state(0)
+        return UpperCaseText(on_value=lambda value: set_count(lambda count: count + 1))
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    text.value = "bb"
+    assert text.value == "BB"
+    text.value = "Bb"
+    assert text.value == "BB"
+    rc.close()
+
+
+@pytest.mark.parametrize("layout", [False, True])
+def test_controlled_widget_no_state_change_sibling_renders(layout):
+    # the handler changes the state of a sibling component: a render happens, but it does
+    # not re-render the component of the widget (the fast renderer skips it)
+    set_count = lambda x: None  # noqa
+
+    @react.component
+    def Counter():
+        nonlocal set_count
+        count, set_count = react.use_state(0)
+        return w.Label(value=f"events: {count}")
+
+    @react.component
+    def UpperCaseText():
+        value, set_value = react.use_state("AA")
+
+        def on_value(new_value):
+            set_value(new_value.upper())
+            set_count(lambda count: count + 1)
+
+        kwargs = {"layout": w.Layout(width="100%")} if layout else {}
+        return w.Text(value=value, on_value=on_value, **kwargs)
+
+    @react.component
+    def Test():
+        return w.VBox(children=[UpperCaseText(), Counter()])
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    label = rc.find(widgets.Label).widget
+    text.value = "bb"
+    assert text.value == "BB"
+    text.value = "Bb"
+    assert text.value == "BB"
+    assert label.value == "events: 2"
+    rc.close()
+
+
+def test_controlled_widget_same_callback_new_value():
+    # the handler is the same object every render, so its listener stays: it must set
+    # back the value of the new element, not of the element that added the listener
+    set_tens = lambda x: None  # noqa
+
+    def on_value(value):
+        set_tens(value // 10)
+
+    @react.component
+    def Test():
+        nonlocal set_tens
+        tens, set_tens = react.use_state(1)
+        return w.IntText(value=tens * 10, on_value=on_value)
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.IntText).widget
+    assert text.value == 10
+    text.value = 25
+    assert text.value == 20
+    rc.close()
+
+
+def test_uncontrolled_widget_keeps_its_value():
+    # without a value from the element, the widget keeps what the user entered
+    values: List[str] = []
+
+    @react.component
+    def Test():
+        return w.Text(on_value=values.append)
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    text.value = "Bb"
+    assert text.value == "Bb"
+    assert values == ["Bb"]
+    rc.close()
+
+
+def test_controlled_widget_removed_by_handler():
+    @react.component
+    def Test():
+        show, set_show = react.use_state(True)
+        if show:
+            return w.VBox(children=[w.Text(value="keep", on_value=lambda value: set_show(False))])
+        return w.VBox(children=[w.Label(value="gone")])
+
+    box, rc = react.render(Test(), handle_error=False)
+    text = rc.find(widgets.Text).widget
+    text.value = "other"
+    rc.find(widgets.Label, value="gone").assert_single()
+    assert text.comm is None  # closed
+    rc.close()

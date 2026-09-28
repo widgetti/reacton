@@ -215,6 +215,65 @@ def _event_handler_exception_wrapper(f):
     return wrapper
 
 
+def _has_elements(value) -> bool:
+    if isinstance(value, Element):
+        return True
+    if isinstance(value, (list, tuple)):
+        return any(_has_elements(v) for v in value)
+    if isinstance(value, dict):
+        return any(_has_elements(v) for v in value.values())
+    return False
+
+
+class _TraitListener:
+    """Calls the on_<name> handler of an element when the trait <name> of its widget changes.
+
+    When the handler caused a render, the trait is set back to what the widget's current
+    element says afterwards. The default renderer does that for every widget in a render
+    (it walks the whole tree), but the fast renderer skips components that did not change.
+    Without this, a handler that leaves its own state as it is (for instance it upper-cases
+    "Bb" to the "BB" we already have) but changes other state, leaves the widget showing
+    "Bb" in the fast renderer.
+
+    When nothing rendered, the widget keeps what the user entered, in both renderers:
+    solara's inputs with continuous_update=False rely on this, they pass the old value and
+    take the new one on blur.
+    """
+
+    def __init__(self, element: "Element", widget: widgets.Widget, name: str, callback: Callable):
+        # the element that currently owns the widget, see Element._update_widget_event_listener
+        self.element = element
+        self.widget = widget
+        self.name = name
+        self.trait_name = name[3:]
+        self.callback = _event_handler_exception_wrapper(callback)
+        self.rc = get_render_context()
+        self.removed = False
+
+    def __call__(self, change):
+        if are_events_supressed():
+            return
+        logger.info("event %r on %r with %r", self.name, self.widget, change)
+        render_count = self.rc.render_count
+        self.callback(change["new"])
+        if self.rc.render_count != render_count:
+            self._set_back()
+
+    def _set_back(self):
+        kwargs = self.element.kwargs
+        if self.removed or self.trait_name not in kwargs or self.rc._is_rendering or self.widget.comm is None:
+            # the render replaced this listener (and has set the new values), the element does
+            # not give the value (not controlled), a render in progress will reconcile the
+            # widget, or the render removed the widget
+            return
+        value = kwargs[self.trait_name]
+        if _has_elements(value):
+            # we would need the widgets these elements resolve to
+            return
+        with self.widget.hold_sync(), suppress_events():
+            setattr(self.widget, self.trait_name, value)
+
+
 def join_key(parent_key, key):
     return f"{parent_key}{key}"
 
@@ -557,17 +616,15 @@ class Element(Generic[W]):
             self._remove_widget_event_listener(widget, name, callback_prev)
         if callback is not None and callback != callback_prev:
             self._add_widget_event_listener(widget, name, callback)
+        elif callback is not None:
+            # the same callback: the listener stays, but it should read this element from now on
+            listener = self._callback_wrappers.get((widget.model_id, name, callback))
+            if isinstance(listener, _TraitListener):
+                listener.element = self
 
     def _add_widget_event_listener(self, widget: widgets.Widget, name: str, callback: Callable):
         target_name = name[3:]
-        callback_exception_safe = _event_handler_exception_wrapper(callback)
-
-        def on_change(change):
-            if are_events_supressed():
-                return
-            logger.info("event %r on %r with %r", name, widget, change)
-            callback_exception_safe(change["new"])
-
+        on_change = _TraitListener(self, widget, name, callback)
         key = (widget.model_id, name, callback)
         self._callback_wrappers[key] = on_change
         widget.observe(on_change, target_name)
@@ -577,6 +634,10 @@ class Element(Generic[W]):
         key = (widget.model_id, name, callback)
         on_change = self._callback_wrappers[key]
         del self._callback_wrappers[key]
+        if isinstance(on_change, _TraitListener):
+            # it may be running now (its handler caused this render): a new listener or
+            # no listener is in charge of the widget from now on
+            on_change.removed = True
         try:
             widget.unobserve(on_change, target_name)
         except ValueError:
