@@ -4187,3 +4187,41 @@ def test_stale_component_cleanup_order_with_nested_removed_components():
         "new run",
     ]
     rc.close()
+
+
+@pytest.mark.parametrize("from_first", [True, False])
+def test_keyed_child_moves_out_of_replaced_container(from_first):
+    # an element with an explicit key (the same object in every render) moves to a sibling
+    # container, while the container it leaves is replaced by one of another type: the
+    # removal of the old container must not remove (or close) the moved child
+    set_moved = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        return w.Button(description="child")
+
+    child = Child().key("x")
+
+    @react.component
+    def Test():
+        nonlocal set_moved
+        moved, set_moved = react.use_state(False)
+        source = [child] if not moved else []
+        target = [child] if moved else []
+        Source = w.HBox if moved else w.VBox
+        containers = [Source(children=source).key("source"), w.VBox(children=target).key("target")]
+        if not from_first:
+            containers = containers[::-1]
+        return w.VBox(children=containers)
+
+    box, rc = react.render(Test(), handle_error=False)
+    button = rc.find(widgets.Button).widget
+    set_moved(True)
+    buttons = rc.find(widgets.Button)
+    assert len(buttons) == 1
+    assert buttons.widget.comm is not None
+    assert rc.find(widgets.HBox).widget.children == ()
+    set_moved(False)
+    assert rc.find(widgets.Button).widget.comm is not None
+    assert button.comm is not None
+    rc.close()

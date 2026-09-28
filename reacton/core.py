@@ -1306,6 +1306,27 @@ class Effect:
 
 class _RenderContext:
     context: Optional[ComponentContext] = None
+    # the element that an element of another type replaces, and its context, while
+    # reconciliation removes it (see _remove_replaced)
+    _replaced: Optional[Tuple[ComponentContext, Element]] = None
+
+    def _remove_replaced(self, el_prev: Element, key: str, parent_key: str):
+        """Remove the element at key, which an element of another type replaces."""
+        assert self.context is not None
+        replaced = self._replaced
+        self._replaced = (self.context, el_prev)
+        try:
+            self._remove_element(el_prev, key, parent_key=parent_key)
+        finally:
+            self._replaced = replaced
+
+    def _keep_keyed_child(self, context: ComponentContext, el: Element, key: str) -> bool:
+        # An explicit key is the same in any container of a component, so a child with an
+        # explicit key that the new tree still uses (it moved out of the replaced element, or
+        # stays under the new one) is not removed with the replaced element: reconciliation
+        # updates it where the new tree has it.
+        replaced = self._replaced
+        return replaced is not None and context is replaced[0] and el is not replaced[1] and el._key is not None and key in context.used_keys
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
@@ -2094,7 +2115,7 @@ class _RenderContext:
         try:
             if isinstance(el.component, ComponentFunction):
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
-                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+                    self._remove_replaced(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     # TODO: test suite passes when this block if commented out
@@ -2271,7 +2292,7 @@ class _RenderContext:
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     logger.debug("Replacing widget: %r → %r %r", el_prev, el, key)
-                    self._remove_element(el_prev, key, parent_key=parent_key)
+                    self._remove_replaced(el_prev, key, parent_key=parent_key)
                     kwargs = reconsolidate_children()
                     widget = None
                     if not context.exceptions_children:
@@ -2366,6 +2387,9 @@ class _RenderContext:
         assert self.context is not None
         context = self.context
         logger.debug("Remove: (%s, %s) %r", parent_key, key, el)
+
+        if self._keep_keyed_child(context, el, key):
+            return
 
         if el.is_shared:
             if el not in self._shared_elements:
@@ -2769,7 +2793,7 @@ class _RenderContextFast(_RenderContext):
 
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
                     # a widget element was replaced by a component element at this key
-                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+                    self._remove_replaced(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     if el.is_shared and (el.args or el.kwargs):
@@ -2877,7 +2901,7 @@ class _RenderContextFast(_RenderContext):
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     # a different widget type at the same key: replace
-                    self._remove_element(el_prev, key, parent_key=parent_key)
+                    self._remove_replaced(el_prev, key, parent_key=parent_key)
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     widget = None
                     if not context.exceptions_children:
@@ -3040,6 +3064,9 @@ class _RenderContextFast(_RenderContext):
         assert key is not None
         context = self.context
         assert context is not None
+
+        if self._keep_keyed_child(context, el, key):
+            return
 
         if el.is_shared:
             if el not in self._shared_elements:
