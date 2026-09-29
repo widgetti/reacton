@@ -70,6 +70,20 @@ def _random_app(registry, log):
         return w.HBox(children=[Thrower(id * 3 + 2), Leaf(id * 3 + 1)])
 
     @react.component
+    def Mover(id):
+        # an element made once (the same object in every render) with an explicit key,
+        # that moves between two sibling containers whose types flip
+        state, set_state = react.use_state(0)
+        registry[id] = set_state
+        child = react.use_memo(lambda: Leaf(id * 3 + 2).key(f"moved {id}"), [])
+        kind = h(id, state) % 8
+        First = w.HBox if kind & 2 else w.VBox
+        Second = w.HBox if kind & 4 else w.VBox
+        if kind & 1:
+            return w.VBox(children=[First(children=[child]).key("first"), Second(children=[]).key("second")])
+        return w.VBox(children=[First(children=[]).key("first"), Second(children=[child]).key("second")])
+
+    @react.component
     def Node(id, depth):
         state, set_state = react.use_state(0)
         registry[id] = set_state
@@ -98,6 +112,8 @@ def _random_app(registry, log):
                 child = Wrapper(child_id)
             elif r < 0.7:
                 child = Catcher(child_id)
+            elif r < 0.8:
+                child = Mover(child_id)
             else:
                 child = Leaf(child_id)
             if rnd.random() < 0.3:
