@@ -2944,7 +2944,9 @@ class _RenderContextFast(_RenderContext):
                 self._shared_elements.add(el)
                 assert el in self._shared_elements_next
                 self._shared_elements_next.remove(el)
-            if parent_key == ROOT_KEY and default_key == "/":
+            if parent_key == ROOT_KEY and default_key == "/" and context is self.context_root:
+                # only the end of the root element; a child component with key "" also
+                # gets here with these keys, in its own context
                 self._reconsolidate_forced_walk = False
 
     def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):

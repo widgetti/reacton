@@ -4170,6 +4170,21 @@ def test_forced_render_waiting_for_a_state_render_on_another_thread():
         slider = react.use_memo(lambda: w.IntSlider(value=1), [])
         return w.VBox(children=[slider, Slow(count=count)])
 
+    import logging as std_logging  # this module imports reacton.logging as logging
+
+    # render() logs this right before it blocks on the lock another thread holds
+    waiting = threading.Event()
+
+    class WaitingHandler(std_logging.Handler):
+        def emit(self, record):
+            if "waiting for mutex" in record.getMessage():
+                waiting.set()
+
+    handler = WaitingHandler(level=std_logging.INFO)
+    logger = std_logging.getLogger("reacton")
+    level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(std_logging.INFO)
     box, rc = react.render_fixed(App(), handle_error=False)
     slider = rc.find(widgets.IntSlider).widget
     state_thread = threading.Thread(target=lambda: set_count(1))
@@ -4180,14 +4195,52 @@ def test_forced_render_waiting_for_a_state_render_on_another_thread():
         slider.value = 7
         forced_thread = threading.Thread(target=lambda: rc.render(rc.element))
         forced_thread.start()
-        # give it time to block on the render lock
-        time.sleep(0.2)
+        assert waiting.wait(5)
     finally:
         release.set()
         state_thread.join(5)
         if forced_thread is not None:
             forced_thread.join(5)
+        logger.removeHandler(handler)
+        logger.setLevel(level)
     assert not state_thread.is_alive()
     assert forced_thread is not None and not forced_thread.is_alive()
     assert slider.value == 1
+    rc.close()
+
+
+def test_force_update_with_empty_key_child():
+    # a child component with key "" reconciles its root with the same keys as the root
+    # element; that must not end the forced walk before the siblings after it
+    @react.component
+    def Child():
+        return w.Label(value="child")
+
+    box, rc = react.render_fixed(w.VBox(children=[Child().key(""), w.IntSlider(value=1)]), handle_error=False)
+    slider = box.children[1]
+    slider.value = 7
+    rc.force_update()
+    assert slider.value == 1
+    rc.close()
+
+
+@fast_renderer_only
+def test_state_render_after_force_update_is_not_forced():
+    set_count = lambda x: None  # noqa
+
+    @react.component
+    def App():
+        nonlocal set_count
+        count, set_count = react.use_state(0)
+        slider = react.use_memo(lambda: w.IntSlider(value=1), [])
+        return w.VBox(children=[slider, w.Button(description=str(count))])
+
+    box, rc = react.render_fixed(App(), handle_error=False)
+    slider = rc.find(widgets.IntSlider).widget
+    slider.value = 7
+    rc.force_update()
+    assert slider.value == 1
+    slider.value = 7
+    set_count(1)
+    assert slider.value == 7
     rc.close()
