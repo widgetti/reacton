@@ -4245,3 +4245,62 @@ def test_shared_keyed_child_in_replaced_container():
         assert rc.find(widgets.Button).widget.comm is not None
     assert len(rc._shared_widgets) == 1
     rc.close()
+
+
+@pytest.mark.parametrize("same_element", [True, False])
+def test_keyed_child_out_of_removed_wrapper(same_element):
+    # the wrapper around a child with an explicit key goes away (and comes back): its
+    # removal must not remove (or close) the child, which is still in the tree
+    set_wrapped = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        return w.Button(description="child")
+
+    child_once = Child().key("x")
+
+    @react.component
+    def Test():
+        nonlocal set_wrapped
+        wrapped, set_wrapped = react.use_state(True)
+        child = child_once if same_element else Child().key("x")
+        return w.VBox(children=[w.VBox(children=[child]) if wrapped else child])
+
+    root, rc = react.render_fixed(Test(), handle_error=False)
+    for wrapped in [False, True, False]:
+        set_wrapped(wrapped)
+        button = rc.find(widgets.Button).widget
+        assert button.comm is not None
+        assert (root.children[0] is button) != wrapped
+    rc.close()
+
+
+def test_keyed_child_out_of_removed_wrapper_keeps_its_effects():
+    # the kept child stays mounted: its effect must not be cleaned up when the wrapper goes
+    # away (the fast renderer cleans up stale subtrees early), only when the child leaves
+    log = []
+    set_wrapped = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        def effect():
+            log.append("run")
+            return lambda: log.append("cleanup")
+
+        react.use_effect(effect, [])
+        return w.Button(description="child")
+
+    @react.component
+    def Test():
+        nonlocal set_wrapped
+        wrapped, set_wrapped = react.use_state(True)
+        child = Child().key("x")
+        return w.VBox(children=[w.Label(value="sibling"), w.VBox(children=[child]) if wrapped else child])
+
+    box, rc = react.render(Test(), handle_error=False)
+    assert log == ["run"]
+    set_wrapped(False)
+    set_wrapped(True)
+    assert log == ["run"]
+    rc.close()
+    assert log == ["run", "cleanup"]

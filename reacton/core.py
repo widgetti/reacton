@@ -1306,29 +1306,30 @@ class Effect:
 
 class _RenderContext:
     context: Optional[ComponentContext] = None
-    # the element that an element of another type replaces, and its context, while
-    # reconciliation removes it (see _remove_replaced)
-    _replaced: Optional[Tuple[ComponentContext, Element]] = None
+    # the element that reconciliation removes because the new tree replaced it by an element
+    # of another type, or no longer has it, and its context (see _remove_outgoing)
+    _outgoing: Optional[Tuple[ComponentContext, Element]] = None
 
-    def _remove_replaced(self, el_prev: Element, key: str, parent_key: str):
-        """Remove the element at key, which an element of another type replaces."""
+    def _remove_outgoing(self, el: Element, key: str, parent_key: str):
+        """Remove the element at key, which the new tree replaced or no longer has."""
         assert self.context is not None
-        replaced = self._replaced
-        self._replaced = (self.context, el_prev)
+        outgoing = self._outgoing
+        self._outgoing = (self.context, el)
         try:
-            self._remove_element(el_prev, key, parent_key=parent_key)
+            self._remove_element(el, key, parent_key=parent_key)
         finally:
-            self._replaced = replaced
+            self._outgoing = outgoing
 
     def _keep_keyed_child(self, context: ComponentContext, el: Element, key: str) -> bool:
         # An explicit key is the same in any container of a component, so a child with an
-        # explicit key that the new tree still uses (it moved out of the replaced element, or
-        # stays under the new one) is not removed with the replaced element: reconciliation
-        # updates it where the new tree has it. Shared elements keep the old behavior: their
-        # bookkeeping (_shared_elements, _shared_widgets) needs the removal.
-        replaced = self._replaced
+        # explicit key that the new tree still uses (it moved out of the outgoing element, for
+        # instance a wrapper that went away, or stays under the element that replaces it) is
+        # not removed with the outgoing element: reconciliation updates it where the new tree
+        # has it. Shared elements keep the old behavior: their bookkeeping (_shared_elements,
+        # _shared_widgets) needs the removal.
+        outgoing = self._outgoing
         return (
-            replaced is not None and context is replaced[0] and el is not replaced[1] and el._key is not None and not el.is_shared and key in context.used_keys
+            outgoing is not None and context is outgoing[0] and el is not outgoing[1] and el._key is not None and not el.is_shared and key in context.used_keys
         )
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
@@ -2118,7 +2119,7 @@ class _RenderContext:
         try:
             if isinstance(el.component, ComponentFunction):
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
-                    self._remove_replaced(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     # TODO: test suite passes when this block if commented out
@@ -2164,7 +2165,7 @@ class _RenderContext:
                     if removed:
                         for key_remove in removed:
                             el_remove = elements[key_remove]
-                            self._remove_element(el_remove, key_remove, parent_key)
+                            self._remove_outgoing(el_remove, key_remove, parent_key)
                     for effect_index, effect in enumerate(child_context.effects):
                         if effect.next:
                             # if we have a next, it means that effect itself is executed
@@ -2295,7 +2296,7 @@ class _RenderContext:
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     logger.debug("Replacing widget: %r → %r %r", el_prev, el, key)
-                    self._remove_replaced(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                     kwargs = reconsolidate_children()
                     widget = None
                     if not context.exceptions_children:
@@ -2372,7 +2373,7 @@ class _RenderContext:
             if extra:
                 for key in list(extra):
                     if key in self.context.elements:
-                        self._remove_element(self.context.elements[key], key, parent_key=parent_key)
+                        self._remove_outgoing(self.context.elements[key], key, parent_key=parent_key)
 
             # keeping this for debugging
             # logger.debug("Current:")
@@ -2796,7 +2797,7 @@ class _RenderContextFast(_RenderContext):
 
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
                     # a widget element was replaced by a component element at this key
-                    self._remove_replaced(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     if el.is_shared and (el.args or el.kwargs):
@@ -2832,7 +2833,7 @@ class _RenderContextFast(_RenderContext):
                         logger.info("elements to be removed: %r", stale_keys)
                         for stale_key in stale_keys:
                             if stale_key in child_context.elements:
-                                self._remove_element(child_context.elements[stale_key], stale_key, new_parent_key)
+                                self._remove_outgoing(child_context.elements[stale_key], stale_key, new_parent_key)
 
                     self._process_effects(child_context, context)
 
@@ -2904,7 +2905,7 @@ class _RenderContextFast(_RenderContext):
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     # a different widget type at the same key: replace
-                    self._remove_replaced(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     widget = None
                     if not context.exceptions_children:
@@ -3013,7 +3014,15 @@ class _RenderContextFast(_RenderContext):
                 if stale_key not in context.elements or stale_key in context.fast_stale_effects_cleaned:
                     continue
                 self.context = context
-                self._cleanup_stale_effects(context.elements[stale_key], stale_key, parent_key)
+                el = context.elements[stale_key]
+                # keyed children that the new tree still uses stay, with their effects
+                # (see _keep_keyed_child)
+                outgoing = self._outgoing
+                self._outgoing = (context, el)
+                try:
+                    self._cleanup_stale_effects(el, stale_key, parent_key)
+                finally:
+                    self._outgoing = outgoing
         finally:
             self.context = context_prev
 
@@ -3025,6 +3034,8 @@ class _RenderContextFast(_RenderContext):
         context = self.context
         assert context is not None
         if key in context.fast_stale_effects_cleaned:
+            return
+        if self._keep_keyed_child(context, el, key):
             return
         if el.is_shared and (el in self._shared_elements_next or el not in self._shared_elements):
             return
@@ -3188,7 +3199,7 @@ class _RenderContextFast(_RenderContext):
         stale_keys = sorted(set(self.context_root.elements) - self.context_root.used_keys)
         for stale_key in stale_keys:
             if stale_key in self.context_root.elements:
-                self._remove_element(self.context_root.elements[stale_key], stale_key, parent_key)
+                self._remove_outgoing(self.context_root.elements[stale_key], stale_key, parent_key)
 
 
 def _render_context_class():
