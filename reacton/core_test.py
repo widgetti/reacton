@@ -3973,3 +3973,33 @@ def test_event_handler_exception_while_other_thread_renders():
     assert isinstance(box.children[0], widgets.HTML)
     assert "click boom" in box.children[0].value
     rc.close()
+
+
+def test_child_effect_changes_parent_element_kwargs():
+    # the effect runs while the parent's kwargs are walked; changing them (adding a key)
+    # must not break that walk
+    set_count = lambda x: None  # noqa
+    holder: dict = {}
+
+    @react.component
+    def Child():
+        def effect():
+            holder["box"].kwargs.update(box_style="success")
+
+        use_effect(effect)
+        return w.Label(value="child")
+
+    @react.component
+    def App():
+        nonlocal set_count
+        count, set_count = react.use_state(0)
+        holder["box"] = w.VBox(children=[Child(), w.Label(value=str(count))])
+        return holder["box"]
+
+    box, rc = react.render(App(), handle_error=False)
+    vbox = box.children[0]
+    assert vbox.children[0].value == "child"
+    set_count(1)
+    assert box.children[0] is vbox
+    assert vbox.children[1].value == "1"
+    rc.close()

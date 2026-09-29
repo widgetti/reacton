@@ -2827,10 +2827,13 @@ class _RenderContextFast(_RenderContext):
                     else:
                         widget_previous = context.widgets[key]
 
+                # effects of child components run while we walk the kwargs, and they may
+                # change this element's kwargs (like the default renderer, walk a copy)
+                el_kwargs = el.kwargs.copy()
                 orphan_ids: Set[str] = set()
                 if widget_previous is None:
                     # initial create
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._visit_children_values(el_kwargs, key, parent_key, self._reconsolidate)
                     if el.is_shared and el in self._shared_widgets:
                         raise RuntimeError(f"Element ({el}) was already in self._shared_widgets")
                     widget = None
@@ -2844,13 +2847,13 @@ class _RenderContextFast(_RenderContext):
                     self._store_widget(context, el, key, widget)
                 elif el_prev is not None and el_prev.component == el.component:
                     # update the existing widget in place
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._visit_children_values(el_kwargs, key, parent_key, self._reconsolidate)
                     if not context.exceptions_children:
                         # the same element whose kwargs hold no elements: nothing can have changed.
                         # With elements (a container), the kwargs resolve to widgets, so compare
                         # them with what the widget holds: equal means setting them is a no-op
                         # (and a value changed from the frontend is still set back)
-                        if el is not el_prev or not (_values_identical(kwargs, el.kwargs) or _widget_holds_values(widget_previous, kwargs)):
+                        if el is not el_prev or not (_values_identical(kwargs, el_kwargs) or _widget_holds_values(widget_previous, kwargs)):
                             try:
                                 el._update_widget(widget_previous, el_prev, kwargs)
                             except BaseException as e:
@@ -2862,7 +2865,7 @@ class _RenderContextFast(_RenderContext):
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     # a different widget type at the same key: replace
                     self._remove_element(el_prev, key, parent_key=parent_key)
-                    kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
+                    kwargs = self._visit_children_values(el_kwargs, key, parent_key, self._reconsolidate)
                     widget = None
                     if not context.exceptions_children:
                         try:
