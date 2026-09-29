@@ -1205,6 +1205,11 @@ class ComponentContext:
     # the render phase skipped this whole subtree (nothing changed), so the
     # reconciliation phase can reuse the previous result without walking
     clean_subtree: bool = False
+    # Fast renderer only: stale component effect cleanups are run at the same
+    # point where the default renderer removes stale elements, while widget
+    # closing stays deferred to the fast renderer's stale sweep.
+    fast_stale_effect_keys: Optional[List[str]] = None
+    fast_stale_effects_cleaned: Set[str] = field(default_factory=set)
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
@@ -1263,6 +1268,8 @@ def _teardown_component_context(context: ComponentContext):
     context.exceptions_self = []
     context.exceptions_children = []
     context.context_managers = []
+    context.fast_stale_effect_keys = None
+    context.fast_stale_effects_cleaned = set()
 
 
 @dataclass
@@ -2523,6 +2530,8 @@ class _RenderContextFast(_RenderContext):
             # the root element of a component determines which keys are in use,
             # everything else is stale and gets removed during reconciliation
             context.used_keys.clear()
+            context.fast_stale_effect_keys = None
+            context.fast_stale_effects_cleaned.clear()
 
         el = element
         key = el._key
@@ -2923,6 +2932,7 @@ class _RenderContextFast(_RenderContext):
                 self._shared_elements.add(el)
                 assert el in self._shared_elements_next
                 self._shared_elements_next.remove(el)
+            self._cleanup_stale_effects_for_context(context, parent_key)
 
     def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):
         # NOTE: effect/cleanup exceptions are recorded on the context of the
@@ -2964,6 +2974,64 @@ class _RenderContextFast(_RenderContext):
             self._shared_widgets[el] = widget
         else:
             context.widgets[key] = widget
+
+    def _cleanup_stale_effects_for_context(self, context: "ComponentContext", parent_key: str):
+        if context.fast_stale_effect_keys is None:
+            # reversed, so we can pop from the end and still go in sorted order
+            context.fast_stale_effect_keys = sorted(set(context.elements) - context.used_keys, reverse=True)
+        context_prev = self.context
+        try:
+            while context.fast_stale_effect_keys:
+                stale_key = context.fast_stale_effect_keys.pop()
+                if stale_key not in context.elements or stale_key in context.fast_stale_effects_cleaned:
+                    continue
+                self.context = context
+                self._cleanup_stale_effects(context.elements[stale_key], stale_key, parent_key)
+        finally:
+            self.context = context_prev
+
+    def _cleanup_stale_effects(self, el: Element, default_key: str, parent_key: str):
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
+        context = self.context
+        assert context is not None
+        if key in context.fast_stale_effects_cleaned:
+            return
+        if el.is_shared and (el in self._shared_elements_next or el not in self._shared_elements):
+            return
+        context.fast_stale_effects_cleaned.add(key)
+
+        if isinstance(el.component, ComponentFunction):
+            if el.is_shared:
+                self._visit_children(el, key, parent_key, self._cleanup_stale_effects)
+            child_context = context.children.get(key)
+            if child_context is None:
+                return
+            try:
+                self.context = child_context
+                child_context.exceptions_self = []
+                child_context.exceptions_children = []
+                for effect in child_context.effects:
+                    try:
+                        if not effect._cleaned_up:
+                            effect.cleanup()
+                    except BaseException as e:
+                        effect._cleaned_up = True
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
+                        child_context.exceptions_self.append(e)
+                        self._set_rerender_needed("Exception ocurred during effect")
+                        _mark_needs_render_ancestors(child_context)
+                assert child_context.root_element is not None
+                self._cleanup_stale_effects(child_context.root_element, "/", parent_key=join_key(parent_key, key))
+            finally:
+                self.context = context
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
+        else:
+            self._visit_children(el, key, parent_key, self._cleanup_stale_effects)
 
     def _remove_element(self, el: Element, default_key: str, parent_key):
         key = el._key

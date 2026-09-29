@@ -81,6 +81,12 @@ def _random_app(registry, log):
             if state % 5 == 4:
                 set_state(state + 1)
 
+            def cleanup():
+                # both renderers must also run cleanups in the same order
+                log.append(("cleanup", id, state))
+
+            return cleanup
+
         react.use_effect(effect, [state])
         children: List[Any] = [w.Label(value=f"node {id} {state}")]
         for i in range(rnd.randint(0, 4)):
