@@ -41,6 +41,7 @@ def use_event(el: react.core.Element, event_and_modifiers, callback: Callable[[A
                 # we add it to exceptions_children, not exception_self
                 # this allows a component to catch the exception of a direct child
                 context.exceptions_children.append(e)
+                react.core._mark_needs_render_ancestors(context)
                 rc.force_update()
 
         vue_widget.on_event(event_and_modifiers, handler)

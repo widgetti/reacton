@@ -210,6 +210,10 @@ def _event_handler_exception_wrapper(f):
             # we add it to exceptions_children, not exception_self
             # this allows a component to catch the exception of a direct child
             context.exceptions_children.append(e)
+            # force_update walks the whole tree, but when another thread is rendering it
+            # only sets a flag that this render may clear: mark the path to this context
+            # so the fast renderer does not skip it on the next render
+            _mark_needs_render_ancestors(context)
             rc.force_update()
 
     return wrapper
@@ -234,8 +238,12 @@ def same_component(c1, c2):
 
 def _mark_needs_render_ancestors(context: "ComponentContext"):
     """Let the render phase find its way down to a context that needs work, without walking subtrees that do not."""
+    # walk up to the root: stopping at the first ancestor that is already marked would
+    # assume its ancestors are marked too, which does not hold for a subtree that is
+    # being removed (it can carry a flag from before), so the live ancestors above it
+    # would stay unmarked and skip e.g. a cleanup exception
     parent = context.parent
-    while parent is not None and not parent.needs_render_descendant:
+    while parent is not None:
         parent.needs_render_descendant = True
         parent = parent.parent
 
@@ -2489,8 +2497,8 @@ class _RenderContextFast(_RenderContext):
     # without walking either.
     # ------------------------------------------------------------------
 
-    # > 0 while the render phase walks the new children of a widget that replaces a
-    # widget of another type (see _render)
+    # > 0 while the render phase walks the new children of a widget, or the arguments of a
+    # shared element, that replaces an element of another type (see _render_arguments)
     _replacing = 0
 
     def _set_rerender_needed(self, reason: str):
@@ -2541,18 +2549,7 @@ class _RenderContextFast(_RenderContext):
                 del context.children_next[key]
             # the element arguments are part of this component's element tree
             if el.kwargs:
-                el_reconciled = context.elements.get(key)
-                if el_reconciled is not None and el_reconciled.component != el.component:
-                    # reconciliation replaces the widget at this key, and first removes the
-                    # old subtree, including the component contexts in it: the walk below
-                    # must not keep one of those as it is (see the fast path further down)
-                    self._replacing += 1
-                    try:
-                        self._visit_children(el, key, parent_key, self._render)
-                    finally:
-                        self._replacing -= 1
-                else:
-                    self._visit_children(el, key, parent_key, self._render)
+                self._render_arguments(el, key, parent_key)
             return
 
         assert isinstance(el.component, ComponentFunction)
@@ -2560,7 +2557,7 @@ class _RenderContextFast(_RenderContext):
             # arguments of a shared element belong to the context it is rendered in;
             # for non-shared component elements the component function decides
             # what ends up in the tree
-            self._visit_children(el, key, parent_key, self._render)
+            self._render_arguments(el, key, parent_key)
 
         context_previous = context.children_next.get(key)
         if context_previous is None:
@@ -3064,6 +3061,21 @@ class _RenderContextFast(_RenderContext):
             return {k: self._visit_children_values(v, f"{key}{k}/", parent_key, f) for k, v in value.items()}
         else:
             return value
+
+    def _render_arguments(self, el: Element, key: str, parent_key: str):
+        """Render the elements in the arguments of a widget element or a shared element."""
+        assert self.context is not None
+        el_reconciled = self.context.elements.get(key)
+        replaced = el_reconciled is not None and el_reconciled.component != el.component
+        if replaced:
+            # a different component at this key: reconciliation removes the old element and
+            # everything below it, so nothing below the new one may be skipped as clean
+            self._replacing += 1
+        try:
+            self._visit_children(el, key, parent_key, self._render)
+        finally:
+            if replaced:
+                self._replacing -= 1
 
     def _remove_stale_root_elements(self, parent_key):
         # remove stale elements of the root context itself

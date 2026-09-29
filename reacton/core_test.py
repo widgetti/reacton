@@ -3819,3 +3819,157 @@ def test_replace_parent_same_child_element():
     set_vertical(True)
     assert len(rc.find(widgets.Button)) == 1
     rc.close()
+
+
+def test_widget_replaced_by_shared_component_around_the_same_child():
+    # like above, but the new element is a shared component element, whose arguments
+    # are rendered in this context too
+    set_flip = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        return w.Label(value="child")
+
+    @react.component
+    def Row(children):
+        return w.HBox(children=children)
+
+    @react.component
+    def App():
+        nonlocal set_flip
+        flip, set_flip = react.use_state(False)
+        child = react.use_memo(lambda: Child().key("child"), [])
+        if flip:
+            return w.VBox(children=[Row(children=[child]).shared()])
+        return w.VBox(children=[w.VBox(children=[child])])
+
+    box, rc = react.render(App(), handle_error=False)
+    set_flip(True)
+    hbox = box.children[0].children[0]
+    assert isinstance(hbox, widgets.HBox)
+    assert hbox.children[0].comm is not None
+    assert hbox.children[0].value == "child"
+    rc.close()
+
+
+def test_effect_cleanup_exception_on_unmount_reaches_exception_handler():
+    # a render exception marks the subtree dirty, the handler replaces the subtree, and a
+    # cleanup in the removed subtree raises: the handler must see that exception too, and
+    # no closed widget may stay on screen
+    cleanups = []
+    set_crash = lambda x: None  # noqa
+
+    @react.component
+    def Crasher():
+        nonlocal set_crash
+        crash, set_crash = react.use_state(False)
+        if crash:
+            raise ValueError("render boom")
+        return w.Label(value="ok")
+
+    @react.component
+    def Unsubscriber():
+        def effect():
+            def cleanup():
+                cleanups.append("cleanup")
+                raise IndexError("cleanup boom")
+
+            return cleanup
+
+        use_effect(effect, [])
+        return w.Label(value="subscribed")
+
+    @react.component
+    def Middle():
+        return w.VBox(children=[Crasher(), Unsubscriber()])
+
+    @react.component
+    def Handler():
+        exception, clear = react.use_exception()
+        if exception is not None:
+            return w.VBox(children=[w.Label(value=f"caught {exception!r}")])
+        return w.VBox(children=[Middle()])
+
+    @react.component
+    def App():
+        return w.VBox(children=[Handler()])
+
+    box, rc = react.render(App(), handle_error=False)
+    set_crash(True)
+    assert cleanups == ["cleanup"]
+    shown = box.children[0].children[0].children[0]
+    assert shown.comm is not None
+    assert "cleanup boom" in shown.value
+    rc.close()
+
+
+def test_event_handler_exception_while_other_thread_renders():
+    # the handler exception is routed via force_update, which during a render (on another
+    # thread) only sets a flag; the exception must still reach the handler on a later render
+    started = threading.Event()
+    go = threading.Event()
+    set_slow = lambda x: None  # noqa
+    set_other = lambda x: None  # noqa
+
+    @react.component
+    def Clicky():
+        def on_click():
+            raise ValueError("click boom")
+
+        return w.Button(description="click", on_click=on_click)
+
+    @react.component
+    def Middle():
+        return w.VBox(children=[Clicky()])
+
+    @react.component
+    def Slow(n):
+        if n == 1:
+            started.set()
+            # the click must happen while this render is in progress
+            assert go.wait(5)
+        return w.Label(value=f"slow {n}")
+
+    @react.component
+    def Other():
+        nonlocal set_other
+        value, set_other = react.use_state(0)
+        return w.Label(value=f"other {value}")
+
+    @react.component
+    def App():
+        nonlocal set_slow
+        exception, clear = react.use_exception()
+        n, set_slow = react.use_state(0)
+        # the same element every render: an unchanged subtree
+        middle = react.use_memo(lambda: Middle(), [])
+        if exception is not None:
+            return w.HTML(value=f"caught {exception!r}")
+        return w.VBox(children=[middle, Slow(n=n), Other()])
+
+    box, rc = react.render(App(), handle_error=False)
+    button = rc.find(widgets.Button).widget
+
+    clicked_during_render = []
+
+    def click_during_render():
+        try:
+            if started.wait(5):
+                button.click()
+                clicked_during_render.append(True)
+        finally:
+            go.set()
+
+    thread = threading.Thread(target=click_during_render)
+    thread.start()
+    try:
+        set_slow(1)
+    finally:
+        thread.join(5)
+    assert not thread.is_alive()
+    assert clicked_during_render == [True]
+    # the exception reaches the handler on the next render (in both renderers)
+    set_other(1)
+    assert isinstance(box.children[0], widgets.HTML)
+    assert "click boom" in box.children[0].value
+    rc.close()
