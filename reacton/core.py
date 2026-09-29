@@ -1591,7 +1591,7 @@ class _RenderContext:
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
-            self.render(self.element, self.container)
+            self.render(self.element, self.container, _walk_all=False)
         else:
             logger.info("No render phase triggered, already rendering")
 
@@ -1624,9 +1624,11 @@ class _RenderContext:
         self._shared_elements_next = set()
         self.context = self.context_root
 
-    def render(self, element: Element, container: widgets.Widget = None):
+    def render(self, element: Element, container: widgets.Widget = None, *, _walk_all: bool = True):
         # render + consolidate
         widget = None
+        if _walk_all:
+            self._walk_all = True
         if container is None:
             container = self.container
         was_locked = False
@@ -2501,6 +2503,10 @@ class _RenderContextFast(_RenderContext):
     # shared element, that replaces an element of another type (see _render_arguments)
     _replacing = 0
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._reconsolidate_forced_walk = False
+
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
@@ -2518,6 +2524,8 @@ class _RenderContextFast(_RenderContext):
         self._old_element_ids.add(id(element))
         context = self.context
         assert context is not None
+        if parent_key == ROOT_KEY and default_key == "/" and context is self.context_root and self._walk_all:
+            self._reconsolidate_forced_walk = True
 
         if default_key == "/":
             # the root element of a component determines which keys are in use,
@@ -2857,7 +2865,11 @@ class _RenderContextFast(_RenderContext):
                         # With elements (a container), the kwargs resolve to widgets, so compare
                         # them with what the widget holds: equal means setting them is a no-op
                         # (and a value changed from the frontend is still set back)
-                        if el is not el_prev or not (_values_identical(kwargs, el.kwargs) or _widget_holds_values(widget_previous, kwargs)):
+                        if (
+                            self._reconsolidate_forced_walk
+                            or el is not el_prev
+                            or not (_values_identical(kwargs, el.kwargs) or _widget_holds_values(widget_previous, kwargs))
+                        ):
                             try:
                                 el._update_widget(widget_previous, el_prev, kwargs)
                             except BaseException as e:
@@ -2923,6 +2935,8 @@ class _RenderContextFast(_RenderContext):
                 self._shared_elements.add(el)
                 assert el in self._shared_elements_next
                 self._shared_elements_next.remove(el)
+            if parent_key == ROOT_KEY and default_key == "/":
+                self._reconsolidate_forced_walk = False
 
     def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):
         # NOTE: effect/cleanup exceptions are recorded on the context of the

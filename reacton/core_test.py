@@ -4088,3 +4088,27 @@ def test_effect_cleanup_exception_does_not_retry_cleaned_effect():
         assert box.children[0].value == "value 1"
     finally:
         rc.close()
+
+
+def test_rc_render_same_element_reasserts_widget_kwargs():
+    @react.component
+    def App():
+        return w.IntSlider(value=1)
+
+    slider, rc = react.render_fixed(App(), handle_error=False)
+    slider.value = 7
+    rc.render(rc.element)
+    assert slider.value == 1
+    rc.close()
+
+
+def test_force_update_reasserts_widget_kwargs():
+    @react.component
+    def App():
+        return w.IntSlider(value=1)
+
+    slider, rc = react.render_fixed(App(), handle_error=False)
+    slider.value = 7
+    rc.force_update()
+    assert slider.value == 1
+    rc.close()
