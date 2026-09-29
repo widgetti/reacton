@@ -4088,3 +4088,102 @@ def test_effect_cleanup_exception_does_not_retry_cleaned_effect():
         assert box.children[0].value == "value 1"
     finally:
         rc.close()
+
+
+def test_stale_component_cleanup_runs_before_new_sibling_effect():
+    active = None
+    set_show_old = lambda x: None  # noqa
+
+    def owner(name):
+        def effect():
+            nonlocal active
+            active = name
+
+            def cleanup():
+                nonlocal active
+                active = None
+
+            return cleanup
+
+        return effect
+
+    @react.component
+    def Old():
+        react.use_effect(owner("old"), [])
+        return w.Label(value="old")
+
+    @react.component
+    def New():
+        react.use_effect(owner("new"), [])
+        return w.Label(value="new")
+
+    @react.component
+    def App():
+        nonlocal set_show_old
+        show_old, set_show_old = react.use_state(True)
+        children = [w.Label(value="first").key("first")]
+        if show_old:
+            children.append(Old().key("old"))
+        else:
+            children.append(New().key("new"))
+        return w.VBox(children=children)
+
+    box, rc = react.render(App(), handle_error=False)
+    assert active == "old"
+    set_show_old(False)
+    assert active == "new"
+    rc.close()
+
+
+def test_stale_component_cleanup_order_with_nested_removed_components():
+    log = []
+    set_show_old = lambda x: None  # noqa
+
+    def logger(name):
+        def effect():
+            log.append(f"{name} run")
+
+            def cleanup():
+                log.append(f"{name} cleanup")
+
+            return cleanup
+
+        return effect
+
+    @react.component
+    def Inner(name):
+        react.use_effect(logger(f"{name}-inner"), [])
+        return w.Label(value=f"{name}-inner")
+
+    @react.component
+    def Old(name):
+        react.use_effect(logger(f"{name}-outer"), [])
+        return w.VBox(children=[Inner(name=name)])
+
+    @react.component
+    def New():
+        react.use_effect(logger("new"), [])
+        return w.Label(value="new")
+
+    @react.component
+    def App():
+        nonlocal set_show_old
+        show_old, set_show_old = react.use_state(True)
+        children = [w.Label(value="first").key("first")]
+        if show_old:
+            children.extend([Old(name="z").key("z"), Old(name="a").key("a")])
+        else:
+            children.append(New().key("new"))
+        return w.VBox(children=children)
+
+    box, rc = react.render(App(), handle_error=False)
+    log.clear()
+    set_show_old(False)
+    assert log == [
+        "a-outer cleanup",
+        "a-inner cleanup",
+        "z-outer cleanup",
+        "z-inner cleanup",
+        "new run",
+    ]
+    rc.close()
