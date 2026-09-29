@@ -1268,6 +1268,8 @@ def _teardown_component_context(context: ComponentContext):
     context.exceptions_self = []
     context.exceptions_children = []
     context.context_managers = []
+    context.fast_stale_effect_keys = None
+    context.fast_stale_effects_cleaned = set()
 
 
 @dataclass
@@ -2975,13 +2977,18 @@ class _RenderContextFast(_RenderContext):
 
     def _cleanup_stale_effects_for_context(self, context: "ComponentContext", parent_key: str):
         if context.fast_stale_effect_keys is None:
-            context.fast_stale_effect_keys = sorted(set(context.elements) - context.used_keys)
-        while context.fast_stale_effect_keys:
-            stale_key = context.fast_stale_effect_keys.pop(0)
-            if stale_key not in context.elements or stale_key in context.fast_stale_effects_cleaned:
-                continue
-            self.context = context
-            self._cleanup_stale_effects(context.elements[stale_key], stale_key, parent_key)
+            # reversed, so we can pop from the end and still go in sorted order
+            context.fast_stale_effect_keys = sorted(set(context.elements) - context.used_keys, reverse=True)
+        context_prev = self.context
+        try:
+            while context.fast_stale_effect_keys:
+                stale_key = context.fast_stale_effect_keys.pop()
+                if stale_key not in context.elements or stale_key in context.fast_stale_effects_cleaned:
+                    continue
+                self.context = context
+                self._cleanup_stale_effects(context.elements[stale_key], stale_key, parent_key)
+        finally:
+            self.context = context_prev
 
     def _cleanup_stale_effects(self, el: Element, default_key: str, parent_key: str):
         key = el._key
