@@ -4112,3 +4112,82 @@ def test_force_update_reasserts_widget_kwargs():
     rc.force_update()
     assert slider.value == 1
     rc.close()
+
+
+@fast_renderer_only
+def test_state_render_after_failed_forced_render_is_not_forced():
+    # only a forced render applies the element kwargs again; one that raised before
+    # reconciliation must not turn the next state-triggered render into a forced one
+    set_count = lambda x: None  # noqa
+    fail = [False]
+
+    @react.component
+    def App():
+        nonlocal set_count
+        count, set_count = react.use_state(0)
+        # the same element every render: an unforced render keeps the widget as it is
+        slider = react.use_memo(lambda: w.IntSlider(value=1), [])
+        if fail[0]:
+            raise ValueError("boom")
+        return w.VBox(children=[slider, w.Button(description=str(count))])
+
+    box, rc = react.render_fixed(App(), handle_error=False)
+    slider = rc.find(widgets.IntSlider).widget
+    fail[0] = True
+    with pytest.raises(ValueError, match="boom"):
+        set_count(1)
+    # App still needs a render, so the forced render runs it and raises again
+    with pytest.raises(ValueError, match="boom"):
+        rc.force_update()
+    fail[0] = False
+    slider.value = 7
+    set_count(2)
+    assert rc.find(widgets.Button).widget.description == "2"
+    assert slider.value == 7
+    rc.force_update()
+    assert slider.value == 1
+    rc.close()
+
+
+def test_forced_render_waiting_for_a_state_render_on_another_thread():
+    # the explicit render waits for the lock while a state-triggered render runs, and the
+    # end of that render must not undo the request for a forced walk
+    entered = threading.Event()
+    release = threading.Event()
+    set_count = lambda x: None  # noqa
+
+    @react.component
+    def Slow(count):
+        if count == 1:
+            entered.set()
+            assert release.wait(5)
+        return w.Label(value=str(count))
+
+    @react.component
+    def App():
+        nonlocal set_count
+        count, set_count = react.use_state(0)
+        slider = react.use_memo(lambda: w.IntSlider(value=1), [])
+        return w.VBox(children=[slider, Slow(count=count)])
+
+    box, rc = react.render_fixed(App(), handle_error=False)
+    slider = rc.find(widgets.IntSlider).widget
+    state_thread = threading.Thread(target=lambda: set_count(1))
+    state_thread.start()
+    forced_thread = None
+    try:
+        assert entered.wait(5)
+        slider.value = 7
+        forced_thread = threading.Thread(target=lambda: rc.render(rc.element))
+        forced_thread.start()
+        # give it time to block on the render lock
+        time.sleep(0.2)
+    finally:
+        release.set()
+        state_thread.join(5)
+        if forced_thread is not None:
+            forced_thread.join(5)
+    assert not state_thread.is_alive()
+    assert forced_thread is not None and not forced_thread.is_alive()
+    assert slider.value == 1
+    rc.close()

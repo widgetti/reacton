@@ -1327,6 +1327,11 @@ class _RenderContext:
         # when set, the next render phase walks the whole tree instead of
         # skipping subtrees in which no state changed (see _render)
         self._walk_all = True
+        # set (per thread) while a render runs because state changed: such a render does not
+        # force a full walk, an explicit render() does (see render)
+        self._state_render = threading.local()
+        # fast renderer: this render is forced, so reconciliation applies all widget kwargs again
+        self._reconsolidate_forced_walk = False
         if initial_state:
             self.state_set(self.context_root, initial_state)
 
@@ -1591,7 +1596,11 @@ class _RenderContext:
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
-            self.render(self.element, self.container, _walk_all=False)
+            self._state_render.active = True
+            try:
+                self.render(self.element, self.container)
+            finally:
+                self._state_render.active = False
         else:
             logger.info("No render phase triggered, already rendering")
 
@@ -1624,11 +1633,9 @@ class _RenderContext:
         self._shared_elements_next = set()
         self.context = self.context_root
 
-    def render(self, element: Element, container: widgets.Widget = None, *, _walk_all: bool = True):
+    def render(self, element: Element, container: widgets.Widget = None):
         # render + consolidate
         widget = None
-        if _walk_all:
-            self._walk_all = True
         if container is None:
             container = self.container
         was_locked = False
@@ -1651,6 +1658,10 @@ class _RenderContext:
                 # torn down, there is nothing to render into anymore
                 logger.info("Render requested on a closing/closed render context, ignoring")
                 return container
+            if not getattr(self._state_render, "active", False):
+                # an explicit render(), like force_update() and update(), walks the whole tree;
+                # set under the lock, so a render on another thread cannot reset it
+                self._walk_all = True
             prev_rc = getattr(local, "rc", None)
             # an exception that escapes while this is True aborted a render pass (see the except below)
             in_render_phase = True
@@ -1805,6 +1816,8 @@ class _RenderContext:
             finally:
                 local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
+                # a forced render that raised before reconciliation must not force the next one
+                self._reconsolidate_forced_walk = False
                 # clear before the lock is released: a stale _lock_thread makes the
                 # recursion guard above fire for a thread that merely rendered last,
                 # while a *different* thread holds the lock (false "Recursive render")
@@ -2502,10 +2515,6 @@ class _RenderContextFast(_RenderContext):
     # > 0 while the render phase walks the new children of a widget, or the arguments of a
     # shared element, that replaces an element of another type (see _render_arguments)
     _replacing = 0
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._reconsolidate_forced_walk = False
 
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
