@@ -43,6 +43,17 @@ def _random_app(registry, log):
         return w.Button(description=f"leaf {id} {value}")
 
     @react.component
+    def EffectLeaf(id):
+        # a leaf with an effect: however its containers change, the effect must run once
+        # while it stays in the tree, and be cleaned up once when it leaves
+        def effect():
+            log.append(("keyed effect", id))
+            return lambda: log.append(("keyed cleanup", id))
+
+        react.use_effect(effect, [])
+        return Leaf(id)
+
+    @react.component
     def Wrapper(id):
         return Leaf(id * 7 + 1)
 
@@ -75,13 +86,28 @@ def _random_app(registry, log):
         # that moves between two sibling containers whose types flip
         state, set_state = react.use_state(0)
         registry[id] = set_state
-        child = react.use_memo(lambda: Leaf(id * 3 + 2).key(f"moved {id}"), [])
+        child = react.use_memo(lambda: EffectLeaf(id * 3 + 2).key(f"moved {id}"), [])
         kind = h(id, state) % 8
         First = w.HBox if kind & 2 else w.VBox
         Second = w.HBox if kind & 4 else w.VBox
         if kind & 1:
             return w.VBox(children=[First(children=[child]).key("first"), Second(children=[]).key("second")])
         return w.VBox(children=[First(children=[]).key("first"), Second(children=[child]).key("second")])
+
+    @react.component
+    def Unwrapper(id):
+        # a child with an explicit key inside 0, 1 or 2 wrapper containers: when a wrapper
+        # goes away (or comes back), the child stays in the tree at another level
+        state, set_state = react.use_state(0)
+        registry[id] = set_state
+        memo_child = react.use_memo(lambda: EffectLeaf(id * 3 + 2).key(f"unwrapped {id}"), [])
+        kind = h(id, state) % 12
+        child = memo_child if kind & 1 else EffectLeaf(id * 3 + 2).key(f"unwrapped {id}")
+        Wrapper = w.HBox if kind & 2 else w.VBox
+        element = child
+        for i in range((kind >> 2) % 3):
+            element = Wrapper(children=[element])
+        return w.VBox(children=[element])
 
     @react.component
     def Node(id, depth):
@@ -114,6 +140,8 @@ def _random_app(registry, log):
                 child = Catcher(child_id)
             elif r < 0.8:
                 child = Mover(child_id)
+            elif r < 0.9:
+                child = Unwrapper(child_id)
             else:
                 child = Leaf(child_id)
             if rnd.random() < 0.3:
@@ -147,7 +175,7 @@ def _run_random_updates(fast: bool, seed: int, steps: int, batches: Optional[Lis
     record = batches is None
     batches = [] if batches is None else batches
     choices = random.Random(seed)
-    results = []
+    results: List[Any] = []
     with unittest.mock.patch.dict(os.environ, {"REACTON_FAST": "1" if fast else "0"}):
         widget, rc = react.render_fixed(Node(1, 0), handle_error=False)
         assert isinstance(rc, core._RenderContextFast) == fast
@@ -162,7 +190,10 @@ def _run_random_updates(fast: bool, seed: int, steps: int, batches: Optional[Lis
                     if id in registry:
                         registry[id](value)
             results.append((_widget_signature(rc.last_root_widget), sorted(registry), list(log)))
+        log.clear()
         rc.close()
+        # every effect that ran is cleaned up once, in the same order
+        results.append(("close", list(log)))
     return results, batches
 
 
@@ -179,4 +210,4 @@ def test_renderers_agree_on_random_updates(seed):
     finally:
         core.logger.setLevel(level)
     for step, (a, b) in enumerate(zip(expected, got)):
-        assert a == b, f"step {step}, batch {batches[step]}"
+        assert a == b, f"step {step}, batch {batches[step]}" if step < len(batches) else "close"
