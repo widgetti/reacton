@@ -2505,6 +2505,12 @@ class _RenderContextFast(_RenderContext):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
 
+    def _has_effect_work(self, context: "ComponentContext") -> bool:
+        for effect in context.effects:
+            if not effect.executed or effect.next is not None:
+                return True
+        return False
+
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
             raise TypeError(f"Expected element, not {element}")
@@ -2572,6 +2578,7 @@ class _RenderContextFast(_RenderContext):
             and context.children.get(key) is context_previous
             and not context_previous.needs_render
             and not context_previous.needs_render_descendant
+            and not self._has_effect_work(context_previous)
             and not context_previous.exceptions_self
             and not context_previous.exceptions_children
             and context_previous.root_element is not None

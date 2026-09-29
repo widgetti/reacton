@@ -3973,3 +3973,118 @@ def test_event_handler_exception_while_other_thread_renders():
     assert isinstance(box.children[0], widgets.HTML)
     assert "click boom" in box.children[0].value
     rc.close()
+
+
+def test_failed_root_effect_is_retried_on_later_tree_walk():
+    log = []
+    fail = [False]
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+
+        def effect():
+            log.append(value)
+            if fail[0]:
+                raise RuntimeError("effect boom")
+
+        react.use_effect(effect, [value])
+        return w.Label(value=f"value {value}")
+
+    box, rc = react.render(App(), handle_error=False)
+    try:
+        assert log == [0]
+
+        fail[0] = True
+        with pytest.raises(RuntimeError, match="effect boom"):
+            set_value(1)
+        assert log == [0, 1]
+
+        fail[0] = False
+        rc.render(rc.element)
+        assert log == [0, 1, 1]
+        assert box.children[0].value == "value 1"
+    finally:
+        rc.close()
+
+
+def test_failed_effect_in_memoized_child_is_retried_on_later_tree_walk():
+    log = []
+    fail = [False]
+    set_child_value = lambda x: None  # noqa
+
+    @react.component
+    def Child():
+        nonlocal set_child_value
+        value, set_child_value = react.use_state(0)
+
+        def effect():
+            log.append(value)
+            if fail[0]:
+                raise RuntimeError("child effect boom")
+
+        react.use_effect(effect, [value])
+        return w.Label(value=f"child {value}")
+
+    @react.component
+    def App():
+        child = react.use_memo(lambda: Child(), [])
+        return w.VBox(children=[child])
+
+    box, rc = react.render(App(), handle_error=False)
+    try:
+        assert log == [0]
+
+        fail[0] = True
+        with pytest.raises(RuntimeError, match="child effect boom"):
+            set_child_value(1)
+        assert log == [0, 1]
+
+        fail[0] = False
+        rc.render(rc.element)
+        assert log == [0, 1, 1]
+        assert box.children[0].children[0].value == "child 1"
+    finally:
+        rc.close()
+
+
+def test_effect_cleanup_exception_does_not_retry_cleaned_effect():
+    log = []
+    fail_cleanup = [False]
+    set_value = lambda x: None  # noqa
+
+    @react.component
+    def App():
+        nonlocal set_value
+        value, set_value = react.use_state(0)
+
+        def effect():
+            log.append(f"effect {value}")
+
+            def cleanup():
+                log.append(f"cleanup {value}")
+                if fail_cleanup[0]:
+                    raise RuntimeError("cleanup boom")
+
+            return cleanup
+
+        react.use_effect(effect, [value])
+        return w.Label(value=f"value {value}")
+
+    box, rc = react.render(App(), handle_error=False)
+    try:
+        assert log == ["effect 0"]
+
+        fail_cleanup[0] = True
+        with pytest.raises(RuntimeError, match="cleanup boom"):
+            set_value(1)
+        assert log == ["effect 0", "cleanup 0", "effect 1"]
+
+        fail_cleanup[0] = False
+        rc.render(rc.element)
+        assert log == ["effect 0", "cleanup 0", "effect 1"]
+        assert box.children[0].value == "value 1"
+    finally:
+        rc.close()
