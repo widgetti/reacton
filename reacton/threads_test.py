@@ -282,3 +282,32 @@ def test_own_render_loop_stops_after_about_50_passes():
         setters["a"](1)
     assert len(renders) < 60, len(renders)
     rc.close()
+
+
+def test_force_update_after_the_last_look_is_rendered():
+    # force_update() from another thread, just after the render loop took its last look (an event
+    # handler that routes an exception to the render does this). It must mark before it looks at
+    # _is_rendering, like a setter, or the render that is ending does not see it, and no render
+    # follows. update() does the same (it calls force_update()).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    other = threading.Thread(target=rc.force_update)
+
+    def force_update_on_other_thread():
+        rc._on_render_loop_done = None
+        other.start()
+        other.join(TIMEOUT)
+
+    rc._on_render_loop_done = force_update_on_other_thread
+    render_count = rc.render_count
+    setters["a"](1)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert rc.render_count == render_count + 2, "no render for the forced update"  # a=1, then the forced update
+    rc.close()
