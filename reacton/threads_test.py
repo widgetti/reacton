@@ -1,6 +1,8 @@
 import logging
 import threading
 
+import pytest
+
 import reacton
 import reacton.ipywidgets as w
 
@@ -72,16 +74,18 @@ def test_state_changes_from_another_thread_are_not_a_render_loop():
     rc.close()
 
 
-def test_setter_that_holds_a_user_lock_does_not_deadlock_with_a_render():
-    # Another thread holds its own lock while it sets state, and the render on this thread takes that
-    # lock in an effect. If the setter waits for the render lock (held by this thread), this thread
-    # waits for the user lock (held by the setter): a deadlock. The effect uses a timeout to break it.
+@pytest.mark.parametrize("request_render", ["set_state", "update", "render", "force_update"])
+def test_render_request_while_holding_a_user_lock_does_not_deadlock(request_render):
+    # Another thread holds its own lock while it asks for a render (a state change, update(), render()
+    # or force_update()), and the render on this thread takes that lock in an effect. If the other
+    # thread waits for the render lock (held by this thread), this thread waits for the user lock
+    # (held by the other thread): a deadlock. The effect uses a timeout to break it.
     user_lock = threading.RLock()
     deadlocked = []
     setters = {}
 
     @reacton.component
-    def Test():
+    def Test(label=""):
         a, setters["a"] = reacton.use_state(0)
         b, setters["b"] = reacton.use_state(0)
 
@@ -92,37 +96,44 @@ def test_setter_that_holds_a_user_lock_does_not_deadlock_with_a_render():
                 deadlocked.append(True)
 
         reacton.use_effect(effect, [a])
-        return w.Button(description=f"{a} {b}")
+        return w.Button(description=f"{label}{a} {b}")
 
     box, rc = reacton.render(Test(), handle_error=False)
+    requests = {
+        "set_state": lambda: setters["b"](1),
+        "update": lambda: rc.update(Test(label="new ")),
+        "render": lambda: rc.render(Test(label="new ")),
+        "force_update": lambda: rc.force_update(),
+    }
+    expected = {"set_state": "1 1", "update": "new 1 0", "render": "new 1 0", "force_update": "1 0"}
 
-    def set_b_holding_user_lock():
+    def request_holding_user_lock():
         with user_lock:
-            setters["b"](1)
+            requests[request_render]()
 
-    other = threading.Thread(target=set_b_holding_user_lock)
+    other = threading.Thread(target=request_holding_user_lock)
 
-    class SetBAtRenderStart(logging.Filter):
+    class RequestAtRenderStart(logging.Filter):
         # "Render phase: " is logged after the render took the render lock, but before it renders
         def filter(self, record):
             if str(record.msg).startswith("Render phase: ") and other.ident is None:
                 other.start()
-                # returns at once when the setter does not wait for the render lock
+                # returns at once when the other thread does not wait for the render lock
                 other.join(0.5)
             return True
 
     logger = logging.getLogger("reacton")
     level = logger.level
-    set_b = SetBAtRenderStart()
+    request = RequestAtRenderStart()
     logger.setLevel(logging.INFO)
-    logger.addFilter(set_b)
+    logger.addFilter(request)
     try:
         setters["a"](1)
     finally:
-        logger.removeFilter(set_b)
+        logger.removeFilter(request)
         logger.setLevel(level)
     other.join(TIMEOUT)
     assert not other.is_alive()
-    assert not deadlocked, "the setter waited for the render lock while it held the user lock"
-    assert box.children[0].description == "1 1"
+    assert not deadlocked, "the other thread waited for the render lock while it held the user lock"
+    assert box.children[0].description == expected[request_render]
     rc.close()

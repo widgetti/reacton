@@ -1344,6 +1344,9 @@ class _RenderContext:
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
+        # the last requested root element: the thread that holds the render lock copies it to
+        # self.element at the start of each pass (see render)
+        self._element_next = element
         self.container = container
         self.children_next_trait = children_trait
         self.first_render = True
@@ -1454,6 +1457,7 @@ class _RenderContext:
             # widgets reference their elements, whose kwargs hold user callbacks - which
             # capture use_state setters and therefore this render context
             self.element = None  # type: ignore
+            self._element_next = None  # type: ignore
             self.container = None
             self.last_root_widget = None
             self._old_element_ids.clear()
@@ -1607,7 +1611,7 @@ class _RenderContext:
         # a forced update re-walks the whole tree, no subtree skipping
         self._walk_all = True
         if not self._is_rendering:
-            self.render(self.element, self.container)
+            self.render()
 
     def use_effect(self, effect: EffectCallable, dependencies=None):
         assert self.context is not None
@@ -1631,17 +1635,15 @@ class _RenderContext:
     def update(self, element: Element):
         self._walk_all = True
         if self._is_rendering:
-            self.element = element
+            self._element_next = element
             self._rerender_needed_reasons.append(RerenderReason(reason="root element changed"))
             self._rerender_needed = True
         else:
-            self.render(element, self.container)
+            self.render(element)
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
-            # do not wait for the render lock: the caller (a setter) may hold a lock that the render
-            # needs. The thread that holds the render lock renders our change (see render).
-            self.render(self.element, self.container, wait=False)
+            self.render()
         else:
             logger.info("No render phase triggered, already rendering")
 
@@ -1674,31 +1676,30 @@ class _RenderContext:
         self._shared_elements_next = set()
         self.context = self.context_root
 
-    def render(self, element: Element, container: widgets.Widget = None, wait: bool = True):
+    def render(self, element: Optional[Element] = None, container: widgets.Widget = None):
         # render + consolidate
+        # We never wait for the render lock: the caller may hold a lock that the render needs (a
+        # deadlock). So we first mark the request, then only try the lock. When another thread holds
+        # it, that thread renders the request: it takes _element_next at the start of each pass, and
+        # looks at _rerender_needed again after it released the lock (at the end of this method).
+        if self._lock_thread == threading.current_thread():
+            raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
         widget = None
         if container is None:
             container = self.container
+        if element is not None:
+            self._element_next = element
+        if self._rerender_needed is False:
+            self._rerender_needed_reasons.append(RerenderReason(reason="render requested"))
+            self._rerender_needed = True
         locked = False
         try:
             # acquire inside the try, in one statement with the assignment: an exception raised
             # on the next line (an interrupt, a cancel from a trace function) still releases the lock
             locked = self.thread_lock.acquire(blocking=False)
             if not locked:
-                if self._lock_thread == threading.current_thread():
-                    raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
-                if not wait:
-                    # the thread that holds the lock looks at _rerender_needed after it released the
-                    # lock (at the end of this method), and renders our change
-                    logger.info("Render phase in progress in thread %r, leaving the render to it", self._lock_thread)
-                    return container
-                logger.info(
-                    "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
-                    self._lock_thread,
-                    threading.current_thread(),
-                )
-                locked = self.thread_lock.acquire()
-                logger.info("Mutex released, continuing render phase")
+                logger.info("Render phase in progress in thread %r, leaving the render to it", self._lock_thread)
+                return container
             self._lock_thread = threading.current_thread()
             if self._closing or self.context is None:
                 # close() won the race for the lock (a disconnect can close the
@@ -1711,11 +1712,11 @@ class _RenderContext:
             in_render_phase = True
             try:
                 local.rc = self
-                self.element = element
-                del element
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
+                # clear before taking the element: a request that comes in between is seen by the loop
                 self._rerender_needed = False
+                self.element = self._element_next
                 logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
                 self._is_rendering = True
@@ -1766,6 +1767,7 @@ class _RenderContext:
                                 raise RuntimeError(msg)
                             logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
                             self._rerender_needed = False
+                            self.element = self._element_next
                             self._shared_elements_next = set()
                             self.context.exception_handler = False
                             self.context.exceptions_children = []
@@ -1896,9 +1898,9 @@ class _RenderContext:
                 return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
             else:
                 raise exc
-        # A setter on another thread sets _rerender_needed, and leaves the render to us while we render
-        # or hold the render lock. We released the lock above, and look again now: either we see its
-        # change here, or the setter got the lock and renders the change itself.
+        # A request from another thread (a setter, update(), render()) sets _rerender_needed, and leaves
+        # the render to us while we render or hold the render lock. We released the lock above, and look
+        # again now: either we see the request here, or that thread got the lock and renders it itself.
         if self._rerender_needed:
             self._possible_rerender()
         return widget
