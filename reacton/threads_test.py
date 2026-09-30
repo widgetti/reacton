@@ -1,3 +1,4 @@
+import logging
 import threading
 
 import reacton
@@ -68,4 +69,60 @@ def test_state_changes_from_another_thread_are_not_a_render_loop():
     other.join(TIMEOUT)
     assert not other.is_alive()
     assert box.children[0].description == f"1 {n}"
+    rc.close()
+
+
+def test_setter_that_holds_a_user_lock_does_not_deadlock_with_a_render():
+    # Another thread holds its own lock while it sets state, and the render on this thread takes that
+    # lock in an effect. If the setter waits for the render lock (held by this thread), this thread
+    # waits for the user lock (held by the setter): a deadlock. The effect uses a timeout to break it.
+    user_lock = threading.RLock()
+    deadlocked = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        b, setters["b"] = reacton.use_state(0)
+
+        def effect():
+            if user_lock.acquire(timeout=2):
+                user_lock.release()
+            else:
+                deadlocked.append(True)
+
+        reacton.use_effect(effect, [a])
+        return w.Button(description=f"{a} {b}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+
+    def set_b_holding_user_lock():
+        with user_lock:
+            setters["b"](1)
+
+    other = threading.Thread(target=set_b_holding_user_lock)
+
+    class SetBAtRenderStart(logging.Filter):
+        # "Render phase: " is logged after the render took the render lock, but before it renders
+        def filter(self, record):
+            if str(record.msg).startswith("Render phase: ") and other.ident is None:
+                other.start()
+                # returns at once when the setter does not wait for the render lock
+                other.join(0.5)
+            return True
+
+    logger = logging.getLogger("reacton")
+    level = logger.level
+    set_b = SetBAtRenderStart()
+    logger.setLevel(logging.INFO)
+    logger.addFilter(set_b)
+    try:
+        setters["a"](1)
+    finally:
+        logger.removeFilter(set_b)
+        logger.setLevel(level)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert not deadlocked, "the setter waited for the render lock while it held the user lock"
+    assert box.children[0].description == "1 1"
     rc.close()

@@ -1639,7 +1639,9 @@ class _RenderContext:
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
-            self.render(self.element, self.container)
+            # do not wait for the render lock: the caller (a setter) may hold a lock that the render
+            # needs. The thread that holds the render lock renders our change (see render).
+            self.render(self.element, self.container, wait=False)
         else:
             logger.info("No render phase triggered, already rendering")
 
@@ -1672,25 +1674,32 @@ class _RenderContext:
         self._shared_elements_next = set()
         self.context = self.context_root
 
-    def render(self, element: Element, container: widgets.Widget = None):
+    def render(self, element: Element, container: widgets.Widget = None, wait: bool = True):
         # render + consolidate
         widget = None
         if container is None:
             container = self.container
-        was_locked = False
-        if self.thread_lock.locked():
-            if self._lock_thread == threading.current_thread():
-                raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
-            logger.info(
-                "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
-                self._lock_thread,
-                threading.current_thread(),
-            )
-            was_locked = True
-        with self.thread_lock:
-            self._lock_thread = threading.current_thread()
-            if was_locked:
+        locked = False
+        try:
+            # acquire inside the try, in one statement with the assignment: an exception raised
+            # on the next line (an interrupt, a cancel from a trace function) still releases the lock
+            locked = self.thread_lock.acquire(blocking=False)
+            if not locked:
+                if self._lock_thread == threading.current_thread():
+                    raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
+                if not wait:
+                    # the thread that holds the lock looks at _rerender_needed after it released the
+                    # lock (at the end of this method), and renders our change
+                    logger.info("Render phase in progress in thread %r, leaving the render to it", self._lock_thread)
+                    return container
+                logger.info(
+                    "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
+                    self._lock_thread,
+                    threading.current_thread(),
+                )
+                locked = self.thread_lock.acquire()
                 logger.info("Mutex released, continuing render phase")
+            self._lock_thread = threading.current_thread()
             if self._closing or self.context is None:
                 # close() won the race for the lock (a disconnect can close the
                 # kernel while an update was waiting to render): the tree is
@@ -1825,13 +1834,7 @@ class _RenderContext:
                             # an exception bubbled up during reconsolidate
                             break
 
-                        # A setter on another thread sets _rerender_needed and then reads _is_rendering:
-                        # while that is True, it leaves the render to us. So clear _is_rendering before
-                        # the last look at _rerender_needed: either we see its change here, or the setter
-                        # sees that we are done and renders the change itself.
-                        self._is_rendering = False
                         if self._rerender_needed:
-                            self._is_rendering = True
                             logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
                             stable = False
                         else:
@@ -1869,6 +1872,9 @@ class _RenderContext:
                 # while a *different* thread holds the lock (false "Recursive render")
                 self._lock_thread = None
                 assert self.context is self.context_root
+        finally:
+            if locked:
+                self.thread_lock.release()
 
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         if exceptions:
@@ -1890,6 +1896,11 @@ class _RenderContext:
                 return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
             else:
                 raise exc
+        # A setter on another thread sets _rerender_needed, and leaves the render to us while we render
+        # or hold the render lock. We released the lock above, and look again now: either we see its
+        # change here, or the setter got the lock and renders the change itself.
+        if self._rerender_needed:
+            self._possible_rerender()
         return widget
 
     def _render(self, element: Element, default_key: str, parent_key: str):
