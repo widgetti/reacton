@@ -4304,3 +4304,108 @@ def test_keyed_child_out_of_removed_wrapper_keeps_its_effects():
     assert log == ["run"]
     rc.close()
     assert log == ["run", "cleanup"]
+
+
+def test_widget_construction_does_not_block_other_threads():
+    # A widget construction that blocks (in a server: the comm_open send to a client that stopped
+    # reading) used to hold a process wide lock, so no other thread could create widgets.
+    entered, release = threading.Event(), threading.Event()
+
+    class BlockingButton(ipywidgets.Button):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            if threading.current_thread().name == "slow":
+                entered.set()
+                release.wait(10)
+
+    BlockingButtonElement = reacton.core.ComponentWidget(BlockingButton)
+
+    @reacton.component
+    def Slow():
+        return BlockingButtonElement(description="slow")
+
+    @reacton.component
+    def Fast():
+        return w.Button(description="fast")
+
+    results: dict = {}
+
+    def render(name, component):
+        results[name] = reacton.render(component(), handle_error=False)
+
+    slow = threading.Thread(target=render, args=("slow", Slow), name="slow", daemon=True)
+    slow.start()
+    try:
+        assert entered.wait(10)
+        fast = threading.Thread(target=render, args=("fast", Fast), name="fast", daemon=True)
+        fast.start()
+        fast.join(5)
+        assert "fast" in results, "widget creation waited for a widget construction on another thread"
+    finally:
+        release.set()
+        slow.join(10)
+    for name in ["slow", "fast"]:
+        box, rc = results[name]
+        button = box.children[0]
+        # side-effect widgets are still attributed to their own render context
+        assert rc._orphans[button.model_id] == {button.layout.model_id, button.style.model_id}
+        rc.close()
+
+
+def test_widget_created_by_another_thread_is_not_an_orphan():
+    # the recording is per thread: a widget that user code creates on another thread while a
+    # render constructs a widget must not be recorded as that widget's side effect (and closed
+    # with it)
+    entered, release = threading.Event(), threading.Event()
+
+    class BlockingButton(ipywidgets.Button):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            entered.set()
+            release.wait(10)
+
+    BlockingButtonElement = reacton.core.ComponentWidget(BlockingButton)
+
+    @reacton.component
+    def Slow():
+        return BlockingButtonElement(description="slow")
+
+    results: dict = {}
+    render = threading.Thread(target=lambda: results.update(result=reacton.render(Slow(), handle_error=False)), daemon=True)
+    render.start()
+    try:
+        assert entered.wait(10)
+        unrelated = ipywidgets.IntSlider()
+    finally:
+        release.set()
+        render.join(10)
+    box, rc = results["result"]
+    button = box.children[0]
+    assert unrelated.model_id not in rc._orphans[button.model_id]
+    rc.close()
+    assert unrelated.comm is not None, "a widget of another thread was closed as an orphan"
+    for widget in [unrelated, unrelated.layout, unrelated.style]:
+        widget.close()
+
+
+def test_record_constructed_nested():
+    # a widget whose constructor renders reacton records in its own list, and the outer recording
+    # continues afterwards
+    outer: list = []
+    inner: list = []
+    previous_outer = core._start_recording_constructed(outer)
+    try:
+        before = ipywidgets.Button()
+        previous_inner = core._start_recording_constructed(inner)
+        try:
+            nested = ipywidgets.Button()
+        finally:
+            core._stop_recording_constructed(previous_inner)
+        after = ipywidgets.Button()
+    finally:
+        core._stop_recording_constructed(previous_outer)
+    assert core._construction_recording.constructed is None
+    assert before in outer and after in outer and nested not in outer
+    assert nested in inner and before not in inner
+    for widget in outer + inner:
+        widget.close()
