@@ -1355,6 +1355,9 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
+        self._state_set_by_other_thread = False
+        # used for tests only: called when a render loop is done, right after its last look at _rerender_needed
+        self._on_render_loop_done: Optional[Callable[[], None]] = None
         # the reasons are only read for the "too many renders" error message, and a reason
         # holds the previous and next state value: keeping all of them kept every old state
         # value alive until close(). REACTON_RERENDER_REASONS keeps more, for debugging.
@@ -1574,6 +1577,9 @@ class _RenderContext:
                 # TODO: enable
                 context.needs_render = True
                 _mark_needs_render_ancestors(context)
+                if self._lock_thread is not threading.current_thread():
+                    # not part of the render loop of the thread that renders (see render)
+                    self._state_set_by_other_thread = True
                 if self._rerender_needed is False:
                     if DEBUG:
                         trigger_stack = traceback.format_stack()
@@ -1729,6 +1735,11 @@ class _RenderContext:
                         # we started the rendering loop (main_render_phase is True), so we keep going
                         # but if an exception bubbled up, we should stop
                         while self._rerender_needed and not self.context_root.exceptions_children:
+                            if self._state_set_by_other_thread:
+                                # another thread changed state during the last pass (a progress update
+                                # for instance): that is not a render loop, so start counting again
+                                self._state_set_by_other_thread = False
+                                render_counts = 0
                             if render_counts > 50:
 
                                 def format(reason: RerenderReason):
@@ -1814,11 +1825,19 @@ class _RenderContext:
                             # an exception bubbled up during reconsolidate
                             break
 
+                        # A setter on another thread sets _rerender_needed and then reads _is_rendering:
+                        # while that is True, it leaves the render to us. So clear _is_rendering before
+                        # the last look at _rerender_needed: either we see its change here, or the setter
+                        # sees that we are done and renders the change itself.
+                        self._is_rendering = False
                         if self._rerender_needed:
+                            self._is_rendering = True
                             logger.info("Need rerender after reconsolidation: %r", self._rerender_needed_reasons[-1])
                             stable = False
                         else:
                             stable = True
+                            if self._on_render_loop_done is not None:
+                                self._on_render_loop_done()
 
                     self._is_rendering = False
                 self.context = context_prev
