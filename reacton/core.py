@@ -1618,6 +1618,11 @@ class _RenderContext:
             return
         # a forced update re-walks the whole tree, no subtree skipping
         self._walk_all = True
+        # mark before we look at _is_rendering, like a setter: a render that is ending then sees the
+        # mark after it released the lock (see render), or we see that no render runs
+        if self._rerender_needed is False:
+            self._rerender_needed_reasons.append(RerenderReason(reason="forced update"))
+            self._rerender_needed = True
         if not self._is_rendering:
             self.render()
 
@@ -1641,13 +1646,9 @@ class _RenderContext:
             self.context.effect_index += 1
 
     def update(self, element: Element):
-        self._walk_all = True
-        if self._is_rendering:
-            self._element_next = element
-            self._rerender_needed_reasons.append(RerenderReason(reason="root element changed"))
-            self._rerender_needed = True
-        else:
-            self.render(element)
+        # the element first: force_update marks, and the render takes _element_next after it saw the mark
+        self._element_next = element
+        self.force_update()
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
