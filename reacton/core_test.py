@@ -4409,3 +4409,31 @@ def test_record_constructed_nested():
     assert nested in inner and before not in inner
     for widget in outer + inner:
         widget.close()
+
+
+def test_close_after_a_failed_render_of_a_deep_tree_is_fast():
+    # After a render that failed, a component context can be in both children and children_next of
+    # its parent. close() visited such a context once for every path to it: twice per level, 2**depth
+    # visits, which hangs for a deep tree.
+    depth = 22
+    setters = {}
+
+    def make(n):
+        @react.component
+        def Level():
+            if n == 0:
+                value, setters["value"] = react.use_state(0)
+                if value == 1:
+                    raise ValueError("fail")
+                return w.Button(description="leaf")
+            return w.VBox(children=[make(n - 1)()])
+
+        return Level
+
+    box, rc = react.render(make(depth)(), handle_error=False)
+    with pytest.raises(ValueError):
+        setters["value"](1)
+    start = time.monotonic()
+    with pytest.raises(ValueError):
+        rc.close()  # close() raises the error of the failed render again
+    assert time.monotonic() - start < 2
