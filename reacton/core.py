@@ -88,30 +88,43 @@ _get_widgets_dict = _widgets_dict_getter()
 # via the widget constructed hook: diffing the global widgets dict per widget
 # creation is O(total widgets), and solara replaces that dict with a context
 # aware mapping we should not depend on.
-_construction_recording: Optional[List["widgets.Widget"]] = None
+# The recording is per thread, so no lock is held while a widget is constructed:
+# construction opens a comm, and in a server that send can wait for a slow client,
+# which with a process wide lock stalled widget creation on every other thread.
+class _ConstructionRecording(threading.local):
+    # where the widgets constructed on this thread go, between _start_recording_constructed and
+    # _stop_recording_constructed
+    constructed: Optional[List["widgets.Widget"]] = None
+
+
+_construction_recording = _ConstructionRecording()
 _chained_construction_callback: Optional[Callable] = None
 
 
 def _record_constructed_widget(widget: "widgets.Widget"):
-    if _construction_recording is not None:
-        _construction_recording.append(widget)
+    constructed = _construction_recording.constructed
+    if constructed is not None:
+        constructed.append(widget)
     if _chained_construction_callback is not None:
         _chained_construction_callback(widget)
 
 
-def _start_recording_constructed(recording: List["widgets.Widget"]):
-    global _construction_recording, _chained_construction_callback
+def _start_recording_constructed(recording: List["widgets.Widget"]) -> Optional[List["widgets.Widget"]]:
+    """Record the widgets this thread constructs; returns what to pass to _stop_recording_constructed."""
+    global _chained_construction_callback
     current = getattr(widgets.Widget, "_widget_construction_callback", None)
     if current is not _record_constructed_widget:
         # first time, or someone else registered a callback after us: chain it
         _chained_construction_callback = current
         widgets.Widget.on_widget_constructed(_record_constructed_widget)
-    _construction_recording = recording
+    # a widget whose constructor renders records in its own list; the outer recording continues afterwards
+    previous = _construction_recording.constructed
+    _construction_recording.constructed = recording
+    return previous
 
 
-def _stop_recording_constructed():
-    global _construction_recording
-    _construction_recording = None
+def _stop_recording_constructed(previous: Optional[List["widgets.Widget"]]):
+    _construction_recording.constructed = previous
 
 
 _last_rc = None  # used for testing
@@ -334,7 +347,6 @@ class Element(Generic[W]):
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
     _callback_wrappers: Dict[Tuple[str, str, Callable], Callable] = {}
-    create_lock: ContextManager = threading.Lock()
     _shared = False
 
     def __init__(self, component, args=None, kwargs=None):
@@ -499,32 +511,30 @@ class Element(Generic[W]):
         # we can't use our own kwarg, since that contains elements, not widgets
         kwargs, listeners = self._split_kwargs(kwargs)
         assert isinstance(self.component, ComponentWidget)
-        # The recording is global state, so we need a lock.
-        with self.create_lock:
-            rc = get_render_context(required=True)
-            recorded: List[widgets.Widget] = []
-            _start_recording_constructed(recorded)
+        rc = get_render_context(required=True)
+        recorded: List[widgets.Widget] = []
+        previous_recording = _start_recording_constructed(recorded)
+        try:
             try:
-                try:
-                    widget = self.component.widget(**kwargs)
-                    hold_trait_notifications = widget.hold_trait_notifications
+                widget = self.component.widget(**kwargs)
+                hold_trait_notifications = widget.hold_trait_notifications
 
-                    @contextlib.contextmanager
-                    def hold_trait_notifications_extra(*args, **kwargs):
-                        with rc, hold_trait_notifications(*args, **kwargs):
-                            yield
+                @contextlib.contextmanager
+                def hold_trait_notifications_extra(*args, **kwargs):
+                    with rc, hold_trait_notifications(*args, **kwargs):
+                        yield
 
-                    widget.hold_trait_notifications = hold_trait_notifications_extra
+                widget.hold_trait_notifications = hold_trait_notifications_extra
 
-                    if self._meta:
-                        widget._react_meta = dict(self._meta)
-                except Exception as e:
-                    raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
-                for name, callback in listeners.items():
-                    if callback is not None:
-                        self._add_widget_event_listener(widget, name, callback)
-            finally:
-                _stop_recording_constructed()
+                if self._meta:
+                    widget._react_meta = dict(self._meta)
+            except Exception as e:
+                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
+            for name, callback in listeners.items():
+                if callback is not None:
+                    self._add_widget_event_listener(widget, name, callback)
+        finally:
+            _stop_recording_constructed(previous_recording)
         widgets_dict = _get_widgets_dict()
         orphans = {w.model_id for w in recorded if w is not widget and w.comm is not None and w.model_id in widgets_dict}
         return widget, orphans
