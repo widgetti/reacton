@@ -1416,7 +1416,15 @@ class _RenderContext:
     _find = find  # for backward compatibility
 
     def close(self):
+        # close() waits for the render lock, so it cannot run in its own render: it would wait for itself
+        if self._lock_thread == threading.current_thread():
+            raise RuntimeError("close() called during a render of this render context, current thread: %r" % threading.current_thread())
+        if self._closing:
+            # closed or closing: a second close(), or an effect cleanup that calls close() during close()
+            return
         with self.thread_lock:
+            if self._closing:
+                return  # another thread closed us while we waited for the lock
             self._closing = True
             # snapshot the component contexts before _remove_element detaches them from
             # their parents: detached contexts would escape the teardown below while the

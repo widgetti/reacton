@@ -137,3 +137,61 @@ def test_render_request_while_holding_a_user_lock_does_not_deadlock(request_rend
     assert not deadlocked, "the other thread waited for the render lock while it held the user lock"
     assert box.children[0].description == expected[request_render]
     rc.close()
+
+
+def _run_in_thread(target):
+    # a thread that is still alive after TIMEOUT hangs; errors[0] is what target raised, if anything
+    errors: list = []
+
+    def run():
+        try:
+            target()
+        except BaseException as e:
+            errors.append(e)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    thread.join(TIMEOUT)
+    return thread, errors
+
+
+def test_close_from_its_own_render_raises_instead_of_hanging():
+    # close() waits for the render lock, which its own render holds: it would wait for itself
+    close_errors: list = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+
+        def effect():
+            if a == 1:
+                try:
+                    rc.close()
+                except RuntimeError as e:
+                    close_errors.append(e)
+
+        reacton.use_effect(effect, [a])
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    thread, errors = _run_in_thread(lambda: setters["a"](1))
+    assert not thread.is_alive(), "close() from its own render hangs"
+    assert not errors, errors
+    assert len(close_errors) == 1
+    rc.close()
+
+
+def test_close_during_or_after_close_returns():
+    # an effect cleanup, which runs during close(), calls close() again: that must not wait for the
+    # render lock that the first close() holds. A close() after close() is a no-op as well.
+    @reacton.component
+    def Test():
+        reacton.use_effect(lambda: lambda: rc.close(), [])  # the cleanup calls close()
+        return w.Button()
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    thread, errors = _run_in_thread(rc.close)
+    assert not thread.is_alive(), "close() from a cleanup during close() hangs"
+    assert not errors, errors
+    rc.close()
