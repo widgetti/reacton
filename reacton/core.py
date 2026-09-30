@@ -1689,7 +1689,19 @@ class _RenderContext:
         # We never wait for the render lock: the caller may hold a lock that the render needs (a
         # deadlock). So we first mark the request, then only try the lock. When another thread holds
         # it, that thread renders the request: it takes _element_next at the start of each pass, and
-        # looks at _rerender_needed again after it released the lock (at the end of this method).
+        # looks at _rerender_needed again after it released the lock (below).
+        widget, rendered = self._render_once(element, container)
+        # A request from another thread (a setter, update(), render()) sets _rerender_needed, and leaves
+        # the render to us while we render or hold the render lock. We released the lock, and look again
+        # now: either we see the request here, or that thread got the lock and renders it itself. A loop,
+        # not a recursion: this can repeat many times in a row while another thread changes state.
+        while rendered and self._rerender_needed and not self._is_rendering and self._batch_counter.current() == 0:
+            widget, rendered = self._render_once(None, container)
+        return widget
+
+    def _render_once(self, element: Optional[Element], container: widgets.Widget) -> Tuple[Any, bool]:
+        # returns the root widget, and whether we rendered (False: another thread holds the render
+        # lock and renders our request, or we are closed, or we rendered an error message)
         if self._lock_thread == threading.current_thread():
             raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
         widget = None
@@ -1707,14 +1719,14 @@ class _RenderContext:
             locked = self.thread_lock.acquire(blocking=False)
             if not locked:
                 logger.info("Render phase in progress in thread %r, leaving the render to it", self._lock_thread)
-                return container
+                return container, False
             self._lock_thread = threading.current_thread()
             if self._closing or self.context is None:
                 # close() won the race for the lock (a disconnect can close the
                 # kernel while an update was waiting to render): the tree is
                 # torn down, there is nothing to render into anymore
                 logger.info("Render requested on a closing/closed render context, ignoring")
-                return container
+                return container, False
             prev_rc = getattr(local, "rc", None)
             # an exception that escapes while this is True aborted a render pass (see the except below)
             in_render_phase = True
@@ -1724,6 +1736,7 @@ class _RenderContext:
                 render_count = self.render_count  # make a copy
                 # clear before taking the element: a request that comes in between is seen by the loop
                 self._rerender_needed = False
+                self._state_set_by_other_thread = False
                 self.element = self._element_next
                 logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
@@ -1749,16 +1762,18 @@ class _RenderContext:
                 if main_render_phase:
                     stable = False
                     render_counts = 0
+                    render_limit = 50
                     while not stable and not self.context_root.exceptions_children:
                         # we started the rendering loop (main_render_phase is True), so we keep going
                         # but if an exception bubbled up, we should stop
                         while self._rerender_needed and not self.context_root.exceptions_children:
                             if self._state_set_by_other_thread:
-                                # another thread changed state during the last pass (a progress update
-                                # for instance): that is not a render loop, so start counting again
+                                # another thread changed state during a pass (a progress update for
+                                # instance): that is not a render loop of our own, so allow more passes.
+                                # But not without end: our caller would not return, and close() waits.
                                 self._state_set_by_other_thread = False
-                                render_counts = 0
-                            if render_counts > 50:
+                                render_limit = 100
+                            if render_counts > render_limit:
 
                                 def format(reason: RerenderReason):
                                     f = f"Reason: {reason.reason}\nValue changed from {reason.prev_value} to {reason.next_value}\n"
@@ -1768,7 +1783,10 @@ class _RenderContext:
                                         f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
                                     return f
 
-                                msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
+                                msg = "Too many renders triggered, your render loop does not stop\n"
+                                if render_limit > 50:
+                                    msg += "Another thread changes state during every render pass: add a pause between its changes\n"
+                                msg += f"Last reason: {format(self._rerender_needed_reasons[-1])}\n"
                                 if len(self._rerender_needed_reasons) >= 2:
                                     previous = reversed(list(self._rerender_needed_reasons)[:-1])
                                     msg += f"Previous reasons: {''.join(format(reason) for reason in previous)}\n"
@@ -1903,15 +1921,10 @@ class _RenderContext:
                     value = html.escape(error)
                 from . import ipywidgets as w
 
-                return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
+                return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container), False
             else:
                 raise exc
-        # A request from another thread (a setter, update(), render()) sets _rerender_needed, and leaves
-        # the render to us while we render or hold the render lock. We released the lock above, and look
-        # again now: either we see the request here, or that thread got the lock and renders it itself.
-        if self._rerender_needed:
-            self._possible_rerender()
-        return widget
+        return widget, True
 
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):

@@ -195,3 +195,90 @@ def test_close_during_or_after_close_returns():
     assert not thread.is_alive(), "close() from a cleanup during close() hangs"
     assert not errors, errors
     rc.close()
+
+
+def test_render_loop_for_another_thread_is_bounded():
+    # Another thread changes state during every render pass, and does not stop (a loop without a
+    # pause). The thread that renders must not keep rendering those changes forever: it would not
+    # return, and close() waits for it. It stops with "Too many renders", which names the cause.
+    setters = {}
+    stop = threading.Event()
+    go, done = threading.Semaphore(0), threading.Semaphore(0)
+
+    @reacton.component
+    def Test():
+        trigger, setters["trigger"] = reacton.use_state(0)
+        progress, setters["progress"] = reacton.use_state(0)
+        if trigger and not stop.is_set():
+            go.release()  # the other thread changes state during this pass
+            done.acquire(timeout=TIMEOUT)
+        return w.Button(description=f"{trigger} {progress}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+
+    def report_progress():
+        i = 0
+        while not stop.is_set():
+            if go.acquire(timeout=0.1):
+                i += 1
+                setters["progress"](i)
+                done.release()
+
+    other = threading.Thread(target=report_progress, daemon=True)
+    other.start()
+    thread, errors = _run_in_thread(lambda: setters["trigger"](1))
+    returned_by_itself = not thread.is_alive()
+    stop.set()
+    thread.join(TIMEOUT)
+    other.join(TIMEOUT)
+    assert returned_by_itself, "the render kept rendering the changes of another thread"
+    assert len(errors) == 1 and "another thread" in str(errors[0]).lower(), errors
+    rc.close()
+
+
+def test_many_changes_after_the_last_look_in_a_row_do_not_recurse():
+    # A change after the last look of the render loop is rendered after the render lock is released
+    # (see the lost-update test above). When that happens many times in a row, the renders must not
+    # nest (a RecursionError).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    n = 2000
+
+    def change_after_the_last_look():
+        a = int(box.children[0].description)
+        if 0 < a < n:
+            setters["a"](a + 1)  # a render is running: this only marks _rerender_needed
+
+    rc._on_render_loop_done = change_after_the_last_look
+    setters["a"](1)
+    assert box.children[0].description == f"{n}"
+    rc.close()
+
+
+def test_own_render_loop_stops_after_about_50_passes():
+    # A component that changes its own state on every render: "Too many renders" after about 50
+    # passes. The higher limit is only for changes from other threads, not for every render that a
+    # state change (from outside a render) started.
+    renders = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        renders.append(a)
+        if a > 0:
+            setters["a"](a + 1)  # never stops
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    renders.clear()
+    with pytest.raises(RuntimeError, match="Too many renders"):
+        setters["a"](1)
+    assert len(renders) < 60, len(renders)
+    rc.close()
