@@ -311,3 +311,61 @@ def test_force_update_after_the_last_look_is_rendered():
     assert not other.is_alive()
     assert rc.render_count == render_count + 2, "no render for the forced update"  # a=1, then the forced update
     rc.close()
+
+
+def test_render_on_a_closed_render_context_leaves_nothing_behind():
+    # A render that gets the render lock after close() returns without a pass. It left its thread as
+    # the lock owner: a later close() or render() on that thread raised, as if called in its own render.
+    @reacton.component
+    def Test():
+        return w.Button(description="hi")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    rc.close()
+    rc.render()
+    rc.close()
+    rc.render()
+
+
+def test_close_right_after_a_render_released_the_render_lock():
+    # close() on another thread, right after a render released the render lock. The render read the
+    # errors of its pass after the release, from a tree that close() had torn down (AttributeError).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    close_errors: list = []
+
+    class LockWithHook:
+        # the render lock, which runs close() on another thread right after the first release
+        def __init__(self, lock):
+            self._lock = lock
+            self.armed = True
+
+        def acquire(self, blocking=True):
+            return self._lock.acquire(blocking)
+
+        def release(self):
+            self._lock.release()
+            if self.armed:
+                self.armed = False
+                thread, errors = _run_in_thread(rc.close)
+                close_errors.extend(errors)
+
+        def locked(self):
+            return self._lock.locked()
+
+        def __enter__(self):
+            self._lock.acquire()
+
+        def __exit__(self, *args):
+            self.release()
+
+    rc.thread_lock = LockWithHook(rc.thread_lock)  # type: ignore
+    setters["a"](1)
+    assert not close_errors, close_errors
+    assert rc._closing

@@ -1896,16 +1896,18 @@ class _RenderContext:
             finally:
                 local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
-                # clear before the lock is released: a stale _lock_thread makes the
-                # recursion guard above fire for a thread that merely rendered last,
-                # while a *different* thread holds the lock (false "Recursive render")
-                self._lock_thread = None
                 assert self.context is self.context_root
+            # read the errors of this render while we hold the lock: once it is released, close()
+            # on another thread can tear the tree down (self.context is None then)
+            exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         finally:
             if locked:
+                # clear before the lock is released, on every way out (also the return for a closed
+                # render context): a stale _lock_thread makes the checks for a render or close() in
+                # its own render fire for a thread that merely rendered last
+                self._lock_thread = None
                 self.thread_lock.release()
 
-        exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         if exceptions:
             exc = exceptions[0]
             if DEBUG:
