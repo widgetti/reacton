@@ -2,6 +2,8 @@ name: Formal checks
 
 on:
   push:
+    branches:
+      - master
     paths:
       - "reacton/core.py"
       - "formal/**"
