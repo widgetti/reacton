@@ -1429,10 +1429,14 @@ class _RenderContext:
             # snapshot the component contexts before _remove_element detaches them from
             # their parents: detached contexts would escape the teardown below while the
             # setter/handler closures in their state still reference them and us
-            all_contexts: List[ComponentContext] = []
+            # by id: after a failed render, a context can be in both children and children_next, and
+            # a visit per path to it is 2**depth visits
+            all_contexts: Dict[int, ComponentContext] = {}
 
             def collect(context: ComponentContext):
-                all_contexts.append(context)
+                if id(context) in all_contexts:
+                    return
+                all_contexts[id(context)] = context
                 for child in list(context.children.values()) + list(context.children_next.values()):
                     collect(child)
 
@@ -1457,7 +1461,7 @@ class _RenderContext:
             exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
             # break the reference cycles through the tree (see _teardown_component_context);
             # _closing stays True, making stray setters and event handlers no-ops
-            for context in all_contexts:
+            for context in all_contexts.values():
                 _teardown_component_context(context)
             self.context = None
             self.context_root = None  # type: ignore
@@ -1669,8 +1673,12 @@ class _RenderContext:
         # state), and a context created by the aborted pass owns no widgets yet, it is simply
         # reused or pruned by the next render
         contexts: List[ComponentContext] = [self.context_root]
+        seen: Set[int] = set()  # a context can be in both children and children_next (see close)
         while contexts:
             context = contexts.pop()
+            if id(context) in seen:
+                continue
+            seen.add(id(context))
             for effect in context.effects:
                 effect.next = None
             context.root_element_next = None
