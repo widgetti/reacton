@@ -1,0 +1,29 @@
+name: Formal checks
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "reacton/core.py"
+      - "formal/**"
+      - ".github/workflows/formal.yaml"
+  pull_request:
+    paths:
+      - "reacton/core.py"
+      - "formal/**"
+      - ".github/workflows/formal.yaml"
+  workflow_dispatch:
+
+jobs:
+  formal:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Check render request model
+        run: formal/check.sh
