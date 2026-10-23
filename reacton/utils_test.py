@@ -118,7 +118,7 @@ def test_equals():
         def on_click():
             pass
 
-        return w.Button(on_click=on_click, label=f"{a}")
+        return w.Button(on_click=on_click, description=f"{a}")
 
     el1 = make_el(1)
     el2 = make_el(1)
