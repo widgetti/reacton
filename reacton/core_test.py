@@ -4437,3 +4437,28 @@ def test_close_after_a_failed_render_of_a_deep_tree_is_fast():
     with pytest.raises(ValueError):
         rc.close()  # close() raises the error of the failed render again
     assert time.monotonic() - start < 2
+
+
+def test_create_widget_does_not_wrap_a_function_per_widget():
+    # on free-threaded Python, functools.wraps (setting attributes on a function) stops all threads,
+    # so creating a widget should not define and wrap a new function
+    import functools
+
+    @react.component
+    def Test():
+        with w.VBox() as main:
+            for i in range(10):
+                w.IntSlider(value=i)
+        return main
+
+    with unittest.mock.patch("functools.update_wrapper", wraps=functools.update_wrapper) as update_wrapper:
+        box, rc = react.render(Test(), handle_error=False)
+    assert update_wrapper.call_count == 0
+    slider = rc.find(widgets.IntSlider).widgets[0]
+    changes = []
+    slider.observe(lambda change: changes.append(change["new"]), "value")
+    with slider.hold_trait_notifications():
+        slider.value = 42
+        assert changes == []
+    assert changes == [42]
+    rc.close()
