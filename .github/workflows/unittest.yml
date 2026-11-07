@@ -50,7 +50,7 @@ jobs:
           path: ./dist
       - name: Install
         run: |
-          pip install `echo dist/*.whl`[dev] "bqplot<0.13" "pandas<3" "ruff==0.8.3" "ipyvue${{ matrix.ipyvue }}" "ipyvuetify${{ matrix.ipyvue }}"
+          pip install `echo dist/*.whl`[dev] "bqplot<0.13" six "pandas<3" "ruff==0.8.3" "ipyvue${{ matrix.ipyvue }}" "ipyvuetify${{ matrix.ipyvue }}"
       - name: test
         env:
           REACTON_FAST: ${{ matrix.reacton-fast }}
