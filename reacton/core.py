@@ -517,14 +517,10 @@ class Element(Generic[W]):
         try:
             try:
                 widget = self.component.widget(**kwargs)
-                hold_trait_notifications = widget.hold_trait_notifications
-
-                @contextlib.contextmanager
-                def hold_trait_notifications_extra(*args, **kwargs):
-                    with rc, hold_trait_notifications(*args, **kwargs):
-                        yield
-
-                widget.hold_trait_notifications = hold_trait_notifications_extra
+                # A partial of one module-level context manager, not a @contextlib.contextmanager defined here:
+                # that decorator runs functools.wraps for every widget, and on free-threaded Python setting
+                # attributes on a function object stops all threads.
+                widget.hold_trait_notifications = functools.partial(_hold_trait_notifications_extra, rc, widget.hold_trait_notifications)
 
                 if self._meta:
                     widget._react_meta = dict(self._meta)
@@ -3423,3 +3419,9 @@ _default_container: Optional[Callable[..., Element]] = Fragment
 # not a public api yet, used in solara for now only.
 # lifecycle of context objects are linked to the lifecycle of the component
 _component_context_manager_classes: List[Any] = []
+
+
+@contextlib.contextmanager
+def _hold_trait_notifications_extra(rc, hold_trait_notifications, *args, **kwargs):
+    with rc, hold_trait_notifications(*args, **kwargs):
+        yield
