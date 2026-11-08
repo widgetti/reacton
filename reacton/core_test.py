@@ -6,7 +6,7 @@ import traceback
 import unittest.mock
 import weakref
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Generic, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, cast
 
 import ipyvuetify
 import ipywidgets
@@ -3265,6 +3265,112 @@ def test_no_reference_cycles_after_close(component):
         assert weak_rc() is None
     finally:
         gc.enable()
+
+
+def _reacton_cyclic_garbage() -> List[str]:
+    """Collect, and describe the reacton objects that only a gc could free.
+
+    Widgets have cycles of their own (a Button keeps a bound method of itself in its
+    message callbacks), so this only looks at what reacton owns: component contexts,
+    elements, effects, render contexts, and closures defined in reacton.
+    """
+    gc.set_debug(gc.DEBUG_SAVEALL)
+    try:
+        gc.collect()
+        return sorted(
+            getattr(obj, "__qualname__", type(obj).__name__)
+            for obj in gc.garbage
+            if isinstance(obj, (core.ComponentContext, core.Element, core.Effect, core._RenderContext))
+            or (isinstance(obj, type(_reacton_cyclic_garbage)) and obj.__module__.startswith("reacton"))
+        )
+    finally:
+        gc.set_debug(0)
+        gc.garbage.clear()
+
+
+@pytest.mark.parametrize("component", [w.Button, ButtonComponentFunction, UseMemoComponent, UseStateComponent])
+def test_no_cyclic_garbage_after_close(component):
+    # Stricter than test_no_reference_cycles_after_close: that test only checks the
+    # render context itself. The hollow component contexts that close() leaves must
+    # be freed by refcounting too, otherwise every closed kernel still feeds the gc.
+    gc.collect()
+    gc.disable()
+    try:
+        box, rc = react.render(component(), handle_error=False)
+        rc.close()
+        del rc, box
+        assert _reacton_cyclic_garbage() == []
+    finally:
+        gc.enable()
+
+
+def test_no_cyclic_garbage_after_unmount():
+    # A component that goes away during a render (the render context stays open)
+    # must be freed by refcounting: its setter closures in its hook state reference
+    # its component context, so a removed context that is not emptied is a cycle.
+    # On a server every unmount in a live page would feed the gc.
+    set_show: Callable[[bool], None] = lambda x: None  # noqa
+
+    @react.component
+    def Child(i):
+        value, set_value = react.use_state(0)
+        react.use_effect(lambda: None, [])
+        return w.Button(description=f"{i} {value}", on_click=lambda: set_value(value + 1))
+
+    @react.component
+    def Parent():
+        nonlocal set_show
+        show, set_show = react.use_state(True)
+        with w.VBox() as main:
+            if show:
+                for i in range(3):
+                    Child(i).key(f"child-{i}")
+        return main
+
+    gc.collect()
+    gc.disable()
+    box, rc = react.render(Parent(), handle_error=False)
+    try:
+        set_show(False)
+        assert rc.find(widgets.Button).widgets == []
+        assert _reacton_cyclic_garbage() == []
+        # the parent still works after its children went away
+        set_show(True)
+        assert len(rc.find(widgets.Button).widgets) == 3
+    finally:
+        rc.close()
+        gc.enable()
+
+
+def test_set_state_after_unmount_does_nothing():
+    # a task or a thread can still hold the setter of a component that went away
+    child_setters: List[Callable[[Any], None]] = []
+    set_show: Callable[[bool], None] = lambda x: None  # noqa
+    renders = 0
+
+    @react.component
+    def Child():
+        value, set_value = react.use_state(0)
+        child_setters.append(set_value)
+        return w.Button(description=str(value))
+
+    @react.component
+    def Parent():
+        nonlocal set_show, renders
+        renders += 1
+        show, set_show = react.use_state(True)
+        return Child() if show else w.Label(value="gone")
+
+    box, rc = react.render(Parent(), handle_error=False)
+    try:
+        set_show(False)
+        renders_before = renders
+        child_setters[-1](42)
+        child_setters[-1](lambda value: value + 1)
+        assert renders == renders_before
+        rc.find(widgets.Label, value="gone").assert_single()
+    finally:
+        rc.close()
 
 
 def test_state_changes_do_not_keep_old_values_alive():
