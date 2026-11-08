@@ -182,8 +182,27 @@ def close_widget(widget: widgets.Widget):
     # this happens for v.Chip, which has a close trait
     if callable(widget.close):
         widget.close()
+        _break_widget_self_references(widget)
     else:
         logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
+
+
+def _break_widget_self_references(widget: widgets.Widget):
+    """Let a closed widget be freed by refcounting, not only by a gc.
+
+    Some widgets reference themselves, which makes each closed widget a cycle:
+    ipywidgets' Button and ipyvue's Events (every ipyvue/ipyvuetify widget) register a
+    bound method of the widget with on_msg, and ipyvue's VueWidget keeps a ClassList
+    whose obj is the widget.
+    """
+    # a closed widget has no comm, so no message can arrive for these callbacks
+    callbacks = getattr(getattr(widget, "_msg_callbacks", None), "callbacks", None)
+    if isinstance(callbacks, list):
+        callbacks.clear()
+    class_list = widget.__dict__.get("class_list")
+    if class_list is not None and getattr(class_list, "obj", None) is widget:
+        # keep class_list working for whoever still holds the widget
+        class_list.obj = weakref.proxy(widget)
 
 
 def _is_shared_ipyvue_template(widget: widgets.Widget) -> bool:
@@ -1278,6 +1297,40 @@ def _teardown_component_context(context: ComponentContext):
     context.fast_stale_effects_cleaned = set()
 
 
+def _collect_component_contexts(root: ComponentContext) -> Dict[int, ComponentContext]:
+    """Return root and every context below it, in children and children_next, by id.
+
+    By id: after a failed render, a context can be in both children and children_next,
+    and a visit per path to it is 2**depth visits. A loop, not a recursive local
+    function: that function would reference itself through its closure cell, a cycle
+    that keeps everything it found alive until a gc.
+    """
+    found: Dict[int, ComponentContext] = {}
+    stack = [root]
+    while stack:
+        context = stack.pop()
+        if id(context) in found:
+            continue
+        found[id(context)] = context
+        stack.extend(context.children.values())
+        stack.extend(context.children_next.values())
+    return found
+
+
+def _teardown_removed_component_context(parent: ComponentContext, key: str, removed: ComponentContext):
+    """Empty a component context that _remove_element took out of a render context that stays open.
+
+    Without this, every component that goes away during a render is a reference cycle
+    (its use_state setters in its hook state reference it), that only a gc can free.
+    Leftover contexts in its children_next (after a failed render) go with it.
+    """
+    if parent.children_next.get(key) is removed:
+        # the new tree still uses this context (defensive: it should not happen)
+        return
+    for context in _collect_component_contexts(removed).values():
+        _teardown_component_context(context)
+
+
 @dataclass
 class RerenderReason:
     reason: str
@@ -1425,18 +1478,7 @@ class _RenderContext:
             # snapshot the component contexts before _remove_element detaches them from
             # their parents: detached contexts would escape the teardown below while the
             # setter/handler closures in their state still reference them and us
-            # by id: after a failed render, a context can be in both children and children_next, and
-            # a visit per path to it is 2**depth visits
-            all_contexts: Dict[int, ComponentContext] = {}
-
-            def collect(context: ComponentContext):
-                if id(context) in all_contexts:
-                    return
-                all_contexts[id(context)] = context
-                for child in list(context.children.values()) + list(context.children_next.values()):
-                    collect(child)
-
-            collect(self.context_root)
+            all_contexts = _collect_component_contexts(self.context_root)
             logger.info("Removing elements...")
             self._remove_element(self.element, default_key="/", parent_key=ROOT_KEY)
             logger.info("Removing elements done.")
@@ -1446,7 +1488,7 @@ class _RenderContext:
             # find self.context None mid-render (AssertionError in
             # Element.__exit__, seen in production behind a prompt kernel close)
             if self.container:
-                self.container.close()
+                close_widget(self.container)
                 if isinstance(self.container, widgets.DOMWidget) and self.container.layout is not None:
                     self.container.layout.close()
             if self._shared_elements:
@@ -1546,16 +1588,25 @@ class _RenderContext:
                 # torn down: there is nothing to update. This check must come first:
                 # after close, context.state is empty and reading it would fail.
                 return
+            # read the containers once: when this component goes away while the render
+            # context stays open, _teardown_removed_component_context replaces them
+            # (maybe from another thread, while we run); the old ones stay intact
+            state = context.state
+            state_metadata = context.state_metadata
+            if key not in state:
+                # the component was removed, there is nothing to update (like React,
+                # setting the state of an unmounted component does nothing)
+                return
             if callable(value):
-                value = value(context.state[key])
-            logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, context.state[key], id(self.context))
+                value = value(state[key])
+            logger.info("Set state = %r for key %r (previous value was %r) (%r)", value, key, state[key], id(self.context))
 
             should_update = False
             new_metadata = None
             if eq is None:
-                if context.state[key] is value and isinstance(value, (list, dict, set)):
+                if state[key] is value and isinstance(value, (list, dict, set)):
                     new_metadata = len(value)
-                    if context.state_metadata[key] != new_metadata:
+                    if state_metadata[key] != new_metadata:
                         warn(
                             "You are setting the state with the same object, this will usually not trigger a rerender. "
                             f"The length of {value} changed compared to the previous time it was set. Are you mutating an existing state object? "
@@ -1564,9 +1615,9 @@ class _RenderContext:
                             stacklevel=2,
                         )
                         should_update = True
-                if context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame"):
+                if state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame"):
                     new_metadata = utils.dataframe_fingerprint(value)
-                    if context.state_metadata[key] != new_metadata:
+                    if state_metadata[key] != new_metadata:
                         warn(
                             "You are setting the state with the dataframe, this will usually not trigger a rerender. "
                             "We noticed the ids of the dataframe series are changed. Are you mutating an dataframe? "
@@ -1576,16 +1627,16 @@ class _RenderContext:
                         )
                         should_update = True
             equals = eq or utils.equals
-            should_update = not equals(context.state[key], value) or should_update
+            should_update = not equals(state[key], value) or should_update
 
             if should_update:
-                prev_value = context.state[key]
-                context.state[key] = value
-                if context.state[key] is value and isinstance(value, (list, dict, set)) and new_metadata is None:
+                prev_value = state[key]
+                state[key] = value
+                if state[key] is value and isinstance(value, (list, dict, set)) and new_metadata is None:
                     new_metadata = len(value)
-                if context.state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame") and new_metadata is None:
+                if state[key] is value and utils.isinstance_lazy(value, "pandas.DataFrame") and new_metadata is None:
                     new_metadata = utils.dataframe_fingerprint(value)
-                context.state_metadata[key] = new_metadata
+                state_metadata[key] = new_metadata
                 # TODO: enable
                 context.needs_render = True
                 _mark_needs_render_ancestors(context)
@@ -2517,6 +2568,7 @@ class _RenderContext:
                 context.exceptions_children.extend(child_context.exceptions_self)
                 context.exceptions_children.extend(child_context.exceptions_children)
             del context.children[key]
+            _teardown_removed_component_context(context, key, child_context)
         else:
             self._visit_children(el, key, parent_key, self._remove_element)
             if el.is_shared:
@@ -3198,6 +3250,7 @@ class _RenderContextFast(_RenderContext):
                 context.exceptions_children.extend(child_context.exceptions_self)
                 context.exceptions_children.extend(child_context.exceptions_children)
             del context.children[key]
+            _teardown_removed_component_context(context, key, child_context)
         else:
             self._visit_children(el, key, parent_key, self._remove_element)
             widget = self._shared_widgets[el] if el.is_shared else context.widgets[key]
