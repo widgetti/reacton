@@ -182,8 +182,27 @@ def close_widget(widget: widgets.Widget):
     # this happens for v.Chip, which has a close trait
     if callable(widget.close):
         widget.close()
+        _break_widget_self_references(widget)
     else:
         logger.warning("Widget %r does not have a close method, possibly a close trait was added", widget)
+
+
+def _break_widget_self_references(widget: widgets.Widget):
+    """Let a closed widget be freed by refcounting, not only by a gc.
+
+    Some widgets reference themselves, which makes each closed widget a cycle:
+    ipywidgets' Button and ipyvue's Events (every ipyvue/ipyvuetify widget) register a
+    bound method of the widget with on_msg, and ipyvue's VueWidget keeps a ClassList
+    whose obj is the widget.
+    """
+    # a closed widget has no comm, so no message can arrive for these callbacks
+    callbacks = getattr(getattr(widget, "_msg_callbacks", None), "callbacks", None)
+    if isinstance(callbacks, list):
+        callbacks.clear()
+    class_list = widget.__dict__.get("class_list")
+    if class_list is not None and getattr(class_list, "obj", None) is widget:
+        # keep class_list working for whoever still holds the widget
+        class_list.obj = weakref.proxy(widget)
 
 
 def _is_shared_ipyvue_template(widget: widgets.Widget) -> bool:
@@ -1469,7 +1488,7 @@ class _RenderContext:
             # find self.context None mid-render (AssertionError in
             # Element.__exit__, seen in production behind a prompt kernel close)
             if self.container:
-                self.container.close()
+                close_widget(self.container)
                 if isinstance(self.container, widgets.DOMWidget) and self.container.layout is not None:
                     self.container.layout.close()
             if self._shared_elements:

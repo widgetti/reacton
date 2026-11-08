@@ -19,6 +19,7 @@ from IPython.display import display
 
 import reacton as react
 import reacton.core
+import reacton.ipyvue
 from reacton.core import component, use_effect
 
 from . import bqplot  # noqa: F401
@@ -3267,47 +3268,51 @@ def test_no_reference_cycles_after_close(component):
         gc.enable()
 
 
-def _reacton_cyclic_garbage() -> List[str]:
-    """Collect, and describe the reacton objects that only a gc could free.
-
-    Widgets have cycles of their own (a Button keeps a bound method of itself in its
-    message callbacks), so this only looks at what reacton owns: component contexts,
-    elements, effects, render contexts, and closures defined in reacton.
-    """
+def _cyclic_garbage() -> List[str]:
+    """Collect, and return the type names of everything that only a gc could free."""
     gc.set_debug(gc.DEBUG_SAVEALL)
     try:
         gc.collect()
-        return sorted(
-            getattr(obj, "__qualname__", type(obj).__name__)
-            for obj in gc.garbage
-            if isinstance(obj, (core.ComponentContext, core.Element, core.Effect, core._RenderContext))
-            or (isinstance(obj, type(_reacton_cyclic_garbage)) and obj.__module__.startswith("reacton"))
-        )
+        names = sorted(type(obj).__name__ for obj in gc.garbage)
     finally:
         gc.set_debug(0)
         gc.garbage.clear()
+    # free the cycles we found, also when gc is disabled, so the next check does not see them
+    gc.collect()
+    return names
 
 
-@pytest.mark.parametrize("component", [w.Button, ButtonComponentFunction, UseMemoComponent, UseStateComponent])
+@reacton.component
+def VuetifyButtonComponent():
+    value, set_value = reacton.use_state(0)
+    with v.Html(tag="div") as main:
+        btn = v.Btn(children=[str(value)])
+        reacton.ipyvue.use_event(btn, "click", lambda *_: set_value(value + 1))
+    return main
+
+
+@pytest.mark.parametrize("component", [w.Button, ButtonComponentFunction, UseMemoComponent, UseStateComponent, VuetifyButtonComponent])
 def test_no_cyclic_garbage_after_close(component):
     # Stricter than test_no_reference_cycles_after_close: that test only checks the
-    # render context itself. The hollow component contexts that close() leaves must
-    # be freed by refcounting too, otherwise every closed kernel still feeds the gc.
+    # render context itself. The hollow component contexts that close() leaves, and the
+    # closed widgets, must be freed by refcounting too, otherwise every closed kernel
+    # still feeds the gc.
     gc.collect()
     gc.disable()
     try:
         box, rc = react.render(component(), handle_error=False)
         rc.close()
         del rc, box
-        assert _reacton_cyclic_garbage() == []
+        assert _cyclic_garbage() == []
     finally:
         gc.enable()
 
 
 def test_no_cyclic_garbage_after_unmount():
     # A component that goes away during a render (the render context stays open)
-    # must be freed by refcounting: its setter closures in its hook state reference
-    # its component context, so a removed context that is not emptied is a cycle.
+    # must be freed by refcounting, with its widgets: its setter closures in its hook
+    # state reference its component context, so a removed context that is not emptied
+    # is a cycle, and a Button keeps a bound method of itself.
     # On a server every unmount in a live page would feed the gc.
     set_show: Callable[[bool], None] = lambda x: None  # noqa
 
@@ -3333,13 +3338,20 @@ def test_no_cyclic_garbage_after_unmount():
     try:
         set_show(False)
         assert rc.find(widgets.Button).widgets == []
-        assert _reacton_cyclic_garbage() == []
+        assert _cyclic_garbage() == []
         # the parent still works after its children went away
         set_show(True)
         assert len(rc.find(widgets.Button).widgets) == 3
     finally:
         rc.close()
         gc.enable()
+
+
+def test_closed_widget_class_list_still_works():
+    btn = ipyvuetify.Btn(children=["x"])
+    reacton.core.close_widget(btn)
+    btn.class_list.add("d-none")
+    assert btn.class_ == "d-none"
 
 
 def test_set_state_after_unmount_does_nothing():
