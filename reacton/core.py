@@ -738,6 +738,11 @@ class ComponentFunction(Component):
         self.render_count = 0  # used for debugging, not thread safe, so count can be off
         functools.update_wrapper(self, f)
 
+    def __get__(self, instance, owner=None):
+        # Python does the same without this method. Having it makes inspect.isroutine true,
+        # so Sphinx autodoc documents a component as a function or method, with its docstring.
+        return self
+
     def widget(self, **kwargs):
         _ensure_colab_fixes()
         return self.widget_class()(**kwargs)
