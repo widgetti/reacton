@@ -13,6 +13,9 @@ nav:
   - Libraries: libraries.md
   - Testing: testing.md
 
+hooks:
+  - hooks/objects_inv.py
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true

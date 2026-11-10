@@ -371,3 +371,29 @@ def get_widget(el: Element):
 
 
 Returns the real underlying widget, can only be used in use_effect. Note that if the same element it used twice in a component, the widget corresponding to the last element will be returned.
+
+## Linking from Sphinx
+
+Projects that use [Sphinx](https://www.sphinx-doc.org/) can link to this page with the
+[intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html) extension.
+Add this to your `conf.py`:
+
+```py
+extensions = ["sphinx.ext.intersphinx"]
+
+intersphinx_mapping = {
+    "reacton": ("https://reacton.solara.dev/en/latest/", None),
+}
+```
+
+Then link to a function with the `:func:` role:
+
+```rst
+Use :func:`reacton.component` to define a component, and :func:`reacton.use_state` to keep state.
+```
+
+To see all names in the inventory, run:
+
+```bash
+python -m sphinx.ext.intersphinx https://reacton.solara.dev/en/latest/objects.inv
+```
