@@ -1,4 +1,5 @@
 import gc
+import inspect
 import sys
 import threading
 import time
@@ -344,6 +345,23 @@ def test_monkey_patch():
     assert isinstance(hbox.children[0], widgets.Button)
     assert hbox.children[0].description == "Hi"
     rc.close()
+
+
+def test_component_function_is_routine():
+    # Sphinx autodoc only documents a member as a function or method when inspect.isroutine is true
+    class Holder:
+        @react.component
+        def method(self):
+            """Method docstring."""
+            return w.Button()
+
+    component = Holder.__dict__["method"]
+    assert isinstance(component, reacton.core.ComponentFunction)
+    assert inspect.isroutine(component)
+    assert component.__doc__ == "Method docstring."
+    # reading it from the class or an instance gives the component itself, there is no binding
+    assert Holder.method is component
+    assert Holder().method is component
 
 
 def test_component_function():
